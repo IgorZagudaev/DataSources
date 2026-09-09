@@ -1,0 +1,36 @@
+# Apache configuration for the application
+# Place this in .htaccess or in the VirtualHost configuration
+
+# Enable rewrite engine
+RewriteEngine On
+
+# API routes - proxy to PHP
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+# Serve static files (React build)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.html [L]
+
+# Security headers
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set X-XSS-Protection "1; mode=block"
+
+# CORS headers (if needed)
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
+
+# PHP settings
+php_value upload_max_filesize 10M
+php_value post_max_size 10M
+php_value max_execution_time 300
+php_value memory_limit 256M
+
+# Disable directory listing
+Options -Indexes
+
+# Error documents
+ErrorDocument 404 /index.html
+ErrorDocument 500 /index.html
