@@ -1,15 +1,16 @@
 // Иерархическая структура данных справочника
+// 6 уровней: Доклад → Раздел → Справка → Показатель → Разрез → Источник
 
 export interface DataSource {
   id: string;
-  name: string; // Источник данных
+  name: string; // Источник данных (Уровень 6)
   description?: string;
   sliceId: string;
 }
 
 export interface DataSlice {
   id: string;
-  name: string; // Разрез данных
+  name: string; // Разрез данных (Уровень 5)
   description?: string;
   indicatorId: string;
   sources: DataSource[];
@@ -17,42 +18,33 @@ export interface DataSlice {
 
 export interface Indicator {
   id: string;
-  name: string; // Название показателя
+  name: string; // Название показателя (Уровень 4)
   description?: string;
-  sectionId: string;
+  noteId: string;
   slices: DataSlice[];
 }
 
 export interface Note {
   id: string;
-  name: string; // Название справки
+  name: string; // Название справки (Уровень 3)
   description?: string;
   sectionId: string;
+  indicators: Indicator[];
 }
 
 export interface Section {
   id: string;
-  name: string; // Название раздела доклада
+  name: string; // Название раздела доклада (Уровень 2)
   description?: string;
   reportId: string;
   notes: Note[];
-  indicators: Indicator[];
 }
 
 export interface Report {
   id: string;
-  name: string; // Название доклада
+  name: string; // Название доклада (Уровень 1)
   description?: string;
   sections: Section[];
 }
 
 export type EntityType = 'report' | 'section' | 'note' | 'indicator' | 'slice' | 'source';
-
-export interface TreeNode {
-  id: string;
-  name: string;
-  type: EntityType;
-  level: number;
-  children: TreeNode[];
-  description?: string;
-}

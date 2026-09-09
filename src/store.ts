@@ -10,10 +10,25 @@ function loadData(): Report[] {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      // Validate structure - check if it has the new linear hierarchy
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const firstReport = parsed[0];
+        // Check if sections have notes with indicators (new structure)
+        if (firstReport.sections && firstReport.sections.length > 0) {
+          const firstSection = firstReport.sections[0];
+          // New structure: section has 'notes' array, not 'indicators'
+          if (firstSection.notes !== undefined && firstSection.indicators === undefined) {
+            return parsed;
+          }
+        }
+      }
+      // Old structure detected, reset to default
+      console.log('Old data structure detected, resetting to default');
+      return getDefaultData();
     }
   } catch (e) {
-    console.error('Error loading data:', e);
+    console.error('Error loading ', e);
   }
   return getDefaultData();
 }
@@ -22,7 +37,7 @@ function saveData(reports: Report[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
   } catch (e) {
-    console.error('Error saving data:', e);
+    console.error('Error saving ', e);
   }
 }
 
@@ -41,49 +56,49 @@ function getDefaultData(): Report[] {
           notes: [
             {
               id: 'note-1',
-              name: 'Методические пояснения',
-              description: 'Данные приведены по состоянию на 01.01.2024',
-              sectionId: 'section-1'
-            }
-          ],
-          indicators: [
-            {
-              id: 'indicator-1',
-              name: 'Численность населения',
-              description: 'Общая численность постоянного населения',
+              name: 'Численность и состав населения',
+              description: 'Справка о текущей численности и составе населения региона',
               sectionId: 'section-1',
-              slices: [
+              indicators: [
                 {
-                  id: 'slice-1',
-                  name: 'По полу',
-                  description: 'Разбивка по мужскому и женскому населению',
-                  indicatorId: 'indicator-1',
-                  sources: [
+                  id: 'indicator-1',
+                  name: 'Численность населения',
+                  description: 'Общая численность постоянного населения',
+                  noteId: 'note-1',
+                  slices: [
                     {
-                      id: 'source-1',
-                      name: 'Росстат (форма 1-Т)',
-                      description: 'Ежегодные данные Федеральной службы государственной статистики',
-                      sliceId: 'slice-1'
+                      id: 'slice-1',
+                      name: 'По полу',
+                      description: 'Разбивка по мужскому и женскому населению',
+                      indicatorId: 'indicator-1',
+                      sources: [
+                        {
+                          id: 'source-1',
+                          name: 'Росстат (форма 1-Т)',
+                          description: 'Ежегодные данные Федеральной службы государственной статистики',
+                          sliceId: 'slice-1'
+                        },
+                        {
+                          id: 'source-2',
+                          name: 'ЗАГС',
+                          description: 'Данные о регистрации актов гражданского состояния',
+                          sliceId: 'slice-1'
+                        }
+                      ]
                     },
                     {
-                      id: 'source-2',
-                      name: 'ЗАГС',
-                      description: 'Данные о регистрации актов гражданского состояния',
-                      sliceId: 'slice-1'
-                    }
-                  ]
-                },
-                {
-                  id: 'slice-2',
-                  name: 'По возрастным группам',
-                  description: 'Разбивка по возрастным группам',
-                  indicatorId: 'indicator-1',
-                  sources: [
-                    {
-                      id: 'source-3',
-                      name: 'Перепись населения 2020',
-                      description: 'Данные Всероссийской переписи населения',
-                      sliceId: 'slice-2'
+                      id: 'slice-2',
+                      name: 'По возрастным группам',
+                      description: 'Разбивка по возрастным группам',
+                      indicatorId: 'indicator-1',
+                      sources: [
+                        {
+                          id: 'source-3',
+                          name: 'Перепись населения 2020',
+                          description: 'Данные Всероссийской переписи населения',
+                          sliceId: 'slice-2'
+                        }
+                      ]
                     }
                   ]
                 }
@@ -96,25 +111,32 @@ function getDefaultData(): Report[] {
           name: 'Экономика',
           description: 'Раздел об экономических показателях',
           reportId: 'report-1',
-          notes: [],
-          indicators: [
+          notes: [
             {
-              id: 'indicator-2',
-              name: 'ВРП',
-              description: 'Валовой региональный продукт',
+              id: 'note-2',
+              name: 'Валовой региональный продукт',
+              description: 'Справка о ВРП и его динамике',
               sectionId: 'section-2',
-              slices: [
+              indicators: [
                 {
-                  id: 'slice-3',
-                  name: 'По видам экономической деятельности',
-                  description: '',
-                  indicatorId: 'indicator-2',
-                  sources: [
+                  id: 'indicator-2',
+                  name: 'ВРП',
+                  description: 'Валовой региональный продукт',
+                  noteId: 'note-2',
+                  slices: [
                     {
-                      id: 'source-4',
-                      name: 'Росстат (форма 1-ВРП)',
-                      description: 'Данные о валовом региональном продукте',
-                      sliceId: 'slice-3'
+                      id: 'slice-3',
+                      name: 'По видам экономической деятельности',
+                      description: '',
+                      indicatorId: 'indicator-2',
+                      sources: [
+                        {
+                          id: 'source-4',
+                          name: 'Росстат (форма 1-ВРП)',
+                          description: 'Данные о валовом региональном продукте',
+                          sliceId: 'slice-3'
+                        }
+                      ]
                     }
                   ]
                 }
@@ -150,7 +172,7 @@ export function getReport(id: string): Report | undefined {
   return reports.find(r => r.id === id);
 }
 
-// Report CRUD
+// Report CRUD (Уровень 1)
 export function addReport(name: string, description?: string): Report {
   const report: Report = { id: generateId(), name, description, sections: [] };
   reports = [...reports, report];
@@ -168,9 +190,9 @@ export function deleteReport(id: string) {
   notify();
 }
 
-// Section CRUD
+// Section CRUD (Уровень 2)
 export function addSection(reportId: string, name: string, description?: string): Section {
-  const section: Section = { id: generateId(), name, description, reportId, notes: [], indicators: [] };
+  const section: Section = { id: generateId(), name, description, reportId, notes: [] };
   reports = reports.map(r => r.id === reportId ? { ...r, sections: [...r.sections, section] } : r);
   notify();
   return section;
@@ -192,9 +214,9 @@ export function deleteSection(reportId: string, sectionId: string) {
   notify();
 }
 
-// Note CRUD
+// Note CRUD (Уровень 3)
 export function addNote(reportId: string, sectionId: string, name: string, description?: string): Note {
-  const note: Note = { id: generateId(), name, description, sectionId };
+  const note: Note = { id: generateId(), name, description, sectionId, indicators: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? { ...s, notes: [...s.notes, note] } : s)
@@ -225,127 +247,154 @@ export function deleteNote(reportId: string, sectionId: string, noteId: string) 
   notify();
 }
 
-// Indicator CRUD
-export function addIndicator(reportId: string, sectionId: string, name: string, description?: string): Indicator {
-  const indicator: Indicator = { id: generateId(), name, description, sectionId, slices: [] };
+// Indicator CRUD (Уровень 4)
+export function addIndicator(reportId: string, sectionId: string, noteId: string, name: string, description?: string): Indicator {
+  const indicator: Indicator = { id: generateId(), name, description, noteId, slices: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
-    sections: r.sections.map(s => s.id === sectionId ? { ...s, indicators: [...s.indicators, indicator] } : s)
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? { ...n, indicators: [...n.indicators, indicator] } : n)
+    } : s)
   } : r);
   notify();
   return indicator;
 }
 
-export function updateIndicator(reportId: string, sectionId: string, indicatorId: string, name: string, description?: string) {
+export function updateIndicator(reportId: string, sectionId: string, noteId: string, indicatorId: string, name: string, description?: string) {
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
-      indicators: s.indicators.map(i => i.id === indicatorId ? { ...i, name, description } : i)
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? { ...i, name, description } : i)
+      } : n)
     } : s)
   } : r);
   notify();
 }
 
-export function deleteIndicator(reportId: string, sectionId: string, indicatorId: string) {
+export function deleteIndicator(reportId: string, sectionId: string, noteId: string, indicatorId: string) {
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
-      indicators: s.indicators.filter(i => i.id !== indicatorId)
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.filter(i => i.id !== indicatorId)
+      } : n)
     } : s)
   } : r);
   notify();
 }
 
-// Slice CRUD
-export function addSlice(reportId: string, sectionId: string, indicatorId: string, name: string, description?: string): DataSlice {
+// Slice CRUD (Уровень 5)
+export function addSlice(reportId: string, sectionId: string, noteId: string, indicatorId: string, name: string, description?: string): DataSlice {
   const slice: DataSlice = { id: generateId(), name, description, indicatorId, sources: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
-      indicators: s.indicators.map(i => i.id === indicatorId ? { ...i, slices: [...i.slices, slice] } : i)
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? { ...i, slices: [...i.slices, slice] } : i)
+      } : n)
     } : s)
   } : r);
   notify();
   return slice;
 }
 
-export function updateSlice(reportId: string, sectionId: string, indicatorId: string, sliceId: string, name: string, description?: string) {
+export function updateSlice(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, name: string, description?: string) {
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
-      indicators: s.indicators.map(i => i.id === indicatorId ? {
-        ...i,
-        slices: i.slices.map(sl => sl.id === sliceId ? { ...sl, name, description } : sl)
-      } : i)
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? {
+          ...i,
+          slices: i.slices.map(sl => sl.id === sliceId ? { ...sl, name, description } : sl)
+        } : i)
+      } : n)
     } : s)
   } : r);
   notify();
 }
 
-export function deleteSlice(reportId: string, sectionId: string, indicatorId: string, sliceId: string) {
+export function deleteSlice(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string) {
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
-      indicators: s.indicators.map(i => i.id === indicatorId ? {
-        ...i,
-        slices: i.slices.filter(sl => sl.id !== sliceId)
-      } : i)
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? {
+          ...i,
+          slices: i.slices.filter(sl => sl.id !== sliceId)
+        } : i)
+      } : n)
     } : s)
   } : r);
   notify();
 }
 
-// Source CRUD
-export function addSource(reportId: string, sectionId: string, indicatorId: string, sliceId: string, name: string, description?: string): DataSource {
+// Source CRUD (Уровень 6)
+export function addSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, name: string, description?: string): DataSource {
   const source: DataSource = { id: generateId(), name, description, sliceId };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
-      indicators: s.indicators.map(i => i.id === indicatorId ? {
-        ...i,
-        slices: i.slices.map(sl => sl.id === sliceId ? { ...sl, sources: [...sl.sources, source] } : sl)
-      } : i)
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? {
+          ...i,
+          slices: i.slices.map(sl => sl.id === sliceId ? { ...sl, sources: [...sl.sources, source] } : sl)
+        } : i)
+      } : n)
     } : s)
   } : r);
   notify();
   return source;
 }
 
-export function updateSource(reportId: string, sectionId: string, indicatorId: string, sliceId: string, sourceId: string, name: string, description?: string) {
+export function updateSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string, name: string, description?: string) {
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
-      indicators: s.indicators.map(i => i.id === indicatorId ? {
-        ...i,
-        slices: i.slices.map(sl => sl.id === sliceId ? {
-          ...sl,
-          sources: sl.sources.map(src => src.id === sourceId ? { ...src, name, description } : src)
-        } : sl)
-      } : i)
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? {
+          ...i,
+          slices: i.slices.map(sl => sl.id === sliceId ? {
+            ...sl,
+            sources: sl.sources.map(src => src.id === sourceId ? { ...src, name, description } : src)
+          } : sl)
+        } : i)
+      } : n)
     } : s)
   } : r);
   notify();
 }
 
-export function deleteSource(reportId: string, sectionId: string, indicatorId: string, sliceId: string, sourceId: string) {
+export function deleteSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string) {
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
-      indicators: s.indicators.map(i => i.id === indicatorId ? {
-        ...i,
-        slices: i.slices.map(sl => sl.id === sliceId ? {
-          ...sl,
-          sources: sl.sources.filter(src => src.id !== sourceId)
-        } : sl)
-      } : i)
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? {
+          ...i,
+          slices: i.slices.map(sl => sl.id === sliceId ? {
+            ...sl,
+            sources: sl.sources.filter(src => src.id !== sourceId)
+          } : sl)
+        } : i)
+      } : n)
     } : s)
   } : r);
   notify();

@@ -3,13 +3,21 @@
 -- данных показателей в докладе
 -- СУБД: PostgreSQL
 -- Совместимость: PostgreSQL 12+
+-- 
+-- Иерархия (6 уровней, все отношения 1:N):
+-- 1. Доклад (reports)
+-- 2. Раздел доклада (sections)
+-- 3. Справка (notes)
+-- 4. Показатель (indicators)
+-- 5. Разрез данных (data_slices)
+-- 6. Источник данных (data_sources)
 -- ============================================================
 
 -- Создание базы данных (выполнить отдельно при необходимости)
 -- CREATE DATABASE report_data_sources;
 
 -- ============================================================
--- Таблица докладов (Уровень 1)
+-- Уровень 1: Таблица докладов
 -- ============================================================
 CREATE TABLE IF NOT EXISTS reports (
     id VARCHAR(36) PRIMARY KEY,
@@ -20,7 +28,7 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 
 -- ============================================================
--- Таблица разделов доклада (Уровень 2)
+-- Уровень 2: Таблица разделов доклада
 -- Отношение: N:1 к reports
 -- ============================================================
 CREATE TABLE IF NOT EXISTS sections (
@@ -36,7 +44,7 @@ CREATE TABLE IF NOT EXISTS sections (
 CREATE INDEX idx_sections_report_id ON sections(report_id);
 
 -- ============================================================
--- Таблица справок (Уровень 3 - ветка 1)
+-- Уровень 3: Таблица справок
 -- Отношение: N:1 к sections
 -- ============================================================
 CREATE TABLE IF NOT EXISTS notes (
@@ -52,12 +60,12 @@ CREATE TABLE IF NOT EXISTS notes (
 CREATE INDEX idx_notes_section_id ON notes(section_id);
 
 -- ============================================================
--- Таблица показателей (Уровень 3 - ветка 2)
--- Отношение: N:1 к sections
+-- Уровень 4: Таблица показателей
+-- Отношение: N:1 к notes
 -- ============================================================
 CREATE TABLE IF NOT EXISTS indicators (
     id VARCHAR(36) PRIMARY KEY,
-    section_id VARCHAR(36) NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+    note_id VARCHAR(36) NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
     name VARCHAR(500) NOT NULL,
     description TEXT,
     sort_order INTEGER DEFAULT 0,
@@ -65,10 +73,10 @@ CREATE TABLE IF NOT EXISTS indicators (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_indicators_section_id ON indicators(section_id);
+CREATE INDEX idx_indicators_note_id ON indicators(note_id);
 
 -- ============================================================
--- Таблица разрезов данных (Уровень 4)
+-- Уровень 5: Таблица разрезов данных
 -- Отношение: N:1 к indicators
 -- ============================================================
 CREATE TABLE IF NOT EXISTS data_slices (
@@ -84,7 +92,7 @@ CREATE TABLE IF NOT EXISTS data_slices (
 CREATE INDEX idx_data_slices_indicator_id ON data_slices(indicator_id);
 
 -- ============================================================
--- Таблица источников данных (Уровень 5)
+-- Уровень 6: Таблица источников данных
 -- Отношение: N:1 к data_slices
 -- ============================================================
 CREATE TABLE IF NOT EXISTS data_sources (
@@ -110,42 +118,37 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Триггеры для reports
+-- Триггеры для всех таблиц
 DROP TRIGGER IF EXISTS update_reports_updated_at ON reports;
 CREATE TRIGGER update_reports_updated_at
     BEFORE UPDATE ON reports
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Триггеры для sections
 DROP TRIGGER IF EXISTS update_sections_updated_at ON sections;
 CREATE TRIGGER update_sections_updated_at
     BEFORE UPDATE ON sections
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Триггеры для notes
 DROP TRIGGER IF EXISTS update_notes_updated_at ON notes;
 CREATE TRIGGER update_notes_updated_at
     BEFORE UPDATE ON notes
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Триггеры для indicators
 DROP TRIGGER IF EXISTS update_indicators_updated_at ON indicators;
 CREATE TRIGGER update_indicators_updated_at
     BEFORE UPDATE ON indicators
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Триггеры для data_slices
 DROP TRIGGER IF EXISTS update_data_slices_updated_at ON data_slices;
 CREATE TRIGGER update_data_slices_updated_at
     BEFORE UPDATE ON data_slices
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Триггеры для data_sources
 DROP TRIGGER IF EXISTS update_data_sources_updated_at ON data_sources;
 CREATE TRIGGER update_data_sources_updated_at
     BEFORE UPDATE ON data_sources
@@ -165,12 +168,13 @@ INSERT INTO sections (id, report_id, name, description, sort_order) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO notes (id, section_id, name, description, sort_order) VALUES
-    ('note-1', 'section-1', 'Методические пояснения', 'Данные приведены по состоянию на 01.01.2024', 1)
+    ('note-1', 'section-1', 'Численность и состав населения', 'Справка о текущей численности и составе населения региона', 1),
+    ('note-2', 'section-2', 'Валовой региональный продукт', 'Справка о ВРП и его динамике', 1)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO indicators (id, section_id, name, description, sort_order) VALUES
-    ('indicator-1', 'section-1', 'Численность населения', 'Общая численность постоянного населения', 1),
-    ('indicator-2', 'section-2', 'ВРП', 'Валовой региональный продукт', 1)
+INSERT INTO indicators (id, note_id, name, description, sort_order) VALUES
+    ('indicator-1', 'note-1', 'Численность населения', 'Общая численность постоянного населения', 1),
+    ('indicator-2', 'note-2', 'ВРП', 'Валовой региональный продукт', 1)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO data_slices (id, indicator_id, name, description, sort_order) VALUES
@@ -210,7 +214,7 @@ SELECT
 FROM reports r
 LEFT JOIN sections s ON s.report_id = r.id
 LEFT JOIN notes n ON n.section_id = s.id
-LEFT JOIN indicators i ON i.section_id = s.id
+LEFT JOIN indicators i ON i.note_id = n.id
 LEFT JOIN data_slices ds ON ds.indicator_id = i.id
 LEFT JOIN data_sources dsrc ON dsrc.slice_id = ds.id
 ORDER BY r.name, s.sort_order, n.sort_order, i.sort_order, ds.sort_order, dsrc.sort_order;

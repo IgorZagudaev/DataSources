@@ -2,6 +2,14 @@
 /**
  * REST API для справочника источников данных показателей
  * 
+ * Иерархия (6 уровней, все отношения 1:N):
+ * 1. Доклад (reports)
+ * 2. Раздел доклада (sections)
+ * 3. Справка (notes)
+ * 4. Показатель (indicators)
+ * 5. Разрез данных (slices)
+ * 6. Источник данных (sources)
+ * 
  * Endpoints:
  * GET    /api/reports              - Список всех докладов (полная иерархия)
  * POST   /api/reports              - Создать доклад
@@ -86,7 +94,7 @@ try {
 }
 
 // ============================================================
-// Reports handlers
+// Reports handlers (Уровень 1)
 // ============================================================
 function handleReports(PDO $db, string $method, ?string $id, ?array $input): void {
     switch ($method) {
@@ -137,14 +145,13 @@ function getSectionsForReport(PDO $db, string $reportId): array {
     
     foreach ($sections as &$section) {
         $section['notes'] = getNotesForSection($db, $section['id']);
-        $section['indicators'] = getIndicatorsForSection($db, $section['id']);
     }
     
     return $sections;
 }
 
 // ============================================================
-// Sections handlers
+// Sections handlers (Уровень 2)
 // ============================================================
 function handleSections(PDO $db, string $method, ?string $id, ?array $input): void {
     switch ($method) {
@@ -172,23 +179,17 @@ function handleSections(PDO $db, string $method, ?string $id, ?array $input): vo
 function getNotesForSection(PDO $db, string $sectionId): array {
     $stmt = $db->prepare("SELECT * FROM notes WHERE section_id = ? ORDER BY sort_order");
     $stmt->execute([$sectionId]);
-    return $stmt->fetchAll();
-}
-
-function getIndicatorsForSection(PDO $db, string $sectionId): array {
-    $stmt = $db->prepare("SELECT * FROM indicators WHERE section_id = ? ORDER BY sort_order");
-    $stmt->execute([$sectionId]);
-    $indicators = $stmt->fetchAll();
+    $notes = $stmt->fetchAll();
     
-    foreach ($indicators as &$indicator) {
-        $indicator['slices'] = getSlicesForIndicator($db, $indicator['id']);
+    foreach ($notes as &$note) {
+        $note['indicators'] = getIndicatorsForNote($db, $note['id']);
     }
     
-    return $indicators;
+    return $notes;
 }
 
 // ============================================================
-// Notes handlers
+// Notes handlers (Уровень 3)
 // ============================================================
 function handleNotes(PDO $db, string $method, ?string $id, ?array $input): void {
     switch ($method) {
@@ -213,15 +214,27 @@ function handleNotes(PDO $db, string $method, ?string $id, ?array $input): void 
     }
 }
 
+function getIndicatorsForNote(PDO $db, string $noteId): array {
+    $stmt = $db->prepare("SELECT * FROM indicators WHERE note_id = ? ORDER BY sort_order");
+    $stmt->execute([$noteId]);
+    $indicators = $stmt->fetchAll();
+    
+    foreach ($indicators as &$indicator) {
+        $indicator['slices'] = getSlicesForIndicator($db, $indicator['id']);
+    }
+    
+    return $indicators;
+}
+
 // ============================================================
-// Indicators handlers
+// Indicators handlers (Уровень 4)
 // ============================================================
 function handleIndicators(PDO $db, string $method, ?string $id, ?array $input): void {
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO indicators (id, section_id, name, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['section_id'], $input['name'], $input['description'] ?? null]);
+            $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
             echo json_encode(['id' => $newId]);
             break;
             
@@ -252,7 +265,7 @@ function getSlicesForIndicator(PDO $db, string $indicatorId): array {
 }
 
 // ============================================================
-// Slices handlers
+// Slices handlers (Уровень 5)
 // ============================================================
 function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void {
     switch ($method) {
@@ -284,7 +297,7 @@ function getSourcesForSlice(PDO $db, string $sliceId): array {
 }
 
 // ============================================================
-// Sources handlers
+// Sources handlers (Уровень 6)
 // ============================================================
 function handleSources(PDO $db, string $method, ?string $id, ?array $input): void {
     switch ($method) {

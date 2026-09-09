@@ -29,12 +29,12 @@ export function DetailPanel({ reports, selectedId, selectedType }: DetailPanelPr
   }
 
   const typeLabels: Record<string, { label: string; icon: string; color: string }> = {
-    report: { label: 'Доклад', icon: '📋', color: 'bg-blue-100 text-blue-800' },
-    section: { label: 'Раздел доклада', icon: '📁', color: 'bg-green-100 text-green-800' },
-    note: { label: 'Справка', icon: '📝', color: 'bg-yellow-100 text-yellow-800' },
-    indicator: { label: 'Показатель', icon: '📊', color: 'bg-purple-100 text-purple-800' },
-    slice: { label: 'Разрез данных', icon: '🔀', color: 'bg-orange-100 text-orange-800' },
-    source: { label: 'Источник данных', icon: '📚', color: 'bg-pink-100 text-pink-800' },
+    report: { label: 'Доклад (Уровень 1)', icon: '📋', color: 'bg-blue-100 text-blue-800' },
+    section: { label: 'Раздел доклада (Уровень 2)', icon: '📁', color: 'bg-green-100 text-green-800' },
+    note: { label: 'Справка (Уровень 3)', icon: '📝', color: 'bg-yellow-100 text-yellow-800' },
+    indicator: { label: 'Показатель (Уровень 4)', icon: '📊', color: 'bg-purple-100 text-purple-800' },
+    slice: { label: 'Разрез данных (Уровень 5)', icon: '🔀', color: 'bg-orange-100 text-orange-800' },
+    source: { label: 'Источник данных (Уровень 6)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
   };
 
   const typeInfo = typeLabels[selectedType] || typeLabels.report;
@@ -94,9 +94,9 @@ function getLevel(type: string): number {
     report: 1,
     section: 2,
     note: 3,
-    indicator: 3,
-    slice: 4,
-    source: 5,
+    indicator: 4,
+    slice: 5,
+    source: 6,
   };
   return levels[type] || 0;
 }
@@ -120,18 +120,18 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
         if (note.id === id && type === 'note') {
           return { id: note.id, name: note.name, description: note.description };
         }
-      }
-      for (const indicator of section.indicators) {
-        if (indicator.id === id && type === 'indicator') {
-          return { id: indicator.id, name: indicator.name, description: indicator.description };
-        }
-        for (const slice of indicator.slices) {
-          if (slice.id === id && type === 'slice') {
-            return { id: slice.id, name: slice.name, description: slice.description };
+        for (const indicator of note.indicators) {
+          if (indicator.id === id && type === 'indicator') {
+            return { id: indicator.id, name: indicator.name, description: indicator.description };
           }
-          for (const source of slice.sources) {
-            if (source.id === id && type === 'source') {
-              return { id: source.id, name: source.name, description: source.description };
+          for (const slice of indicator.slices) {
+            if (slice.id === id && type === 'slice') {
+              return { id: slice.id, name: slice.name, description: slice.description };
+            }
+            for (const source of slice.sources) {
+              if (source.id === id && type === 'source') {
+                return { id: source.id, name: source.name, description: source.description };
+              }
             }
           }
         }
@@ -162,30 +162,33 @@ function BreadcrumbPath({ reports, selectedId, selectedType }: { reports: Report
           path.push({ name: note.name, type: 'note' });
           break;
         }
-      }
-      for (const indicator of section.indicators) {
-        if (indicator.id === selectedId) {
-          path.push({ name: report.name, type: 'report' });
-          path.push({ name: section.name, type: 'section' });
-          path.push({ name: indicator.name, type: 'indicator' });
-          break;
-        }
-        for (const slice of indicator.slices) {
-          if (slice.id === selectedId) {
+        for (const indicator of note.indicators) {
+          if (indicator.id === selectedId) {
             path.push({ name: report.name, type: 'report' });
             path.push({ name: section.name, type: 'section' });
+            path.push({ name: note.name, type: 'note' });
             path.push({ name: indicator.name, type: 'indicator' });
-            path.push({ name: slice.name, type: 'slice' });
             break;
           }
-          for (const source of slice.sources) {
-            if (source.id === selectedId) {
+          for (const slice of indicator.slices) {
+            if (slice.id === selectedId) {
               path.push({ name: report.name, type: 'report' });
               path.push({ name: section.name, type: 'section' });
+              path.push({ name: note.name, type: 'note' });
               path.push({ name: indicator.name, type: 'indicator' });
               path.push({ name: slice.name, type: 'slice' });
-              path.push({ name: source.name, type: 'source' });
               break;
+            }
+            for (const source of slice.sources) {
+              if (source.id === selectedId) {
+                path.push({ name: report.name, type: 'report' });
+                path.push({ name: section.name, type: 'section' });
+                path.push({ name: note.name, type: 'note' });
+                path.push({ name: indicator.name, type: 'indicator' });
+                path.push({ name: slice.name, type: 'slice' });
+                path.push({ name: source.name, type: 'source' });
+                break;
+              }
             }
           }
         }
@@ -216,28 +219,35 @@ function ChildrenSummary({ reports, selectedId, selectedType }: { reports: Repor
     if (selectedType === 'report' && report.id === selectedId) {
       counts.push({ label: 'Разделов', count: report.sections.length, icon: '📁' });
       const totalNotes = report.sections.reduce((sum, s) => sum + s.notes.length, 0);
-      const totalIndicators = report.sections.reduce((sum, s) => sum + s.indicators.length, 0);
       counts.push({ label: 'Справок', count: totalNotes, icon: '📝' });
-      counts.push({ label: 'Показателей', count: totalIndicators, icon: '📊' });
       break;
     }
     for (const section of report.sections) {
       if (selectedType === 'section' && section.id === selectedId) {
         counts.push({ label: 'Справок', count: section.notes.length, icon: '📝' });
-        counts.push({ label: 'Показателей', count: section.indicators.length, icon: '📊' });
+        const totalIndicators = section.notes.reduce((sum, n) => sum + n.indicators.length, 0);
+        counts.push({ label: 'Показателей', count: totalIndicators, icon: '📊' });
         break;
       }
-      for (const indicator of section.indicators) {
-        if (selectedType === 'indicator' && indicator.id === selectedId) {
-          counts.push({ label: 'Разрезов', count: indicator.slices.length, icon: '🔀' });
-          const totalSources = indicator.slices.reduce((sum, sl) => sum + sl.sources.length, 0);
-          counts.push({ label: 'Источников', count: totalSources, icon: '📚' });
+      for (const note of section.notes) {
+        if (selectedType === 'note' && note.id === selectedId) {
+          counts.push({ label: 'Показателей', count: note.indicators.length, icon: '📊' });
+          const totalSlices = note.indicators.reduce((sum, i) => sum + i.slices.length, 0);
+          counts.push({ label: 'Разрезов', count: totalSlices, icon: '🔀' });
           break;
         }
-        for (const slice of indicator.slices) {
-          if (selectedType === 'slice' && slice.id === selectedId) {
-            counts.push({ label: 'Источников', count: slice.sources.length, icon: '📚' });
+        for (const indicator of note.indicators) {
+          if (selectedType === 'indicator' && indicator.id === selectedId) {
+            counts.push({ label: 'Разрезов', count: indicator.slices.length, icon: '🔀' });
+            const totalSources = indicator.slices.reduce((sum: number, sl: any) => sum + sl.sources.length, 0);
+            counts.push({ label: 'Источников', count: totalSources, icon: '📚' });
             break;
+          }
+          for (const slice of indicator.slices) {
+            if (selectedType === 'slice' && slice.id === selectedId) {
+              counts.push({ label: 'Источников', count: slice.sources.length, icon: '📚' });
+              break;
+            }
           }
         }
       }

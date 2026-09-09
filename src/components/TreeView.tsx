@@ -18,7 +18,7 @@ interface TreeViewProps {
 
 export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
-  const [modalState, setModalState] = useState<{ type: string; parentId: string; parentType: string; editData?: any } | null>(null);
+  const [modalState, setModalState] = useState<{ type: string; parentIds: string[]; editData?: any } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: string; parentIds: string[] } | null>(null);
 
   const toggleExpand = (id: string) => {
@@ -33,16 +33,17 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
   const expandTo = (id: string) => {
     setExpandedNodes(prev => {
       const next = new Set(prev);
-      next.add(id);
-      // Also expand all ancestors
       for (const r of reports) {
         if (r.id === id) { next.add(r.id); break; }
         for (const s of r.sections) {
           if (s.id === id) { next.add(r.id); next.add(s.id); break; }
-          for (const i of s.indicators) {
-            if (i.id === id) { next.add(r.id); next.add(s.id); next.add(i.id); break; }
-            for (const sl of i.slices) {
-              if (sl.id === id) { next.add(r.id); next.add(s.id); next.add(i.id); next.add(sl.id); break; }
+          for (const n of s.notes) {
+            if (n.id === id) { next.add(r.id); next.add(s.id); next.add(n.id); break; }
+            for (const i of n.indicators) {
+              if (i.id === id) { next.add(r.id); next.add(s.id); next.add(n.id); next.add(i.id); break; }
+              for (const sl of i.slices) {
+                if (sl.id === id) { next.add(r.id); next.add(s.id); next.add(n.id); next.add(i.id); next.add(sl.id); break; }
+              }
             }
           }
         }
@@ -56,17 +57,17 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
     expandTo(id);
   };
 
-  const handleAdd = (type: string, parentId: string, parentType: string) => {
-    setModalState({ type, parentId, parentType });
+  const handleAdd = (type: string, parentIds: string[]) => {
+    setModalState({ type, parentIds });
   };
 
-  const handleEdit = (type: string, parentId: string, parentType: string, data: any) => {
-    setModalState({ type, parentId, parentType, editData: data });
+  const handleEdit = (type: string, parentIds: string[], data: any) => {
+    setModalState({ type, parentIds, editData: data });
   };
 
   const handleSave = (name: string, description: string) => {
     if (!modalState) return;
-    const { type, parentId, parentType, editData } = modalState;
+    const { type, parentIds, editData } = modalState;
 
     if (editData) {
       // Edit mode
@@ -75,25 +76,23 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
           updateReport(editData.id, name, description);
           break;
         case 'section':
-          updateSection(parentId, editData.id, name, description);
+          updateSection(parentIds[0], editData.id, name, description);
           break;
         case 'note':
-          updateNote(findReportId(parentType, parentId), parentId, editData.id, name, description);
+          updateNote(parentIds[0], parentIds[1], editData.id, name, description);
           break;
         case 'indicator':
-          updateIndicator(findReportId(parentType, parentId), parentId, editData.id, name, description);
+          updateIndicator(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
           break;
         case 'slice':
-          const { reportId: sr, sectionId: ss } = findParentIds(parentType, parentId);
-          updateSlice(sr, ss, parentId, editData.id, name, description);
+          updateSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], editData.id, name, description);
           break;
         case 'source':
-          const { reportId: srcR, sectionId: srcS, indicatorId: srcI } = findParentIdsForSlice(parentType, parentId);
-          updateSource(srcR, srcS, srcI, parentId, editData.id, name, description);
+          updateSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
           break;
       }
     } else {
-      // Add mode - create and auto-expand
+      // Add mode
       let newId = '';
       switch (type) {
         case 'report': {
@@ -102,29 +101,27 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
           break;
         }
         case 'section': {
-          const s = addSection(parentId, name, description);
+          const s = addSection(parentIds[0], name, description);
           newId = s.id;
           break;
         }
         case 'note': {
-          const n = addNote(findReportId(parentType, parentId), parentId, name, description);
+          const n = addNote(parentIds[0], parentIds[1], name, description);
           newId = n.id;
           break;
         }
         case 'indicator': {
-          const ind = addIndicator(findReportId(parentType, parentId), parentId, name, description);
+          const ind = addIndicator(parentIds[0], parentIds[1], parentIds[2], name, description);
           newId = ind.id;
           break;
         }
         case 'slice': {
-          const { reportId: sr, sectionId: ss } = findParentIds(parentType, parentId);
-          const sl = addSlice(sr, ss, parentId, name, description);
+          const sl = addSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
           newId = sl.id;
           break;
         }
         case 'source': {
-          const { reportId: srcR, sectionId: srcS, indicatorId: srcI } = findParentIdsForSlice(parentType, parentId);
-          const src = addSource(srcR, srcS, srcI, parentId, name, description);
+          const src = addSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
           newId = src.id;
           break;
         }
@@ -132,22 +129,8 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
       // Auto-expand parent and new item
       setExpandedNodes(prev => {
         const next = new Set(prev);
-        if (parentId) next.add(parentId);
-        // Also expand all ancestors
-        for (const r of reports) {
-          if (r.id === parentId) next.add(r.id);
-          for (const s of r.sections) {
-            if (s.id === parentId) { next.add(r.id); next.add(s.id); }
-            for (const i of s.indicators) {
-              if (i.id === parentId) { next.add(r.id); next.add(s.id); next.add(i.id); }
-              for (const sl of i.slices) {
-                if (sl.id === parentId) { next.add(r.id); next.add(s.id); next.add(i.id); next.add(sl.id); }
-              }
-            }
-          }
-        }
-        // Expand the new item if it can have children
-        if (newId && ['report', 'section', 'indicator', 'slice'].includes(type)) {
+        parentIds.forEach(id => next.add(id));
+        if (newId && ['report', 'section', 'note', 'indicator', 'slice'].includes(type)) {
           next.add(newId);
         }
         return next;
@@ -174,52 +157,17 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
         deleteNote(parentIds[0], parentIds[1], id);
         break;
       case 'indicator':
-        deleteIndicator(parentIds[0], parentIds[1], id);
+        deleteIndicator(parentIds[0], parentIds[1], parentIds[2], id);
         break;
       case 'slice':
-        deleteSlice(parentIds[0], parentIds[1], parentIds[2], id);
+        deleteSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
         break;
       case 'source':
-        deleteSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+        deleteSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
         break;
     }
     setDeleteConfirm(null);
   };
-
-  // Helper to find report ID from section
-  function findReportId(parentType: string, parentId: string): string {
-    if (parentType === 'report') return parentId;
-    const report = reports.find(r => r.sections.some(s => s.id === parentId));
-    return report?.id || '';
-  }
-
-  function findParentIds(parentType: string, parentId: string): { reportId: string; sectionId: string } {
-    if (parentType === 'section') {
-      const report = reports.find(r => r.id === parentId);
-      return { reportId: parentId, sectionId: '' };
-    }
-    for (const r of reports) {
-      for (const s of r.sections) {
-        if (s.indicators.some(i => i.id === parentId)) {
-          return { reportId: r.id, sectionId: s.id };
-        }
-      }
-    }
-    return { reportId: '', sectionId: '' };
-  }
-
-  function findParentIdsForSlice(parentType: string, parentId: string): { reportId: string; sectionId: string; indicatorId: string } {
-    for (const r of reports) {
-      for (const s of r.sections) {
-        for (const i of s.indicators) {
-          if (i.slices.some(sl => sl.id === parentId)) {
-            return { reportId: r.id, sectionId: s.id, indicatorId: i.id };
-          }
-        }
-      }
-    }
-    return { reportId: '', sectionId: '', indicatorId: '' };
-  }
 
   const getLabels = (type: string) => {
     const labels: Record<string, { name: string; description: string }> = {
@@ -238,7 +186,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
       {/* Add Report button */}
       <div className="p-3 border-b border-gray-200 bg-gray-50">
         <button
-          onClick={() => handleAdd('report', '', '')}
+          onClick={() => handleAdd('report', [])}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,109 +210,103 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
             isSelected={selectedId === report.id}
             onToggle={() => toggleExpand(report.id)}
             onSelect={() => handleSelect(report.id, 'report')}
-            onAddChild={() => handleAdd('section', report.id, 'report')}
-            onEdit={() => handleEdit('report', report.id, 'report', report)}
+            onAddChild={() => handleAdd('section', [report.id])}
+            onEdit={() => handleEdit('report', [report.id], report)}
             onDelete={() => handleDelete(report.id, 'report', [])}
             childLabel="+ Раздел"
           >
             {report.sections.map(section => (
-              <div key={section.id}>
-                <TreeNodeItem
-                  id={section.id}
-                  name={section.name}
-                  type="section"
-                  level={1}
-                  icon="📁"
-                  isExpanded={expandedNodes.has(section.id)}
-                  isSelected={selectedId === section.id}
-                  onToggle={() => toggleExpand(section.id)}
-                  onSelect={() => handleSelect(section.id, 'section')}
-                  onAddChild={() => {}}
-                  onEdit={() => handleEdit('section', report.id, 'report', section)}
-                  onDelete={() => handleDelete(section.id, 'section', [report.id])}
-                  childLabel="Добавить..."
-                  childOptions={[
-                    { label: '📝 Справку', type: 'note' },
-                    { label: '📊 Показатель', type: 'indicator' }
-                  ]}
-                  onAddChildType={(type) => handleAdd(type, section.id, 'section')}
-                >
-                  {/* Notes */}
-                  {section.notes.map(note => (
-                    <TreeNodeItem
-                      key={note.id}
-                      id={note.id}
-                      name={note.name}
-                      type="note"
-                      level={2}
-                      icon="📝"
-                      isExpanded={false}
-                      isSelected={selectedId === note.id}
-                      onToggle={() => {}}
-                      onSelect={() => handleSelect(note.id, 'note')}
-                      onAddChild={() => {}}
-                      onEdit={() => handleEdit('note', section.id, 'section', note)}
-                      onDelete={() => handleDelete(note.id, 'note', [report.id, section.id])}
-                    />
-                  ))}
-                  {/* Indicators */}
-                  {section.indicators.map(indicator => (
-                    <TreeNodeItem
-                      key={indicator.id}
-                      id={indicator.id}
-                      name={indicator.name}
-                      type="indicator"
-                      level={2}
-                      icon="📊"
-                      isExpanded={expandedNodes.has(indicator.id)}
-                      isSelected={selectedId === indicator.id}
-                      onToggle={() => toggleExpand(indicator.id)}
-                      onSelect={() => handleSelect(indicator.id, 'indicator')}
-                      onAddChild={() => handleAdd('slice', indicator.id, 'indicator')}
-                      onEdit={() => handleEdit('indicator', section.id, 'section', indicator)}
-                      onDelete={() => handleDelete(indicator.id, 'indicator', [report.id, section.id])}
-                      childLabel="+ Разрез"
-                    >
-                      {indicator.slices.map(slice => (
-                        <TreeNodeItem
-                          key={slice.id}
-                          id={slice.id}
-                          name={slice.name}
-                          type="slice"
-                          level={3}
-                          icon="🔀"
-                          isExpanded={expandedNodes.has(slice.id)}
-                          isSelected={selectedId === slice.id}
-                          onToggle={() => toggleExpand(slice.id)}
-                          onSelect={() => handleSelect(slice.id, 'slice')}
-                          onAddChild={() => handleAdd('source', slice.id, 'slice')}
-                          onEdit={() => handleEdit('slice', indicator.id, 'indicator', slice)}
-                          onDelete={() => handleDelete(slice.id, 'slice', [report.id, section.id, indicator.id])}
-                          childLabel="+ Источник"
-                        >
-                          {slice.sources.map(source => (
-                            <TreeNodeItem
-                              key={source.id}
-                              id={source.id}
-                              name={source.name}
-                              type="source"
-                              level={4}
-                              icon="📚"
-                              isExpanded={false}
-                              isSelected={selectedId === source.id}
-                              onToggle={() => {}}
-                              onSelect={() => handleSelect(source.id, 'source')}
-                              onAddChild={() => {}}
-                              onEdit={() => handleEdit('source', slice.id, 'slice', source)}
-                              onDelete={() => handleDelete(source.id, 'source', [report.id, section.id, indicator.id, slice.id])}
-                            />
-                          ))}
-                        </TreeNodeItem>
-                      ))}
-                    </TreeNodeItem>
-                  ))}
-                </TreeNodeItem>
-              </div>
+              <TreeNodeItem
+                key={section.id}
+                id={section.id}
+                name={section.name}
+                type="section"
+                level={1}
+                icon="📁"
+                isExpanded={expandedNodes.has(section.id)}
+                isSelected={selectedId === section.id}
+                onToggle={() => toggleExpand(section.id)}
+                onSelect={() => handleSelect(section.id, 'section')}
+                onAddChild={() => handleAdd('note', [report.id, section.id])}
+                onEdit={() => handleEdit('section', [report.id], section)}
+                onDelete={() => handleDelete(section.id, 'section', [report.id])}
+                childLabel="+ Справка"
+              >
+                {section.notes.map(note => (
+                  <TreeNodeItem
+                    key={note.id}
+                    id={note.id}
+                    name={note.name}
+                    type="note"
+                    level={2}
+                    icon="📝"
+                    isExpanded={expandedNodes.has(note.id)}
+                    isSelected={selectedId === note.id}
+                    onToggle={() => toggleExpand(note.id)}
+                    onSelect={() => handleSelect(note.id, 'note')}
+                    onAddChild={() => handleAdd('indicator', [report.id, section.id, note.id])}
+                    onEdit={() => handleEdit('note', [report.id, section.id], note)}
+                    onDelete={() => handleDelete(note.id, 'note', [report.id, section.id])}
+                    childLabel="+ Показатель"
+                  >
+                    {note.indicators.map(indicator => (
+                      <TreeNodeItem
+                        key={indicator.id}
+                        id={indicator.id}
+                        name={indicator.name}
+                        type="indicator"
+                        level={3}
+                        icon="📊"
+                        isExpanded={expandedNodes.has(indicator.id)}
+                        isSelected={selectedId === indicator.id}
+                        onToggle={() => toggleExpand(indicator.id)}
+                        onSelect={() => handleSelect(indicator.id, 'indicator')}
+                        onAddChild={() => handleAdd('slice', [report.id, section.id, note.id, indicator.id])}
+                        onEdit={() => handleEdit('indicator', [report.id, section.id, note.id], indicator)}
+                        onDelete={() => handleDelete(indicator.id, 'indicator', [report.id, section.id, note.id])}
+                        childLabel="+ Разрез"
+                      >
+                        {indicator.slices.map(slice => (
+                          <TreeNodeItem
+                            key={slice.id}
+                            id={slice.id}
+                            name={slice.name}
+                            type="slice"
+                            level={4}
+                            icon="🔀"
+                            isExpanded={expandedNodes.has(slice.id)}
+                            isSelected={selectedId === slice.id}
+                            onToggle={() => toggleExpand(slice.id)}
+                            onSelect={() => handleSelect(slice.id, 'slice')}
+                            onAddChild={() => handleAdd('source', [report.id, section.id, note.id, indicator.id, slice.id])}
+                            onEdit={() => handleEdit('slice', [report.id, section.id, note.id, indicator.id], slice)}
+                            onDelete={() => handleDelete(slice.id, 'slice', [report.id, section.id, note.id, indicator.id])}
+                            childLabel="+ Источник"
+                          >
+                            {slice.sources.map(source => (
+                              <TreeNodeItem
+                                key={source.id}
+                                id={source.id}
+                                name={source.name}
+                                type="source"
+                                level={5}
+                                icon="📚"
+                                isExpanded={false}
+                                isSelected={selectedId === source.id}
+                                onToggle={() => {}}
+                                onSelect={() => handleSelect(source.id, 'source')}
+                                onAddChild={() => {}}
+                                onEdit={() => handleEdit('source', [report.id, section.id, note.id, indicator.id, slice.id], source)}
+                                onDelete={() => handleDelete(source.id, 'source', [report.id, section.id, note.id, indicator.id, slice.id])}
+                              />
+                            ))}
+                          </TreeNodeItem>
+                        ))}
+                      </TreeNodeItem>
+                    ))}
+                  </TreeNodeItem>
+                ))}
+              </TreeNodeItem>
             ))}
           </TreeNodeItem>
         ))}
@@ -414,16 +356,13 @@ interface TreeNodeItemProps {
   onDelete: () => void;
   children?: React.ReactNode;
   childLabel?: string;
-  childOptions?: Array<{ label: string; type: string }>;
-  onAddChildType?: (type: string) => void;
 }
 
 function TreeNodeItem({
   name, type, level, icon, isExpanded, isSelected,
   onToggle, onSelect, onAddChild, onEdit, onDelete,
-  children, childLabel, childOptions, onAddChildType
+  children, childLabel
 }: TreeNodeItemProps) {
-  const [showAddMenu, setShowAddMenu] = useState(false);
   const hasChildren = children && React.Children.count(children) > 0;
 
   const levelColors: Record<string, string> = {
@@ -438,7 +377,7 @@ function TreeNodeItem({
   return (
     <div className="select-none">
       <div
-        className={`flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all group
+        className={`flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all
           ${isSelected ? 'bg-blue-50 border-l-4 ' + (levelColors[type] || '') : 'hover:bg-gray-50 border-l-4 border-l-transparent'}
         `}
         style={{ paddingLeft: `${level * 16 + 8}px` }}
@@ -468,32 +407,7 @@ function TreeNodeItem({
 
         {/* Actions - always visible */}
         <div className={`flex items-center gap-0.5 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}>
-          {childOptions && onAddChildType ? (
-            <div className="relative">
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowAddMenu(!showAddMenu); }}
-                className="p-1 text-green-600 hover:bg-green-100 rounded transition-colors"
-                title="Добавить"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-              {showAddMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 min-w-[140px]">
-                  {childOptions.map(opt => (
-                    <button
-                      key={opt.type}
-                      onClick={(e) => { e.stopPropagation(); onAddChildType(opt.type); setShowAddMenu(false); }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : childLabel ? (
+          {childLabel ? (
             <button
               onClick={(e) => { e.stopPropagation(); onAddChild(); }}
               className="p-1 text-green-600 hover:bg-green-100 rounded transition-colors"
