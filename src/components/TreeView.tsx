@@ -198,7 +198,7 @@ export function TreeView({ reports, selectedId, onSelect, width }: TreeViewProps
       {/* Tree */}
       <div className="p-2">
         {reports.map(report => (
-          <div key={report.id} className="mb-6">
+          <div key={report.id} className="my-6">
           <TreeNodeItem
             id={report.id}
             name={report.name}

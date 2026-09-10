@@ -1,6 +1,6 @@
 import { Report, Section, Note, Indicator, DataSlice, DataSource } from './types';
 
-const STORAGE_KEY = 'report_data_sources_reference';
+const STORAGE_KEY = 'report_data_sources_reference_v2';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -135,6 +135,51 @@ function getDefaultData(): Report[] {
                           name: 'Росстат (форма 1-ВРП)',
                           description: 'Данные о валовом региональном продукте',
                           sliceId: 'slice-3'
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'report-2',
+      name: 'Анализ инвестиционного климата 2024',
+      description: 'Доклад об инвестиционной привлекательности региона',
+      sections: [
+        {
+          id: 'section-3',
+          name: 'Инвестиции в основной капитал',
+          description: 'Раздел об инвестициях в основной капитал',
+          reportId: 'report-2',
+          notes: [
+            {
+              id: 'note-3',
+              name: 'Объем инвестиций',
+              description: 'Справка об объеме инвестиций в основной капитал',
+              sectionId: 'section-3',
+              indicators: [
+                {
+                  id: 'indicator-3',
+                  name: 'Инвестиции в основной капитал',
+                  description: 'Объем инвестиций в основной капитал',
+                  noteId: 'note-3',
+                  slices: [
+                    {
+                      id: 'slice-4',
+                      name: 'По источникам финансирования',
+                      description: 'Разбивка по источникам финансирования',
+                      indicatorId: 'indicator-3',
+                      sources: [
+                        {
+                          id: 'source-5',
+                          name: 'Росстат (форма 1-инвестиции)',
+                          description: 'Данные Федеральной службы государственной статистики',
+                          sliceId: 'slice-4'
                         }
                       ]
                     }
