@@ -25,26 +25,31 @@ function App() {
     e.preventDefault();
     setIsDragging(true);
     document.body.classList.add('resizing');
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !containerRef.current) return;
     
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const newWidth = e.clientX - containerRect.left;
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const newWidth = e.clientX - containerRect.left;
+      
+      // Ограничения: мин 200px, макс 60% ширины контейнера
+      const minWidth = 200;
+      const maxWidth = containerRect.width * 0.6;
+      
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setSidebarWidth(newWidth);
+      }
+    };
     
-    // Ограничения: мин 200px, макс 60% ширины контейнера
-    const minWidth = 200;
-    const maxWidth = containerRect.width * 0.6;
+    const handleGlobalMouseUp = () => {
+      setIsDragging(false);
+      document.body.classList.remove('resizing');
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
     
-    if (newWidth >= minWidth && newWidth <= maxWidth) {
-      setSidebarWidth(newWidth);
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    document.body.classList.remove('resizing');
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    document.addEventListener('mouseup', handleGlobalMouseUp);
   };
 
   const handleExport = () => {
@@ -155,9 +160,6 @@ function App() {
       <div 
         ref={containerRef}
         className="flex flex-1 overflow-hidden relative"
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
       >
         {/* Sidebar - Tree */}
         <aside
@@ -175,11 +177,16 @@ function App() {
         {/* Resizer */}
         {sidebarOpen && (
           <div
-            className={`w-1 bg-gray-200 hover:bg-blue-500 cursor-col-resize flex-shrink-0 transition-colors ${isDragging ? 'bg-blue-500' : ''}`}
+            className={`relative w-2 bg-gray-200 hover:bg-blue-500 cursor-col-resize flex-shrink-0 transition-colors z-10 ${isDragging ? 'bg-blue-500' : ''}`}
             onMouseDown={handleMouseDown}
           >
-            <div className="w-1 h-full relative">
-              <div className="absolute inset-0 w-3 -ml-1 cursor-col-resize"></div>
+            <div className="absolute inset-y-0 -left-2 -right-2 cursor-col-resize"></div>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="flex flex-col gap-1">
+                <div className={`w-0.5 h-0.5 rounded-full ${isDragging ? 'bg-white' : 'bg-gray-400'}`}></div>
+                <div className={`w-0.5 h-0.5 rounded-full ${isDragging ? 'bg-white' : 'bg-gray-400'}`}></div>
+                <div className={`w-0.5 h-0.5 rounded-full ${isDragging ? 'bg-white' : 'bg-gray-400'}`}></div>
+              </div>
             </div>
           </div>
         )}
