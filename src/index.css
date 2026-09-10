@@ -33,6 +33,13 @@ body {
   background: #94a3b8;
 }
 
+/* Prevent text selection during resize drag */
+body.resizing,
+body.resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 /* Tree node transitions */
 .tree-node-enter {
   opacity: 0;

@@ -9,13 +9,42 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(384); // 96 * 4 = 384px
+  const [isDragging, setIsDragging] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleSelect = (id: string, type: string) => {
     setSelectedId(id);
     setSelectedType(type);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    document.body.classList.add('resizing');
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !containerRef.current) return;
+    
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const newWidth = e.clientX - containerRect.left;
+    
+    // Ограничения: мин 200px, макс 60% ширины контейнера
+    const minWidth = 200;
+    const maxWidth = containerRect.width * 0.6;
+    
+    if (newWidth >= minWidth && newWidth <= maxWidth) {
+      setSidebarWidth(newWidth);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    document.body.classList.remove('resizing');
   };
 
   const handleExport = () => {
@@ -123,19 +152,37 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div 
+        ref={containerRef}
+        className="flex flex-1 overflow-hidden relative"
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
         {/* Sidebar - Tree */}
         <aside
-          className={`bg-white border-r border-gray-200 transition-all duration-300 flex-shrink-0 overflow-hidden
-            ${sidebarOpen ? 'w-80 lg:w-96' : 'w-0'}
-          `}
+          className={`bg-white border-r border-gray-200 flex-shrink-0 overflow-hidden transition-[width] ${isDragging ? '' : 'duration-300'}`}
+          style={{ width: sidebarOpen ? `${sidebarWidth}px` : '0px' }}
         >
           <TreeView
             reports={reports}
             selectedId={selectedId}
             onSelect={handleSelect}
+            width={sidebarWidth}
           />
         </aside>
+
+        {/* Resizer */}
+        {sidebarOpen && (
+          <div
+            className={`w-1 bg-gray-200 hover:bg-blue-500 cursor-col-resize flex-shrink-0 transition-colors ${isDragging ? 'bg-blue-500' : ''}`}
+            onMouseDown={handleMouseDown}
+          >
+            <div className="w-1 h-full relative">
+              <div className="absolute inset-0 w-3 -ml-1 cursor-col-resize"></div>
+            </div>
+          </div>
+        )}
 
         {/* Detail Panel */}
         <main className="flex-1 bg-white overflow-hidden">
