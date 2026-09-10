@@ -9,6 +9,7 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [detailPanelOpen, setDetailPanelOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(384); // 96 * 4 = 384px
   const [isDragging, setIsDragging] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -110,11 +111,11 @@ function App() {
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => setDetailPanelOpen(!detailPanelOpen)}
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              title={sidebarOpen ? 'Скрыть панель' : 'Показать панель'}
+              title={detailPanelOpen ? 'Скрыть панель' : 'Показать панель'}
             >
-              <i className="fas fa-bars"></i>
+              <i className={`fas ${detailPanelOpen ? 'fa-chevron-right' : 'fa-chevron-left'}`}></i>
             </button>
             <div className="flex items-center gap-2">
               <span className="text-xl">📖</span>
@@ -192,13 +193,15 @@ function App() {
         )}
 
         {/* Detail Panel */}
-        <main className="flex-1 bg-white overflow-hidden">
-          <DetailPanel
-            reports={reports}
-            selectedId={selectedId}
-            selectedType={selectedType}
-          />
-        </main>
+        {detailPanelOpen && (
+          <main className="flex-1 bg-white overflow-hidden">
+            <DetailPanel
+              reports={reports}
+              selectedId={selectedId}
+              selectedType={selectedType}
+            />
+          </main>
+        )}
       </div>
 
       {/* Import Modal */}
