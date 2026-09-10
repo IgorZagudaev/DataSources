@@ -189,9 +189,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
           onClick={() => handleAdd('report', [])}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          <i className="fas fa-plus"></i>
           Добавить доклад
         </button>
       </div>
@@ -389,9 +387,7 @@ function TreeNodeItem({
             ${hasChildren ? 'hover:bg-gray-200 text-gray-500' : 'text-transparent'}
           `}
         >
-          <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-          </svg>
+          <i className={`fas fa-chevron-right text-xs transition-transform ${isExpanded ? 'rotate-90' : ''}`}></i>
         </button>
 
         {/* Icon */}
@@ -406,35 +402,29 @@ function TreeNodeItem({
         </span>
 
         {/* Actions - always visible */}
-        <div className={`flex items-center gap-0.5 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}>
+        <div className={`flex items-center gap-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}>
           {childLabel ? (
             <button
               onClick={(e) => { e.stopPropagation(); onAddChild(); }}
-              className="p-1 text-green-600 hover:bg-green-100 rounded transition-colors"
+              className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors"
               title={childLabel}
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+              <i className="fas fa-plus text-xs"></i>
             </button>
           ) : null}
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
             title="Редактировать"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
+            <i className="fas fa-edit text-xs"></i>
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
+            className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
             title="Удалить"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
+            <i className="fas fa-trash text-xs"></i>
           </button>
         </div>
       </div>
