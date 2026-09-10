@@ -198,8 +198,8 @@ export function TreeView({ reports, selectedId, onSelect, width }: TreeViewProps
       {/* Tree */}
       <div className="p-2">
         {reports.map(report => (
-          <div key={report.id} className="my-6">
           <TreeNodeItem
+            key={report.id}
             id={report.id}
             name={report.name}
             type="report"
@@ -308,7 +308,6 @@ export function TreeView({ reports, selectedId, onSelect, width }: TreeViewProps
               </TreeNodeItem>
             ))}
           </TreeNodeItem>
-          </div>
         ))}
       </div>
 
@@ -377,7 +376,7 @@ function TreeNodeItem({
   };
 
   return (
-    <div className="select-none">
+    <div className={`select-none ${type === 'report' ? 'my-6' : ''}`}>
       <div
         className={`flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all
           ${isSelected ? 'bg-blue-50 border-l-4 ' + (levelColors[type] || '') : 'hover:bg-gray-50 border-l-4 border-l-transparent'}
