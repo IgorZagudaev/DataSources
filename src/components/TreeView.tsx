@@ -198,8 +198,8 @@ export function TreeView({ reports, selectedId, onSelect, width }: TreeViewProps
       {/* Tree */}
       <div className="p-2">
         {reports.map(report => (
+          <div key={report.id} className="mb-4">
           <TreeNodeItem
-            key={report.id}
             id={report.id}
             name={report.name}
             type="report"
@@ -308,6 +308,7 @@ export function TreeView({ reports, selectedId, onSelect, width }: TreeViewProps
               </TreeNodeItem>
             ))}
           </TreeNodeItem>
+          </div>
         ))}
       </div>
 
