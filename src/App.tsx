@@ -22,15 +22,51 @@ function App() {
     setSelectedType(null);
   };
 
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportText, setExportText] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
+
   const handleExport = () => {
     const data = exportData();
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'report_data_sources.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    
+    // Пытаемся скачать файл
+    try {
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'report_data_sources.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      // Если скачивание не работает (например, в iframe), показываем модальное окно
+      console.log('Download failed, showing modal instead');
+    }
+    
+    // Показываем данные в модальном окне в любом случае
+    setExportText(data);
+    setShowExportModal(true);
+    setCopySuccess(false);
+  };
+
+  const handleCopyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(exportText);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (e) {
+      // Fallback для старых браузеров
+      const textArea = document.createElement('textarea');
+      textArea.value = exportText;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
   };
 
   const handleImport = () => {
@@ -193,6 +229,57 @@ function App() {
                   className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 rounded-lg transition-colors"
                 >
                   Импортировать
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowExportModal(false)} />
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Экспорт данных</h3>
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+                <i className="fas fa-info-circle mr-2"></i>
+                Скопируйте данные ниже и сохраните в файл с расширением .json
+              </div>
+              <textarea
+                value={exportText}
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-xs resize-none"
+                rows={10}
+                onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Закрыть
+                </button>
+                <button
+                  onClick={handleCopyToClipboard}
+                  className={`px-4 py-2 text-white rounded-lg transition-colors ${
+                    copySuccess 
+                      ? 'bg-green-600 hover:bg-green-700' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {copySuccess ? (
+                    <>
+                      <i className="fas fa-check mr-2"></i>
+                      Скопировано!
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-copy mr-2"></i>
+                      Копировать
+                    </>
+                  )}
                 </button>
               </div>
             </div>
