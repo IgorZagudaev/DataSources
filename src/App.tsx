@@ -121,26 +121,28 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Sidebar - Tree */}
-        <aside className="bg-white border-r border-gray-200 flex-1 overflow-hidden">
+      <div className={`flex flex-col flex-1 overflow-hidden transition-all duration-300 ${selectedId && selectedType ? '' : ''}`}>
+        {/* Tree Panel */}
+        <section
+          className={`bg-white overflow-hidden transition-all duration-300 ease-in-out ${selectedId && selectedType ? 'flex-1 border-b border-gray-300' : 'flex-1'}`}
+        >
           <TreeView
             reports={reports}
             selectedId={selectedId}
             onSelect={handleSelect}
           />
-        </aside>
+        </section>
 
-        {/* Detail Panel - Slide in from right */}
+        {/* Detail Panel - appears from bottom */}
         {selectedId && selectedType && (
-          <div className="absolute top-0 right-0 h-full w-96 bg-white shadow-2xl border-l border-gray-200 transform transition-transform duration-300 ease-in-out z-20">
+          <section className="flex-1 bg-white overflow-hidden animate-slide-up">
             <DetailPanel
               reports={reports}
               selectedId={selectedId}
               selectedType={selectedType}
               onClose={handleCloseDetail}
             />
-          </div>
+          </section>
         )}
       </div>
 

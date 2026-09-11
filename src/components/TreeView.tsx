@@ -14,10 +14,9 @@ interface TreeViewProps {
   reports: Report[];
   selectedId: string | null;
   onSelect: (id: string, type: string) => void;
-  width?: number;
 }
 
-export function TreeView({ reports, selectedId, onSelect, width }: TreeViewProps) {
+export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
   const [modalState, setModalState] = useState<{ type: string; parentIds: string[]; editData?: any } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: string; parentIds: string[] } | null>(null);
@@ -316,7 +315,6 @@ export function TreeView({ reports, selectedId, onSelect, width }: TreeViewProps
         isOpen={modalState !== null}
         onClose={() => setModalState(null)}
         title={modalState?.editData ? 'Редактирование' : `Добавить: ${getLabels(modalState?.type || '').name}`}
-        width={width}
       >
         {modalState && (
           <EntityForm
@@ -336,7 +334,6 @@ export function TreeView({ reports, selectedId, onSelect, width }: TreeViewProps
         onClose={() => setDeleteConfirm(null)}
         onConfirm={confirmDelete}
         message="Вы уверены, что хотите удалить этот элемент и все вложенные данные?"
-        width={width}
       />
     </div>
   );
