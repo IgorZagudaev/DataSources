@@ -8,49 +8,18 @@ function App() {
   const reports = useReports();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [detailPanelOpen, setDetailPanelOpen] = useState(true);
-  const [sidebarWidth, setSidebarWidth] = useState(384); // 96 * 4 = 384px
-  const [isDragging, setIsDragging] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleSelect = (id: string, type: string) => {
     setSelectedId(id);
     setSelectedType(type);
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-    document.body.classList.add('resizing');
-    
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const newWidth = e.clientX - containerRect.left;
-      
-      // Ограничения: мин 200px, макс 60% ширины контейнера
-      const minWidth = 200;
-      const maxWidth = containerRect.width * 0.6;
-      
-      if (newWidth >= minWidth && newWidth <= maxWidth) {
-        setSidebarWidth(newWidth);
-      }
-    };
-    
-    const handleGlobalMouseUp = () => {
-      setIsDragging(false);
-      document.body.classList.remove('resizing');
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-    
-    document.addEventListener('mousemove', handleGlobalMouseMove);
-    document.addEventListener('mouseup', handleGlobalMouseUp);
+  const handleCloseDetail = () => {
+    setSelectedId(null);
+    setSelectedType(null);
   };
 
   const handleExport = () => {
@@ -110,13 +79,7 @@ function App() {
       <header className="bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setDetailPanelOpen(!detailPanelOpen)}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              title={detailPanelOpen ? 'Скрыть панель' : 'Показать панель'}
-            >
-              <i className={`fas ${detailPanelOpen ? 'fa-chevron-right' : 'fa-chevron-left'}`}></i>
-            </button>
+
             <div className="flex items-center gap-2">
               <span className="text-xl">📖</span>
               <h1 className="text-lg font-bold text-gray-800 hidden sm:block">
@@ -158,49 +121,26 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <div 
-        ref={containerRef}
-        className="flex flex-1 overflow-hidden relative"
-      >
+      <div className="flex flex-1 overflow-hidden relative">
         {/* Sidebar - Tree */}
-        <aside
-          className={`bg-white border-r border-gray-200 flex-shrink-0 overflow-hidden transition-[width] ${isDragging ? '' : 'duration-300'}`}
-          style={{ width: sidebarOpen ? `${sidebarWidth}px` : '0px' }}
-        >
+        <aside className="bg-white border-r border-gray-200 flex-1 overflow-hidden">
           <TreeView
             reports={reports}
             selectedId={selectedId}
             onSelect={handleSelect}
-            width={sidebarWidth}
           />
         </aside>
 
-        {/* Resizer */}
-        {sidebarOpen && (
-          <div
-            className={`relative w-2 bg-gray-200 hover:bg-blue-500 cursor-col-resize flex-shrink-0 transition-colors z-10 ${isDragging ? 'bg-blue-500' : ''}`}
-            onMouseDown={handleMouseDown}
-          >
-            <div className="absolute inset-y-0 -left-2 -right-2 cursor-col-resize"></div>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="flex flex-col gap-1">
-                <div className={`w-0.5 h-0.5 rounded-full ${isDragging ? 'bg-white' : 'bg-gray-400'}`}></div>
-                <div className={`w-0.5 h-0.5 rounded-full ${isDragging ? 'bg-white' : 'bg-gray-400'}`}></div>
-                <div className={`w-0.5 h-0.5 rounded-full ${isDragging ? 'bg-white' : 'bg-gray-400'}`}></div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Detail Panel */}
-        {detailPanelOpen && (
-          <main className="flex-1 bg-white overflow-hidden">
+        {/* Detail Panel - Slide in from right */}
+        {selectedId && selectedType && (
+          <div className="absolute top-0 right-0 h-full w-96 bg-white shadow-2xl border-l border-gray-200 transform transition-transform duration-300 ease-in-out z-20">
             <DetailPanel
               reports={reports}
               selectedId={selectedId}
               selectedType={selectedType}
+              onClose={handleCloseDetail}
             />
-          </main>
+          </div>
         )}
       </div>
 
