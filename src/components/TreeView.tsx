@@ -260,11 +260,10 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                     onAddChild={() => {}}
                     onEdit={() => handleEdit('note', [report.id, section.id], note)}
                     onDelete={() => handleDelete(note.id, 'note', [report.id, section.id])}
-                    childOptions={[
-                      { label: '📊 Показатель', type: 'indicator' },
-                      { label: '📚 Источник', type: 'noteSource' }
+                    childLabels={[
+                      { label: 'Показатель', action: () => handleAdd('indicator', [report.id, section.id, note.id]) },
+                      { label: 'Источник', action: () => handleAdd('noteSource', [report.id, section.id, note.id]) }
                     ]}
-                    onAddChildType={(type) => handleAdd(type, [report.id, section.id, note.id])}
                   >
                     {/* Показатели */}
                     {note.indicators.map((indicator, indicatorIndex) => (
@@ -396,17 +395,15 @@ interface TreeNodeItemProps {
   onDelete: () => void;
   children?: React.ReactNode;
   childLabel?: string;
-  childOptions?: Array<{ label: string; type: string }>;
-  onAddChildType?: (type: string) => void;
+  childLabels?: Array<{ label: string; action: () => void }>;
   index?: number;
 }
 
 function TreeNodeItem({
   name, type, level, icon, isExpanded, isSelected, index = 0,
   onToggle, onSelect, onAddChild, onEdit, onDelete,
-  children, childLabel, childOptions, onAddChildType
+  children, childLabel, childLabels
 }: TreeNodeItemProps) {
-  const [showAddMenu, setShowAddMenu] = useState(false);
   const hasChildren = children && React.Children.count(children) > 0;
 
   // Цвета для разных уровней иерархии с чередованием тональности
@@ -476,29 +473,17 @@ function TreeNodeItem({
 
         {/* Actions - always visible */}
         <div className={`flex items-center gap-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}>
-          {childOptions && onAddChildType ? (
-            <div className="relative">
+          {childLabels ? (
+            childLabels.map((item, idx) => (
               <button
-                onClick={(e) => { e.stopPropagation(); setShowAddMenu(!showAddMenu); }}
-                className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors text-sm font-bold"
-                title="Добавить"
+                key={idx}
+                onClick={(e) => { e.stopPropagation(); item.action(); }}
+                className="px-2 py-1 text-green-600 hover:bg-green-100 rounded transition-colors text-xs font-medium border border-green-300"
+                title={item.label}
               >
-                +
+                + {item.label}
               </button>
-              {showAddMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 min-w-[140px]">
-                  {childOptions.map(opt => (
-                    <button
-                      key={opt.type}
-                      onClick={(e) => { e.stopPropagation(); onAddChildType(opt.type); setShowAddMenu(false); }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            ))
           ) : childLabel ? (
             <button
               onClick={(e) => { e.stopPropagation(); onAddChild(); }}
