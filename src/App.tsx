@@ -220,7 +220,10 @@ function App() {
 
         {/* Bottom Panel - shows Detail, Form, or Delete Confirmation */}
         {(selectedId && selectedType) || formState || deleteConfirm ? (
-          <section className="flex-1 bg-white overflow-hidden animate-slide-up flex-shrink-0">
+          <section 
+            key={formState ? `form-${formState.type}` : deleteConfirm ? 'delete' : `detail-${selectedId}`}
+            className="flex-1 bg-white overflow-hidden animate-slide-up flex-shrink-0"
+          >
             {formState ? (
               <FormPanel
                 formState={formState}
