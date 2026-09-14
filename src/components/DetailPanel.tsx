@@ -37,10 +37,10 @@ export function DetailPanel({ reports, selectedId, selectedType, onClose }: Deta
         </div>
         <button
           onClick={onClose}
-          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors text-lg"
           title="Закрыть панель"
         >
-          <i className="fas fa-times"></i>
+          ✕
         </button>
       </div>
 

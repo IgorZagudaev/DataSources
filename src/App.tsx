@@ -133,7 +133,7 @@ function App() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
               title="Экспорт данных"
             >
-              <i className="fas fa-download"></i>
+              <span>⬇</span>
               <span className="hidden sm:inline">Экспорт</span>
             </button>
             <button
@@ -141,7 +141,7 @@ function App() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
               title="Импорт данных"
             >
-              <i className="fas fa-upload"></i>
+              <span>⬆</span>
               <span className="hidden sm:inline">Импорт</span>
             </button>
             <button
@@ -149,7 +149,7 @@ function App() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
               title="Сбросить данные"
             >
-              <i className="fas fa-sync-alt"></i>
+              <span>↻</span>
               <span className="hidden sm:inline">Сброс</span>
             </button>
           </div>
@@ -244,7 +244,7 @@ function App() {
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Экспорт данных</h3>
             <div className="space-y-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
-                <i className="fas fa-info-circle mr-2"></i>
+                <span className="mr-2">ℹ</span>
                 Скопируйте данные ниже и сохраните в файл с расширением .json
               </div>
               <textarea
@@ -271,12 +271,12 @@ function App() {
                 >
                   {copySuccess ? (
                     <>
-                      <i className="fas fa-check mr-2"></i>
+                      <span className="mr-2">✓</span>
                       Скопировано!
                     </>
                   ) : (
                     <>
-                      <i className="fas fa-copy mr-2"></i>
+                      <span className="mr-2">⎘</span>
                       Копировать
                     </>
                   )}

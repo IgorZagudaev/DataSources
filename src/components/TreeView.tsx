@@ -183,19 +183,18 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
 
   return (
     <div className="h-full overflow-y-auto">
-      {/* Add Report button */}
-      <div className="p-3 border-b border-gray-200 bg-gray-50">
-        <button
-          onClick={() => handleAdd('report', [])}
-          className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-        >
-          <i className="fas fa-plus"></i>
-          Добавить доклад
-        </button>
-      </div>
-
       {/* Tree */}
       <div className="p-2">
+        <div className="mb-3">
+          <button
+            onClick={() => handleAdd('report', [])}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+          >
+            <span>+</span>
+            Добавить доклад
+          </button>
+        </div>
+
         {reports.map(report => (
           <TreeNodeItem
             key={report.id}
@@ -387,7 +386,7 @@ function TreeNodeItem({
             ${hasChildren ? 'hover:bg-gray-200 text-gray-500' : 'text-transparent'}
           `}
         >
-          <i className={`fas fa-chevron-right text-xs transition-transform ${isExpanded ? 'rotate-90' : ''}`}></i>
+          <span className={`text-xs transition-transform inline-block ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
         </button>
 
         {/* Icon */}
@@ -406,25 +405,25 @@ function TreeNodeItem({
           {childLabel ? (
             <button
               onClick={(e) => { e.stopPropagation(); onAddChild(); }}
-              className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors"
+              className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors text-sm font-bold"
               title={childLabel}
             >
-              <i className="fas fa-plus text-xs"></i>
+              +
             </button>
           ) : null}
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors text-sm"
             title="Редактировать"
           >
-            <i className="fas fa-edit text-xs"></i>
+            ✎
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
+            className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors text-sm"
             title="Удалить"
           >
-            <i className="fas fa-trash text-xs"></i>
+            ✕
           </button>
         </div>
       </div>

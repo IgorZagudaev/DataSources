@@ -18,9 +18,9 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
           <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors text-lg"
           >
-            <i className="fas fa-times"></i>
+            ✕
           </button>
         </div>
         <div className="p-4">
@@ -110,8 +110,8 @@ export function ConfirmDialog({ isOpen, onClose, onConfirm, message }: ConfirmDi
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl w-80 lg:w-96 p-6 mt-16 ml-4">
         <div className="flex items-center gap-3 mb-4">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-            <i className="fas fa-exclamation-triangle text-red-600"></i>
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-xl">
+            ⚠
           </div>
           <p className="text-gray-700">{message}</p>
         </div>
