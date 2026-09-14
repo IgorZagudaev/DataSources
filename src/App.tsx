@@ -290,6 +290,9 @@ function App() {
                     case 'noteBlockSource':
                       deleteNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
                       break;
+                    case 'noteBlockSliceSource':
+                      deleteNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
+                      break;
                   }
                   setDeleteConfirm(null);
                 }}
