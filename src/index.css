@@ -40,20 +40,20 @@ body.resizing * {
   user-select: none !important;
 }
 
-/* Slide up animation for detail panel */
-@keyframes slide-up {
+/* Slide in from right animation for right panel */
+@keyframes slide-in-right {
   from {
-    transform: translateY(100%);
+    transform: translateX(100%);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translateX(0);
     opacity: 1;
   }
 }
 
-.animate-slide-up {
-  animation: slide-up 0.3s ease-out;
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
 }
 
 /* Tree node transitions */

@@ -205,11 +205,9 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <div className={`flex flex-col flex-1 overflow-hidden transition-all duration-300 ${selectedId && selectedType ? '' : ''}`}>
+      <div className="flex flex-1 overflow-hidden">
         {/* Tree Panel */}
-        <section
-          className={`bg-white overflow-hidden transition-all duration-300 ease-in-out ${selectedId && selectedType ? 'flex-1 border-b border-gray-300' : 'flex-1'}`}
-        >
+        <section className="bg-white border-r border-gray-200 flex-1 overflow-hidden transition-all duration-300 ease-in-out">
           <TreeView
             reports={reports}
             selectedId={selectedId}
@@ -222,7 +220,7 @@ function App() {
 
         {/* Right Panel - shows Detail, Form, or Delete Confirmation */}
         {(selectedId && selectedType) || formState || deleteConfirm ? (
-          <section className="flex-1 bg-white overflow-hidden animate-slide-up">
+          <section className="w-96 bg-white overflow-hidden animate-slide-in-right flex-shrink-0">
             {formState ? (
               <FormPanel
                 formState={formState}
