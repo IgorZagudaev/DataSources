@@ -42,6 +42,7 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
       source: { name: 'Название источника', description: 'Описание источника данных', title: 'Источник' },
       noteSource: { name: 'Название источника', description: 'Описание источника данных', title: 'Источник' },
       noteBlockSource: { name: 'Название источника', description: 'Описание источника данных', title: 'Источник' },
+      noteBlockSliceSource: { name: 'Название источника', description: 'Описание источника данных', title: 'Источник' },
     };
     return labels[type] || { name: 'Название', description: 'Описание', title: 'Элемент' };
   };
