@@ -11,23 +11,31 @@ function loadData(): Report[] {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
       const parsed = JSON.parse(data);
-      // Validate structure - check if it has the new linear hierarchy with note.sources
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const firstReport = parsed[0];
-        if (firstReport.sections && firstReport.sections.length > 0) {
-          const firstSection = firstReport.sections[0];
-          if (firstSection.notes !== undefined && firstSection.notes.length > 0) {
-            const firstNote = firstSection.notes[0];
-            // New structure: note has 'sources' array
-            if (firstNote.sources !== undefined) {
-              return parsed;
-            }
+      // Migrate old data: add 'sources' array to notes if missing
+      if (Array.isArray(parsed)) {
+        let needsMigration = false;
+        parsed.forEach((report: any) => {
+          if (report.sections) {
+            report.sections.forEach((section: any) => {
+              if (section.notes) {
+                section.notes.forEach((note: any) => {
+                  if (note.sources === undefined) {
+                    note.sources = [];
+                    needsMigration = true;
+                  }
+                });
+              }
+            });
           }
+        });
+        
+        if (needsMigration) {
+          console.log('Migrated old data structure');
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
         }
+        
+        return parsed;
       }
-      // Old structure detected, reset to default
-      console.log('Old data structure detected, resetting to default');
-      return getDefaultData();
     }
   } catch (e) {
     console.error('Error loading ', e);

@@ -325,7 +325,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                       </TreeNodeItem>
                     ))}
                     {/* Прямые источники справки */}
-                    {note.sources.map((source, sourceIndex) => (
+                    {note.sources && note.sources.map((source, sourceIndex) => (
                       <TreeNodeItem
                         key={source.id}
                         id={source.id}

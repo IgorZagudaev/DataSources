@@ -250,7 +250,7 @@ function ChildrenSummary({ reports, selectedId, selectedType }: { reports: Repor
       for (const note of section.notes) {
         if (selectedType === 'note' && note.id === selectedId) {
           counts.push({ label: 'Показателей', count: note.indicators.length, icon: '📊' });
-          counts.push({ label: 'Источников', count: note.sources.length, icon: '📚' });
+          counts.push({ label: 'Источников', count: note.sources ? note.sources.length : 0, icon: '📚' });
           const totalSlices = note.indicators.reduce((sum, i) => sum + i.slices.length, 0);
           counts.push({ label: 'Разрезов', count: totalSlices, icon: '🔀' });
           break;
