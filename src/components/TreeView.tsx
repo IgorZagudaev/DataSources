@@ -376,12 +376,12 @@ function TreeNodeItem({
     const isEven = index % 2 === 0;
     
     const colorMap: Record<string, [string, string]> = {
-      report:    isEven ? ['#eff6ff', '#dbeafe'] : ['#dbeafe', '#eff6ff'], // blue-50, blue-100
-      section:   isEven ? ['#f0fdf4', '#dcfce7'] : ['#dcfce7', '#f0fdf4'], // green-50, green-100
-      note:      isEven ? ['#fefce8', '#fef9c3'] : ['#fef9c3', '#fefce8'], // yellow-50, yellow-100
-      indicator: isEven ? ['#faf5ff', '#f3e8ff'] : ['#f3e8ff', '#faf5ff'], // purple-50, purple-100
-      slice:     isEven ? ['#fff7ed', '#ffedd5'] : ['#ffedd5', '#fff7ed'], // orange-50, orange-100
-      source:    isEven ? ['#fdf2f8', '#fce7f3'] : ['#fce7f3', '#fdf2f8'], // pink-50, pink-100
+      report:    isEven ? ['#e0f2fe', '#bae6fd'] : ['#bae6fd', '#e0f2fe'], // sky blue
+      section:   isEven ? ['#dcfce7', '#bbf7d0'] : ['#bbf7d0', '#dcfce7'], // green
+      note:      isEven ? ['#ccfbf1', '#99f6e4'] : ['#99f6e4', '#ccfbf1'], // teal/cyan
+      indicator: isEven ? ['#f3e8ff', '#e9d5ff'] : ['#e9d5ff', '#f3e8ff'], // purple
+      slice:     isEven ? ['#ffedd5', '#fed7aa'] : ['#fed7aa', '#ffedd5'], // orange
+      source:    isEven ? ['#fce7f3', '#fbcfe8'] : ['#fbcfe8', '#fce7f3'], // pink
     };
     
     const colors = colorMap[type] || ['#f9fafb', '#f3f4f6'];
@@ -390,9 +390,9 @@ function TreeNodeItem({
 
   const getBorderColor = (type: string): string => {
     const borderColors: Record<string, string> = {
-      report: '#3b82f6',    // blue-500
+      report: '#0ea5e9',    // sky-500
       section: '#22c55e',   // green-500
-      note: '#eab308',      // yellow-500
+      note: '#14b8a6',      // teal-500
       indicator: '#a855f7', // purple-500
       slice: '#f97316',     // orange-500
       source: '#ec4899',    // pink-500
