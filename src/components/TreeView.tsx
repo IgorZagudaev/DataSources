@@ -5,6 +5,11 @@ import {
   addSection, updateSection, deleteSection,
   addNote, updateNote, deleteNote,
   addNoteSource, updateNoteSource, deleteNoteSource,
+  addNoteBlock, updateNoteBlock, deleteNoteBlock,
+  addNoteBlockIndicator, updateNoteBlockIndicator, deleteNoteBlockIndicator,
+  addNoteBlockSlice, updateNoteBlockSlice, deleteNoteBlockSlice,
+  addNoteBlockSource, updateNoteBlockSource, deleteNoteBlockSource,
+  addNoteBlockDirectSource, updateNoteBlockDirectSource, deleteNoteBlockDirectSource,
   addIndicator, updateIndicator, deleteIndicator,
   addSlice, updateSlice, deleteSlice,
   addSource, updateSource, deleteSource
@@ -94,6 +99,21 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
         case 'noteSource':
           updateNoteSource(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
           break;
+        case 'noteBlock':
+          updateNoteBlock(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
+          break;
+        case 'noteBlockIndicator':
+          updateNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], editData.id, name, description);
+          break;
+        case 'noteBlockSlice':
+          updateNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
+          break;
+        case 'noteBlockSource':
+          updateNoteBlockDirectSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], editData.id, name, description);
+          break;
+        case 'noteBlockSliceSource':
+          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description);
+          break;
       }
     } else {
       // Add mode
@@ -134,12 +154,37 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
           newId = ns.id;
           break;
         }
+        case 'noteBlock': {
+          const nb = addNoteBlock(parentIds[0], parentIds[1], parentIds[2], name, description);
+          newId = nb.id;
+          break;
+        }
+        case 'noteBlockIndicator': {
+          const nbi = addNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
+          newId = nbi.id;
+          break;
+        }
+        case 'noteBlockSlice': {
+          const nbs = addNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
+          newId = nbs.id;
+          break;
+        }
+        case 'noteBlockSource': {
+          const nbsrc = addNoteBlockDirectSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
+          newId = nbsrc.id;
+          break;
+        }
+        case 'noteBlockSliceSource': {
+          const nbss = addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description);
+          newId = nbss.id;
+          break;
+        }
       }
       // Auto-expand parent and new item
       setExpandedNodes(prev => {
         const next = new Set(prev);
         parentIds.forEach(id => next.add(id));
-        if (newId && ['report', 'section', 'note', 'indicator', 'slice'].includes(type)) {
+        if (newId && ['report', 'section', 'note', 'noteBlock', 'indicator', 'slice'].includes(type)) {
           next.add(newId);
         }
         return next;
@@ -177,6 +222,21 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
       case 'noteSource':
         deleteNoteSource(parentIds[0], parentIds[1], parentIds[2], id);
         break;
+      case 'noteBlock':
+        deleteNoteBlock(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'noteBlockIndicator':
+        deleteNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+        break;
+      case 'noteBlockSlice':
+        deleteNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+        break;
+      case 'noteBlockSource':
+        deleteNoteBlockDirectSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+        break;
+      case 'noteBlockSliceSource':
+        deleteNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
+        break;
     }
     setDeleteConfirm(null);
   };
@@ -186,10 +246,15 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
       report: { name: 'Название доклада', description: 'Описание доклада' },
       section: { name: 'Название раздела', description: 'Описание раздела' },
       note: { name: 'Название справки', description: 'Текст справки' },
+      noteBlock: { name: 'Название блока справки', description: 'Описание блока справки' },
       indicator: { name: 'Название показателя', description: 'Описание показателя' },
       slice: { name: 'Название разреза', description: 'Описание разреза данных' },
       source: { name: 'Название источника', description: 'Описание источника данных' },
       noteSource: { name: 'Название источника', description: 'Описание источника данных' },
+      noteBlockIndicator: { name: 'Название показателя', description: 'Описание показателя' },
+      noteBlockSlice: { name: 'Название разреза', description: 'Описание разреза данных' },
+      noteBlockSource: { name: 'Название источника', description: 'Описание источника данных' },
+      noteBlockSliceSource: { name: 'Название источника', description: 'Описание источника данных' },
     };
     return labels[type] || { name: 'Название', description: 'Описание' };
   };
@@ -261,10 +326,113 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                     onEdit={() => handleEdit('note', [report.id, section.id], note)}
                     onDelete={() => handleDelete(note.id, 'note', [report.id, section.id])}
                     childLabels={[
+                      { label: 'Блок справки', action: () => handleAdd('noteBlock', [report.id, section.id, note.id]) },
                       { label: 'Показатель', action: () => handleAdd('indicator', [report.id, section.id, note.id]) },
                       { label: 'Источник', action: () => handleAdd('noteSource', [report.id, section.id, note.id]) }
                     ]}
                   >
+                    {/* Блоки справки */}
+                    {note.noteBlocks && note.noteBlocks.map((noteBlock, noteBlockIndex) => (
+                      <TreeNodeItem
+                        key={noteBlock.id}
+                        id={noteBlock.id}
+                        name={noteBlock.name}
+                        type="noteBlock"
+                        level={3}
+                        icon="📑"
+                        index={noteBlockIndex}
+                        isExpanded={expandedNodes.has(noteBlock.id)}
+                        isSelected={selectedId === noteBlock.id}
+                        onToggle={() => toggleExpand(noteBlock.id)}
+                        onSelect={() => handleSelect(noteBlock.id, 'noteBlock')}
+                        onAddChild={() => {}}
+                        onEdit={() => handleEdit('noteBlock', [report.id, section.id, note.id], noteBlock)}
+                        onDelete={() => handleDelete(noteBlock.id, 'noteBlock', [report.id, section.id, note.id])}
+                        childLabels={[
+                          { label: 'Показатель', action: () => handleAdd('noteBlockIndicator', [report.id, section.id, note.id, noteBlock.id]) },
+                          { label: 'Источник', action: () => handleAdd('noteBlockSource', [report.id, section.id, note.id, noteBlock.id]) }
+                        ]}
+                      >
+                        {/* Показатели в блоке справки */}
+                        {noteBlock.indicators.map((indicator, indicatorIndex) => (
+                          <TreeNodeItem
+                            key={indicator.id}
+                            id={indicator.id}
+                            name={indicator.name}
+                            type="indicator"
+                            level={4}
+                            icon="📊"
+                            index={indicatorIndex}
+                            isExpanded={expandedNodes.has(indicator.id)}
+                            isSelected={selectedId === indicator.id}
+                            onToggle={() => toggleExpand(indicator.id)}
+                            onSelect={() => handleSelect(indicator.id, 'indicator')}
+                            onAddChild={() => handleAdd('noteBlockSlice', [report.id, section.id, note.id, noteBlock.id, indicator.id])}
+                            onEdit={() => handleEdit('noteBlockIndicator', [report.id, section.id, note.id, noteBlock.id], indicator)}
+                            onDelete={() => handleDelete(indicator.id, 'noteBlockIndicator', [report.id, section.id, note.id, noteBlock.id])}
+                            childLabel="+ Разрез"
+                          >
+                            {indicator.slices.map((slice, sliceIndex) => (
+                              <TreeNodeItem
+                                key={slice.id}
+                                id={slice.id}
+                                name={slice.name}
+                                type="slice"
+                                level={5}
+                                icon="🔀"
+                                index={sliceIndex}
+                                isExpanded={expandedNodes.has(slice.id)}
+                                isSelected={selectedId === slice.id}
+                                onToggle={() => toggleExpand(slice.id)}
+                                onSelect={() => handleSelect(slice.id, 'slice')}
+                                onAddChild={() => handleAdd('noteBlockSliceSource', [report.id, section.id, note.id, noteBlock.id, indicator.id, slice.id])}
+                                onEdit={() => handleEdit('noteBlockSlice', [report.id, section.id, note.id, noteBlock.id, indicator.id], slice)}
+                                onDelete={() => handleDelete(slice.id, 'noteBlockSlice', [report.id, section.id, note.id, noteBlock.id, indicator.id])}
+                                childLabel="+ Источник"
+                              >
+                                {slice.sources.map((source, sourceIndex) => (
+                                  <TreeNodeItem
+                                    key={source.id}
+                                    id={source.id}
+                                    name={source.name}
+                                    type="source"
+                                    level={6}
+                                    icon="📚"
+                                    index={sourceIndex}
+                                    isExpanded={false}
+                                    isSelected={selectedId === source.id}
+                                    onToggle={() => {}}
+                                    onSelect={() => handleSelect(source.id, 'noteBlockSliceSource')}
+                                    onAddChild={() => {}}
+                                    onEdit={() => handleEdit('noteBlockSliceSource', [report.id, section.id, note.id, noteBlock.id, indicator.id, slice.id], source)}
+                                    onDelete={() => handleDelete(source.id, 'noteBlockSliceSource', [report.id, section.id, note.id, noteBlock.id, indicator.id, slice.id])}
+                                  />
+                                ))}
+                              </TreeNodeItem>
+                            ))}
+                          </TreeNodeItem>
+                        ))}
+                        {/* Прямые источники в блоке справки */}
+                        {noteBlock.sources && noteBlock.sources.map((source, sourceIndex) => (
+                          <TreeNodeItem
+                            key={source.id}
+                            id={source.id}
+                            name={source.name}
+                            type="source"
+                            level={4}
+                            icon="📚"
+                            index={sourceIndex}
+                            isExpanded={false}
+                            isSelected={selectedId === source.id}
+                            onToggle={() => {}}
+                            onSelect={() => handleSelect(source.id, 'noteBlockSource')}
+                            onAddChild={() => {}}
+                            onEdit={() => handleEdit('noteBlockSource', [report.id, section.id, note.id, noteBlock.id], source)}
+                            onDelete={() => handleDelete(source.id, 'noteBlockSource', [report.id, section.id, note.id, noteBlock.id])}
+                          />
+                        ))}
+                      </TreeNodeItem>
+                    ))}
                     {/* Показатели */}
                     {note.indicators.map((indicator, indicatorIndex) => (
                       <TreeNodeItem
@@ -416,6 +584,7 @@ function TreeNodeItem({
       report:    isEven ? ['#fce7f3', '#fbcfe8'] : ['#fbcfe8', '#fce7f3'], // pink (розовый)
       section:   isEven ? ['#e0f2fe', '#bae6fd'] : ['#bae6fd', '#e0f2fe'], // sky blue (голубой)
       note:      isEven ? ['#ffedd5', '#fed7aa'] : ['#fed7aa', '#ffedd5'], // orange (оранжевый)
+      noteBlock: isEven ? ['#fef3c7', '#fde68a'] : ['#fde68a', '#fef3c7'], // amber (янтарный)
       indicator: isEven ? ['#dcfce7', '#bbf7d0'] : ['#bbf7d0', '#dcfce7'], // green (зелёный)
       slice:     isEven ? ['#f3e8ff', '#e9d5ff'] : ['#e9d5ff', '#f3e8ff'], // purple (фиолетовый)
       source:    isEven ? ['#f3f4f6', '#e5e7eb'] : ['#e5e7eb', '#f3f4f6'], // gray (серый)
@@ -430,6 +599,7 @@ function TreeNodeItem({
       report: '#ec4899',    // pink-500 (розовый)
       section: '#0ea5e9',   // sky-500 (голубой)
       note: '#f97316',      // orange-500 (оранжевый)
+      noteBlock: '#f59e0b', // amber-500 (янтарный)
       indicator: '#22c55e', // green-500 (зелёный)
       slice: '#a855f7',     // purple-500 (фиолетовый)
       source: '#6b7280',    // gray-500 (серый)

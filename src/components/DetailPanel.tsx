@@ -18,10 +18,15 @@ export function DetailPanel({ reports, selectedId, selectedType, onClose }: Deta
     report: { label: 'Доклад (Уровень 1)', icon: '📋', color: 'bg-blue-100 text-blue-800' },
     section: { label: 'Раздел доклада (Уровень 2)', icon: '📁', color: 'bg-green-100 text-green-800' },
     note: { label: 'Справка (Уровень 3)', icon: '📝', color: 'bg-yellow-100 text-yellow-800' },
-    indicator: { label: 'Показатель (Уровень 4)', icon: '📊', color: 'bg-purple-100 text-purple-800' },
-    slice: { label: 'Разрез данных (Уровень 5)', icon: '🔀', color: 'bg-orange-100 text-orange-800' },
-    source: { label: 'Источник данных (Уровень 6)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
-    noteSource: { label: 'Источник данных (Уровень 6)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
+    noteBlock: { label: 'Блок справки (Уровень 4)', icon: '📑', color: 'bg-amber-100 text-amber-800' },
+    indicator: { label: 'Показатель (Уровень 5)', icon: '📊', color: 'bg-purple-100 text-purple-800' },
+    slice: { label: 'Разрез данных (Уровень 6)', icon: '🔀', color: 'bg-orange-100 text-orange-800' },
+    source: { label: 'Источник данных (Уровень 7)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
+    noteSource: { label: 'Источник данных (Уровень 4)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
+    noteBlockIndicator: { label: 'Показатель (Уровень 5)', icon: '📊', color: 'bg-purple-100 text-purple-800' },
+    noteBlockSlice: { label: 'Разрез данных (Уровень 6)', icon: '🔀', color: 'bg-orange-100 text-orange-800' },
+    noteBlockSource: { label: 'Источник данных (Уровень 5)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
+    noteBlockSliceSource: { label: 'Источник данных (Уровень 7)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
   };
 
   const typeInfo = typeLabels[selectedType] || typeLabels.report;
@@ -95,10 +100,15 @@ function getLevel(type: string): number {
     report: 1,
     section: 2,
     note: 3,
-    indicator: 4,
-    slice: 5,
-    source: 6,
-    noteSource: 6, // Источник напрямую в справке
+    noteBlock: 4,
+    noteSource: 4, // Источник напрямую в справке
+    indicator: 5,
+    noteBlockIndicator: 5,
+    noteBlockSource: 5,
+    slice: 6,
+    noteBlockSlice: 6,
+    source: 7,
+    noteBlockSliceSource: 7,
   };
   return levels[type] || 0;
 }
@@ -126,6 +136,36 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
         for (const source of note.sources) {
           if (source.id === id && type === 'noteSource') {
             return { id: source.id, name: source.name, description: source.description };
+          }
+        }
+        // Блоки справки
+        for (const noteBlock of note.noteBlocks || []) {
+          if (noteBlock.id === id && type === 'noteBlock') {
+            return { id: noteBlock.id, name: noteBlock.name, description: noteBlock.description };
+          }
+          // Прямые источники в блоке справки
+          for (const source of noteBlock.sources || []) {
+            if (source.id === id && type === 'noteBlockSource') {
+              return { id: source.id, name: source.name, description: source.description };
+            }
+          }
+          // Показатели в блоке справки
+          for (const indicator of noteBlock.indicators || []) {
+            if (indicator.id === id && type === 'noteBlockIndicator') {
+              return { id: indicator.id, name: indicator.name, description: indicator.description };
+            }
+            // Разрезы в показателях блока справки
+            for (const slice of indicator.slices || []) {
+              if (slice.id === id && type === 'noteBlockSlice') {
+                return { id: slice.id, name: slice.name, description: slice.description };
+              }
+              // Источники в разрезах блока справки
+              for (const source of slice.sources || []) {
+                if (source.id === id && type === 'noteBlockSliceSource') {
+                  return { id: source.id, name: source.name, description: source.description };
+                }
+              }
+            }
           }
         }
         for (const indicator of note.indicators) {
@@ -178,6 +218,63 @@ function BreadcrumbPath({ reports, selectedId, selectedType }: { reports: Report
             path.push({ name: note.name, type: 'note' });
             path.push({ name: source.name, type: 'noteSource' });
             break;
+          }
+        }
+        // Блоки справки
+        for (const noteBlock of note.noteBlocks || []) {
+          if (noteBlock.id === selectedId) {
+            path.push({ name: report.name, type: 'report' });
+            path.push({ name: section.name, type: 'section' });
+            path.push({ name: note.name, type: 'note' });
+            path.push({ name: noteBlock.name, type: 'noteBlock' });
+            break;
+          }
+          // Прямые источники в блоке справки
+          for (const source of noteBlock.sources || []) {
+            if (source.id === selectedId) {
+              path.push({ name: report.name, type: 'report' });
+              path.push({ name: section.name, type: 'section' });
+              path.push({ name: note.name, type: 'note' });
+              path.push({ name: noteBlock.name, type: 'noteBlock' });
+              path.push({ name: source.name, type: 'noteBlockSource' });
+              break;
+            }
+          }
+          // Показатели в блоке справки
+          for (const indicator of noteBlock.indicators || []) {
+            if (indicator.id === selectedId) {
+              path.push({ name: report.name, type: 'report' });
+              path.push({ name: section.name, type: 'section' });
+              path.push({ name: note.name, type: 'note' });
+              path.push({ name: noteBlock.name, type: 'noteBlock' });
+              path.push({ name: indicator.name, type: 'noteBlockIndicator' });
+              break;
+            }
+            // Разрезы в показателях блока справки
+            for (const slice of indicator.slices || []) {
+              if (slice.id === selectedId) {
+                path.push({ name: report.name, type: 'report' });
+                path.push({ name: section.name, type: 'section' });
+                path.push({ name: note.name, type: 'note' });
+                path.push({ name: noteBlock.name, type: 'noteBlock' });
+                path.push({ name: indicator.name, type: 'noteBlockIndicator' });
+                path.push({ name: slice.name, type: 'noteBlockSlice' });
+                break;
+              }
+              // Источники в разрезах блока справки
+              for (const source of slice.sources || []) {
+                if (source.id === selectedId) {
+                  path.push({ name: report.name, type: 'report' });
+                  path.push({ name: section.name, type: 'section' });
+                  path.push({ name: note.name, type: 'note' });
+                  path.push({ name: noteBlock.name, type: 'noteBlock' });
+                  path.push({ name: indicator.name, type: 'noteBlockIndicator' });
+                  path.push({ name: slice.name, type: 'noteBlockSlice' });
+                  path.push({ name: source.name, type: 'noteBlockSliceSource' });
+                  break;
+                }
+              }
+            }
           }
         }
         for (const indicator of note.indicators) {
@@ -249,11 +346,25 @@ function ChildrenSummary({ reports, selectedId, selectedType }: { reports: Repor
       }
       for (const note of section.notes) {
         if (selectedType === 'note' && note.id === selectedId) {
+          counts.push({ label: 'Блоков справки', count: note.noteBlocks ? note.noteBlocks.length : 0, icon: '📑' });
           counts.push({ label: 'Показателей', count: note.indicators.length, icon: '📊' });
           counts.push({ label: 'Источников', count: note.sources ? note.sources.length : 0, icon: '📚' });
           const totalSlices = note.indicators.reduce((sum, i) => sum + i.slices.length, 0);
           counts.push({ label: 'Разрезов', count: totalSlices, icon: '🔀' });
           break;
+        }
+        if (selectedType === 'noteBlock' && note.noteBlocks) {
+          for (const noteBlock of note.noteBlocks) {
+            if (noteBlock.id === selectedId) {
+              counts.push({ label: 'Показателей', count: noteBlock.indicators ? noteBlock.indicators.length : 0, icon: '📊' });
+              counts.push({ label: 'Источников', count: noteBlock.sources ? noteBlock.sources.length : 0, icon: '📚' });
+              if (noteBlock.indicators) {
+                const totalSlices = noteBlock.indicators.reduce((sum, i) => sum + (i.slices ? i.slices.length : 0), 0);
+                counts.push({ label: 'Разрезов', count: totalSlices, icon: '🔀' });
+              }
+              break;
+            }
+          }
         }
         for (const indicator of note.indicators) {
           if (selectedType === 'indicator' && indicator.id === selectedId) {

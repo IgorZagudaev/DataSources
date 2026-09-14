@@ -1,4 +1,4 @@
-import { Report, Section, Note, Indicator, DataSlice, DataSource } from './types';
+import { Report, Section, Note, NoteBlock, Indicator, DataSlice, DataSource } from './types';
 
 const STORAGE_KEY = 'report_data_sources_reference_v3';
 
@@ -11,7 +11,7 @@ function loadData(): Report[] {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
       const parsed = JSON.parse(data);
-      // Migrate old data: add 'sources' array to notes if missing
+      // Migrate old data: add 'sources' and 'noteBlocks' arrays to notes if missing
       if (Array.isArray(parsed)) {
         let needsMigration = false;
         parsed.forEach((report: any) => {
@@ -21,6 +21,10 @@ function loadData(): Report[] {
                 section.notes.forEach((note: any) => {
                   if (note.sources === undefined) {
                     note.sources = [];
+                    needsMigration = true;
+                  }
+                  if (note.noteBlocks === undefined) {
+                    note.noteBlocks = [];
                     needsMigration = true;
                   }
                 });
@@ -69,6 +73,7 @@ function getDefaultData(): Report[] {
               name: 'Численность и состав населения',
               description: 'Справка о текущей численности и составе населения региона',
               sectionId: 'section-1',
+              noteBlocks: [],
               sources: [],
               indicators: [
                 {
@@ -128,6 +133,7 @@ function getDefaultData(): Report[] {
               name: 'Валовой региональный продукт',
               description: 'Справка о ВРП и его динамике',
               sectionId: 'section-2',
+              noteBlocks: [],
               sources: [],
               indicators: [
                 {
@@ -174,6 +180,7 @@ function getDefaultData(): Report[] {
               name: 'Объем инвестиций',
               description: 'Справка об объеме инвестиций в основной капитал',
               sectionId: 'section-3',
+              noteBlocks: [],
               sources: [],
               indicators: [
                 {
@@ -274,7 +281,7 @@ export function deleteSection(reportId: string, sectionId: string) {
 
 // Note CRUD (Уровень 3)
 export function addNote(reportId: string, sectionId: string, name: string, description?: string): Note {
-  const note: Note = { id: generateId(), name, description, sectionId, indicators: [], sources: [] };
+  const note: Note = { id: generateId(), name, description, sectionId, noteBlocks: [], indicators: [], sources: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? { ...s, notes: [...s.notes, note] } : s)
@@ -300,6 +307,279 @@ export function deleteNote(reportId: string, sectionId: string, noteId: string) 
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
       notes: s.notes.filter(n => n.id !== noteId)
+    } : s)
+  } : r);
+  notify();
+}
+
+// NoteBlock CRUD (Уровень 4 - необязательный)
+export function addNoteBlock(reportId: string, sectionId: string, noteId: string, name: string, description?: string): NoteBlock {
+  const noteBlock: NoteBlock = { id: generateId(), name, description, noteId, indicators: [], sources: [] };
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? { ...n, noteBlocks: [...n.noteBlocks, noteBlock] } : n)
+    } : s)
+  } : r);
+  notify();
+  return noteBlock;
+}
+
+export function updateNoteBlock(reportId: string, sectionId: string, noteId: string, noteBlockId: string, name: string, description?: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? { ...nb, name, description } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function deleteNoteBlock(reportId: string, sectionId: string, noteId: string, noteBlockId: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.filter(nb => nb.id !== noteBlockId)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+// NoteBlock Indicator CRUD (Показатели в блоке справки)
+export function addNoteBlockIndicator(reportId: string, sectionId: string, noteId: string, noteBlockId: string, name: string, description?: string): Indicator {
+  const indicator: Indicator = { id: generateId(), name, description, noteId, slices: [] };
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? { ...nb, indicators: [...nb.indicators, indicator] } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+  return indicator;
+}
+
+export function updateNoteBlockIndicator(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, name: string, description?: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
+          ...nb,
+          indicators: nb.indicators.map(i => i.id === indicatorId ? { ...i, name, description } : i)
+        } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function deleteNoteBlockIndicator(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
+          ...nb,
+          indicators: nb.indicators.filter(i => i.id !== indicatorId)
+        } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+// NoteBlock Slice CRUD (Разрезы в показателях блока справки)
+export function addNoteBlockSlice(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, name: string, description?: string): DataSlice {
+  const slice: DataSlice = { id: generateId(), name, description, indicatorId, sources: [] };
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
+          ...nb,
+          indicators: nb.indicators.map(i => i.id === indicatorId ? { ...i, slices: [...i.slices, slice] } : i)
+        } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+  return slice;
+}
+
+export function updateNoteBlockSlice(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, name: string, description?: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
+          ...nb,
+          indicators: nb.indicators.map(i => i.id === indicatorId ? {
+            ...i,
+            slices: i.slices.map(sl => sl.id === sliceId ? { ...sl, name, description } : sl)
+          } : i)
+        } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function deleteNoteBlockSlice(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
+          ...nb,
+          indicators: nb.indicators.map(i => i.id === indicatorId ? {
+            ...i,
+            slices: i.slices.filter(sl => sl.id !== sliceId)
+          } : i)
+        } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+// NoteBlock Source CRUD (Источники в разрезах блока справки)
+export function addNoteBlockSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, name: string, description?: string): DataSource {
+  const source: DataSource = { id: generateId(), name, description, sliceId };
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
+          ...nb,
+          indicators: nb.indicators.map(i => i.id === indicatorId ? {
+            ...i,
+            slices: i.slices.map(sl => sl.id === sliceId ? { ...sl, sources: [...sl.sources, source] } : sl)
+          } : i)
+        } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+  return source;
+}
+
+export function updateNoteBlockSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, sourceId: string, name: string, description?: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
+          ...nb,
+          indicators: nb.indicators.map(i => i.id === indicatorId ? {
+            ...i,
+            slices: i.slices.map(sl => sl.id === sliceId ? {
+              ...sl,
+              sources: sl.sources.map(src => src.id === sourceId ? { ...src, name, description } : src)
+            } : sl)
+          } : i)
+        } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function deleteNoteBlockSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, sourceId: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
+          ...nb,
+          indicators: nb.indicators.map(i => i.id === indicatorId ? {
+            ...i,
+            slices: i.slices.map(sl => sl.id === sliceId ? {
+              ...sl,
+              sources: sl.sources.filter(src => src.id !== sourceId)
+            } : sl)
+          } : i)
+        } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+// NoteBlock Source CRUD (Прямые источники в блоке справки)
+export function addNoteBlockDirectSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, name: string, description?: string): DataSource {
+  const source: DataSource = { id: generateId(), name, description, sliceId: noteBlockId };
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? { ...nb, sources: [...nb.sources, source] } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+  return source;
+}
+
+export function updateNoteBlockDirectSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, sourceId: string, name: string, description?: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
+          ...nb,
+          sources: nb.sources.map(src => src.id === sourceId ? { ...src, name, description } : src)
+        } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function deleteNoteBlockDirectSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, sourceId: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
+          ...nb,
+          sources: nb.sources.filter(src => src.id !== sourceId)
+        } : nb)
+      } : n)
     } : s)
   } : r);
   notify();
