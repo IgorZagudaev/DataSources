@@ -40,7 +40,7 @@ body.resizing * {
   user-select: none !important;
 }
 
-/* Slide up animation for detail panel */
+/* Slide up animation for bottom panel */
 @keyframes slide-up {
   from {
     transform: translateY(100%);

@@ -2,13 +2,14 @@
 /**
  * REST API для справочника источников данных показателей
  * 
- * Иерархия (6 уровней, все отношения 1:N):
+ * Иерархия (7 уровней, все отношения 1:N):
  * 1. Доклад (reports)
  * 2. Раздел доклада (sections)
  * 3. Справка (notes)
- * 4. Показатель (indicators)
- * 5. Разрез данных (slices)
- * 6. Источник данных (sources)
+ * 4. Блок справки (note_blocks) - необязательный
+ * 5. Показатель (indicators)
+ * 6. Разрез данных (slices)
+ * 7. Источник данных (sources)
  * 
  * Endpoints:
  * GET    /api/reports              - Список всех докладов (полная иерархия)
@@ -23,6 +24,10 @@
  * POST   /api/notes                - Создать справку
  * PUT    /api/notes/{id}           - Обновить справку
  * DELETE /api/notes/{id}           - Удалить справку
+ * 
+ * POST   /api/noteBlocks           - Создать блок справки
+ * PUT    /api/noteBlocks/{id}      - Обновить блок справки
+ * DELETE /api/noteBlocks/{id}      - Удалить блок справки
  * 
  * POST   /api/indicators           - Создать показатель
  * PUT    /api/indicators/{id}      - Обновить показатель
@@ -77,6 +82,9 @@ try {
             break;
         case 'noteSources':
             handleNoteSources($db, $method, $id, $input);
+            break;
+        case 'noteBlocks':
+            handleNoteBlocks($db, $method, $id, $input);
             break;
         case 'indicators':
             handleIndicators($db, $method, $id, $input);
@@ -185,12 +193,39 @@ function getNotesForSection(PDO $db, string $sectionId): array {
     $notes = $stmt->fetchAll();
     
     foreach ($notes as &$note) {
+        $note['noteBlocks'] = getNoteBlocksForNote($db, $note['id']);
         $note['indicators'] = getIndicatorsForNote($db, $note['id']);
         $note['sources'] = getSourcesForNote($db, $note['id']);
     }
     
     return $notes;
 }
+
+function getNoteBlocksForNote(PDO $db, string $noteId): array {
+    $stmt = $db->prepare("SELECT * FROM note_blocks WHERE note_id = ? ORDER BY sort_order");
+    $stmt->execute([$noteId]);
+    $noteBlocks = $stmt->fetchAll();
+    
+    foreach ($noteBlocks as &$noteBlock) {
+        $noteBlock['indicators'] = getIndicatorsForNoteBlock($db, $noteBlock['id']);
+    }
+    
+    return $noteBlocks;
+}
+
+function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
+    $stmt = $db->prepare("SELECT * FROM indicators WHERE note_block_id = ? ORDER BY sort_order");
+    $stmt->execute([$noteBlockId]);
+    $indicators = $stmt->fetchAll();
+    
+    foreach ($indicators as &$indicator) {
+        $indicator['slices'] = getSlicesForIndicator($db, $indicator['id']);
+    }
+    
+    return $indicators;
+}
+
+
 
 function getSourcesForNote(PDO $db, string $noteId): array {
     $stmt = $db->prepare("SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order");
@@ -225,7 +260,7 @@ function handleNotes(PDO $db, string $method, ?string $id, ?array $input): void 
 }
 
 // ============================================================
-// Note Sources handlers (Уровень 6 - напрямую в справке)
+// Note Sources handlers (Уровень 4 - напрямую в справке)
 // ============================================================
 function handleNoteSources(PDO $db, string $method, ?string $id, ?array $input): void {
     switch ($method) {
@@ -244,6 +279,32 @@ function handleNoteSources(PDO $db, string $method, ?string $id, ?array $input):
             
         case 'DELETE':
             $stmt = $db->prepare("DELETE FROM note_sources WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode(['success' => true]);
+            break;
+    }
+}
+
+// ============================================================
+// Note Blocks handlers (Уровень 4 - необязательный)
+// ============================================================
+function handleNoteBlocks(PDO $db, string $method, ?string $id, ?array $input): void {
+    switch ($method) {
+        case 'POST':
+            $newId = generateUUID();
+            $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
+            echo json_encode(['id' => $newId]);
+            break;
+            
+        case 'PUT':
+            $stmt = $db->prepare("UPDATE note_blocks SET name = ?, description = ? WHERE id = ?");
+            $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            echo json_encode(['success' => true]);
+            break;
+            
+        case 'DELETE':
+            $stmt = $db->prepare("DELETE FROM note_blocks WHERE id = ?");
             $stmt->execute([$id]);
             echo json_encode(['success' => true]);
             break;

@@ -4,13 +4,14 @@
 -- СУБД: PostgreSQL
 -- Совместимость: PostgreSQL 12+
 -- 
--- Иерархия (6 уровней, все отношения 1:N):
+-- Иерархия (7 уровней, все отношения 1:N):
 -- 1. Доклад (reports)
 -- 2. Раздел доклада (sections)
 -- 3. Справка (notes)
--- 4. Показатель (indicators)
--- 5. Разрез данных (data_slices)
--- 6. Источник данных (data_sources)
+-- 4. Блок справки (note_blocks) - необязательный
+-- 5. Показатель (indicators)
+-- 6. Разрез данных (data_slices)
+-- 7. Источник данных (data_sources)
 -- ============================================================
 
 -- Создание базы данных (выполнить отдельно при необходимости)
@@ -60,7 +61,23 @@ CREATE TABLE IF NOT EXISTS notes (
 CREATE INDEX idx_notes_section_id ON notes(section_id);
 
 -- ============================================================
--- Уровень 6 (альтернативный): Таблица источников данных напрямую в справках
+-- Уровень 4: Таблица блоков справок (необязательный уровень)
+-- Отношение: N:1 к notes
+-- ============================================================
+CREATE TABLE IF NOT EXISTS note_blocks (
+    id VARCHAR(36) PRIMARY KEY,
+    note_id VARCHAR(36) NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    name VARCHAR(500) NOT NULL,
+    description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_note_blocks_note_id ON note_blocks(note_id);
+
+-- ============================================================
+-- Уровень 4 (альтернативный): Таблица источников данных напрямую в справках
 -- Отношение: N:1 к notes
 -- ============================================================
 CREATE TABLE IF NOT EXISTS note_sources (

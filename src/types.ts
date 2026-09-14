@@ -1,5 +1,6 @@
 // Иерархическая структура данных справочника
-// 6 уровней: Доклад → Раздел → Справка → Показатель → Разрез → Источник
+// 7 уровней: Доклад → Раздел → Справка → [Блок справки] → Показатель → Разрез → Источник
+// Блок справки - необязательный уровень
 
 export interface DataSource {
   id: string;
@@ -24,11 +25,20 @@ export interface Indicator {
   slices: DataSlice[];
 }
 
+export interface NoteBlock {
+  id: string;
+  name: string; // Название блока справки (Уровень 4 - необязательный)
+  description?: string;
+  noteId: string;
+  indicators: Indicator[];
+}
+
 export interface Note {
   id: string;
   name: string; // Название справки (Уровень 3)
   description?: string;
   sectionId: string;
+  noteBlocks: NoteBlock[]; // Блоки справки (необязательный уровень)
   indicators: Indicator[];
   sources: DataSource[]; // Прямые источники (альтернативная ветка)
 }
