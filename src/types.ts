@@ -31,7 +31,6 @@ export interface NoteBlock {
   description?: string;
   noteId: string;
   indicators: Indicator[];
-  sources: DataSource[];
 }
 
 export interface Note {

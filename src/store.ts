@@ -27,6 +27,15 @@ function loadData(): Report[] {
                     note.noteBlocks = [];
                     needsMigration = true;
                   }
+                  // Remove sources from noteBlocks if present (old structure)
+                  if (note.noteBlocks) {
+                    note.noteBlocks.forEach((noteBlock: any) => {
+                      if (noteBlock.sources !== undefined) {
+                        delete noteBlock.sources;
+                        needsMigration = true;
+                      }
+                    });
+                  }
                 });
               }
             });
@@ -314,7 +323,7 @@ export function deleteNote(reportId: string, sectionId: string, noteId: string) 
 
 // NoteBlock CRUD (Уровень 4 - необязательный)
 export function addNoteBlock(reportId: string, sectionId: string, noteId: string, name: string, description?: string): NoteBlock {
-  const noteBlock: NoteBlock = { id: generateId(), name, description, noteId, indicators: [], sources: [] };
+  const noteBlock: NoteBlock = { id: generateId(), name, description, noteId, indicators: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
@@ -534,56 +543,7 @@ export function deleteNoteBlockSource(reportId: string, sectionId: string, noteI
   notify();
 }
 
-// NoteBlock Source CRUD (Прямые источники в блоке справки)
-export function addNoteBlockDirectSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, name: string, description?: string): DataSource {
-  const source: DataSource = { id: generateId(), name, description, sliceId: noteBlockId };
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? { ...nb, sources: [...nb.sources, source] } : nb)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-  return source;
-}
 
-export function updateNoteBlockDirectSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, sourceId: string, name: string, description?: string) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
-          ...nb,
-          sources: nb.sources.map(src => src.id === sourceId ? { ...src, name, description } : src)
-        } : nb)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
-
-export function deleteNoteBlockDirectSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, sourceId: string) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? {
-          ...nb,
-          sources: nb.sources.filter(src => src.id !== sourceId)
-        } : nb)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
 
 // Note Source CRUD (Уровень 6 - напрямую в справке)
 export function addNoteSource(reportId: string, sectionId: string, noteId: string, name: string, description?: string): DataSource {

@@ -25,7 +25,6 @@ export function DetailPanel({ reports, selectedId, selectedType, onClose }: Deta
     noteSource: { label: 'Источник данных (Уровень 4)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
     noteBlockIndicator: { label: 'Показатель (Уровень 5)', icon: '📊', color: 'bg-purple-100 text-purple-800' },
     noteBlockSlice: { label: 'Разрез данных (Уровень 6)', icon: '🔀', color: 'bg-orange-100 text-orange-800' },
-    noteBlockSource: { label: 'Источник данных (Уровень 5)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
     noteBlockSliceSource: { label: 'Источник данных (Уровень 7)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
   };
 
@@ -104,7 +103,6 @@ function getLevel(type: string): number {
     noteSource: 4, // Источник напрямую в справке
     indicator: 5,
     noteBlockIndicator: 5,
-    noteBlockSource: 5,
     slice: 6,
     noteBlockSlice: 6,
     source: 7,
@@ -143,12 +141,7 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
           if (noteBlock.id === id && type === 'noteBlock') {
             return { id: noteBlock.id, name: noteBlock.name, description: noteBlock.description };
           }
-          // Прямые источники в блоке справки
-          for (const source of noteBlock.sources || []) {
-            if (source.id === id && type === 'noteBlockSource') {
-              return { id: source.id, name: source.name, description: source.description };
-            }
-          }
+
           // Показатели в блоке справки
           for (const indicator of noteBlock.indicators || []) {
             if (indicator.id === id && type === 'noteBlockIndicator') {
@@ -229,17 +222,7 @@ function BreadcrumbPath({ reports, selectedId, selectedType }: { reports: Report
             path.push({ name: noteBlock.name, type: 'noteBlock' });
             break;
           }
-          // Прямые источники в блоке справки
-          for (const source of noteBlock.sources || []) {
-            if (source.id === selectedId) {
-              path.push({ name: report.name, type: 'report' });
-              path.push({ name: section.name, type: 'section' });
-              path.push({ name: note.name, type: 'note' });
-              path.push({ name: noteBlock.name, type: 'noteBlock' });
-              path.push({ name: source.name, type: 'noteBlockSource' });
-              break;
-            }
-          }
+
           // Показатели в блоке справки
           for (const indicator of noteBlock.indicators || []) {
             if (indicator.id === selectedId) {
@@ -357,7 +340,6 @@ function ChildrenSummary({ reports, selectedId, selectedType }: { reports: Repor
           for (const noteBlock of note.noteBlocks) {
             if (noteBlock.id === selectedId) {
               counts.push({ label: 'Показателей', count: noteBlock.indicators ? noteBlock.indicators.length : 0, icon: '📊' });
-              counts.push({ label: 'Источников', count: noteBlock.sources ? noteBlock.sources.length : 0, icon: '📚' });
               if (noteBlock.indicators) {
                 const totalSlices = noteBlock.indicators.reduce((sum, i) => sum + (i.slices ? i.slices.length : 0), 0);
                 counts.push({ label: 'Разрезов', count: totalSlices, icon: '🔀' });

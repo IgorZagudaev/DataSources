@@ -9,7 +9,6 @@ import {
   addNoteBlockIndicator, updateNoteBlockIndicator, deleteNoteBlockIndicator,
   addNoteBlockSlice, updateNoteBlockSlice, deleteNoteBlockSlice,
   addNoteBlockSource, updateNoteBlockSource, deleteNoteBlockSource,
-  addNoteBlockDirectSource, updateNoteBlockDirectSource, deleteNoteBlockDirectSource,
   addIndicator, updateIndicator, deleteIndicator,
   addSlice, updateSlice, deleteSlice,
   addSource, updateSource, deleteSource
@@ -108,9 +107,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
         case 'noteBlockSlice':
           updateNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
           break;
-        case 'noteBlockSource':
-          updateNoteBlockDirectSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], editData.id, name, description);
-          break;
+
         case 'noteBlockSliceSource':
           updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description);
           break;
@@ -169,11 +166,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
           newId = nbs.id;
           break;
         }
-        case 'noteBlockSource': {
-          const nbsrc = addNoteBlockDirectSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
-          newId = nbsrc.id;
-          break;
-        }
+
         case 'noteBlockSliceSource': {
           const nbss = addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description);
           newId = nbss.id;
@@ -231,9 +224,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
       case 'noteBlockSlice':
         deleteNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
         break;
-      case 'noteBlockSource':
-        deleteNoteBlockDirectSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
-        break;
+
       case 'noteBlockSliceSource':
         deleteNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
         break;
@@ -253,7 +244,6 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
       noteSource: { name: 'Название источника', description: 'Описание источника данных' },
       noteBlockIndicator: { name: 'Название показателя', description: 'Описание показателя' },
       noteBlockSlice: { name: 'Название разреза', description: 'Описание разреза данных' },
-      noteBlockSource: { name: 'Название источника', description: 'Описание источника данных' },
       noteBlockSliceSource: { name: 'Название источника', description: 'Описание источника данных' },
     };
     return labels[type] || { name: 'Название', description: 'Описание' };
@@ -345,13 +335,10 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                         isSelected={selectedId === noteBlock.id}
                         onToggle={() => toggleExpand(noteBlock.id)}
                         onSelect={() => handleSelect(noteBlock.id, 'noteBlock')}
-                        onAddChild={() => {}}
                         onEdit={() => handleEdit('noteBlock', [report.id, section.id, note.id], noteBlock)}
                         onDelete={() => handleDelete(noteBlock.id, 'noteBlock', [report.id, section.id, note.id])}
-                        childLabels={[
-                          { label: 'Показатель', action: () => handleAdd('noteBlockIndicator', [report.id, section.id, note.id, noteBlock.id]) },
-                          { label: 'Источник', action: () => handleAdd('noteBlockSource', [report.id, section.id, note.id, noteBlock.id]) }
-                        ]}
+                        childLabel="+ Показатель"
+                        onAddChild={() => handleAdd('noteBlockIndicator', [report.id, section.id, note.id, noteBlock.id])}
                       >
                         {/* Показатели в блоке справки */}
                         {noteBlock.indicators.map((indicator, indicatorIndex) => (
@@ -412,25 +399,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                             ))}
                           </TreeNodeItem>
                         ))}
-                        {/* Прямые источники в блоке справки */}
-                        {noteBlock.sources && noteBlock.sources.map((source, sourceIndex) => (
-                          <TreeNodeItem
-                            key={source.id}
-                            id={source.id}
-                            name={source.name}
-                            type="source"
-                            level={4}
-                            icon="📚"
-                            index={sourceIndex}
-                            isExpanded={false}
-                            isSelected={selectedId === source.id}
-                            onToggle={() => {}}
-                            onSelect={() => handleSelect(source.id, 'noteBlockSource')}
-                            onAddChild={() => {}}
-                            onEdit={() => handleEdit('noteBlockSource', [report.id, section.id, note.id, noteBlock.id], source)}
-                            onDelete={() => handleDelete(source.id, 'noteBlockSource', [report.id, section.id, note.id, noteBlock.id])}
-                          />
-                        ))}
+
                       </TreeNodeItem>
                     ))}
                     {/* Показатели */}

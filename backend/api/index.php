@@ -208,7 +208,6 @@ function getNoteBlocksForNote(PDO $db, string $noteId): array {
     
     foreach ($noteBlocks as &$noteBlock) {
         $noteBlock['indicators'] = getIndicatorsForNoteBlock($db, $noteBlock['id']);
-        $noteBlock['sources'] = getDirectSourcesForNoteBlock($db, $noteBlock['id']);
     }
     
     return $noteBlocks;
@@ -226,11 +225,7 @@ function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
     return $indicators;
 }
 
-function getDirectSourcesForNoteBlock(PDO $db, string $noteBlockId): array {
-    $stmt = $db->prepare("SELECT * FROM note_sources WHERE note_block_id = ? ORDER BY sort_order");
-    $stmt->execute([$noteBlockId]);
-    return $stmt->fetchAll();
-}
+
 
 function getSourcesForNote(PDO $db, string $noteId): array {
     $stmt = $db->prepare("SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order");
