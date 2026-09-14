@@ -377,9 +377,9 @@ function TreeNodeItem({
     
     const colorMap: Record<string, [string, string]> = {
       report:    isEven ? ['#fce7f3', '#fbcfe8'] : ['#fbcfe8', '#fce7f3'], // pink (розовый)
-      section:   isEven ? ['#dcfce7', '#bbf7d0'] : ['#bbf7d0', '#dcfce7'], // green (зелёный)
+      section:   isEven ? ['#e0f2fe', '#bae6fd'] : ['#bae6fd', '#e0f2fe'], // sky blue (голубой)
       note:      isEven ? ['#ffedd5', '#fed7aa'] : ['#fed7aa', '#ffedd5'], // orange (оранжевый)
-      indicator: isEven ? ['#e0f2fe', '#bae6fd'] : ['#bae6fd', '#e0f2fe'], // sky blue (голубой)
+      indicator: isEven ? ['#dcfce7', '#bbf7d0'] : ['#bbf7d0', '#dcfce7'], // green (зелёный)
       slice:     isEven ? ['#f3e8ff', '#e9d5ff'] : ['#e9d5ff', '#f3e8ff'], // purple (фиолетовый)
       source:    isEven ? ['#f3f4f6', '#e5e7eb'] : ['#e5e7eb', '#f3f4f6'], // gray (серый)
     };
@@ -391,9 +391,9 @@ function TreeNodeItem({
   const getBorderColor = (type: string): string => {
     const borderColors: Record<string, string> = {
       report: '#ec4899',    // pink-500 (розовый)
-      section: '#22c55e',   // green-500 (зелёный)
+      section: '#0ea5e9',   // sky-500 (голубой)
       note: '#f97316',      // orange-500 (оранжевый)
-      indicator: '#0ea5e9', // sky-500 (голубой)
+      indicator: '#22c55e', // green-500 (зелёный)
       slice: '#a855f7',     // purple-500 (фиолетовый)
       source: '#6b7280',    // gray-500 (серый)
     };
