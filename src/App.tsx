@@ -23,6 +23,7 @@ function App() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [formState, setFormState] = useState<FormState | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: string; parentIds: string[] } | null>(null);
+  const [panelKey, setPanelKey] = useState(0);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -35,6 +36,7 @@ function App() {
     setTimeout(() => {
       setSelectedId(id);
       setSelectedType(type);
+      setPanelKey(prev => prev + 1);
     }, 10);
   };
 
@@ -52,6 +54,7 @@ function App() {
     setFormState(null);
     setTimeout(() => {
       setFormState({ type, parentIds });
+      setPanelKey(prev => prev + 1);
     }, 10);
   };
 
@@ -62,6 +65,7 @@ function App() {
     setFormState(null);
     setTimeout(() => {
       setFormState({ type, parentIds, editData: data });
+      setPanelKey(prev => prev + 1);
     }, 10);
   };
 
@@ -72,6 +76,7 @@ function App() {
     setDeleteConfirm(null);
     setTimeout(() => {
       setDeleteConfirm({ id, type, parentIds });
+      setPanelKey(prev => prev + 1);
     }, 10);
   };
 
@@ -234,7 +239,7 @@ function App() {
         {/* Bottom Panel - shows Detail, Form, or Delete Confirmation */}
         {(selectedId && selectedType) || formState || deleteConfirm ? (
           <section 
-            key={formState ? `form-${formState.type}` : deleteConfirm ? 'delete' : `detail-${selectedId}`}
+            key={`panel-${panelKey}`}
             className="bg-white overflow-hidden flex-shrink-0 border-t border-gray-200 animate-slide-up"
             style={{ flex: '1 1 50%' }}
           >
