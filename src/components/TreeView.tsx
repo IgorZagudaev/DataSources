@@ -376,12 +376,12 @@ function TreeNodeItem({
     const isEven = index % 2 === 0;
     
     const colorMap: Record<string, [string, string]> = {
-      report:    isEven ? ['#e0f2fe', '#bae6fd'] : ['#bae6fd', '#e0f2fe'], // sky blue
-      section:   isEven ? ['#dcfce7', '#bbf7d0'] : ['#bbf7d0', '#dcfce7'], // green
-      note:      isEven ? ['#ccfbf1', '#99f6e4'] : ['#99f6e4', '#ccfbf1'], // teal/cyan
-      indicator: isEven ? ['#f3e8ff', '#e9d5ff'] : ['#e9d5ff', '#f3e8ff'], // purple
-      slice:     isEven ? ['#ffedd5', '#fed7aa'] : ['#fed7aa', '#ffedd5'], // orange
-      source:    isEven ? ['#fce7f3', '#fbcfe8'] : ['#fbcfe8', '#fce7f3'], // pink
+      report:    isEven ? ['#fce7f3', '#fbcfe8'] : ['#fbcfe8', '#fce7f3'], // pink (розовый)
+      section:   isEven ? ['#dcfce7', '#bbf7d0'] : ['#bbf7d0', '#dcfce7'], // green (зелёный)
+      note:      isEven ? ['#ffedd5', '#fed7aa'] : ['#fed7aa', '#ffedd5'], // orange (оранжевый)
+      indicator: isEven ? ['#e0f2fe', '#bae6fd'] : ['#bae6fd', '#e0f2fe'], // sky blue (голубой)
+      slice:     isEven ? ['#f3e8ff', '#e9d5ff'] : ['#e9d5ff', '#f3e8ff'], // purple (фиолетовый)
+      source:    isEven ? ['#f3f4f6', '#e5e7eb'] : ['#e5e7eb', '#f3f4f6'], // gray (серый)
     };
     
     const colors = colorMap[type] || ['#f9fafb', '#f3f4f6'];
@@ -390,12 +390,12 @@ function TreeNodeItem({
 
   const getBorderColor = (type: string): string => {
     const borderColors: Record<string, string> = {
-      report: '#0ea5e9',    // sky-500
-      section: '#22c55e',   // green-500
-      note: '#14b8a6',      // teal-500
-      indicator: '#a855f7', // purple-500
-      slice: '#f97316',     // orange-500
-      source: '#ec4899',    // pink-500
+      report: '#ec4899',    // pink-500 (розовый)
+      section: '#22c55e',   // green-500 (зелёный)
+      note: '#f97316',      // orange-500 (оранжевый)
+      indicator: '#0ea5e9', // sky-500 (голубой)
+      slice: '#a855f7',     // purple-500 (фиолетовый)
+      source: '#6b7280',    // gray-500 (серый)
     };
     return borderColors[type] || 'transparent';
   };
