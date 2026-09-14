@@ -205,9 +205,9 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-hidden">
         {/* Tree Panel */}
-        <section className="bg-white border-r border-gray-200 flex-1 overflow-hidden transition-all duration-300 ease-in-out">
+        <section className="bg-white border-b border-gray-200 flex-1 overflow-hidden transition-all duration-300 ease-in-out">
           <TreeView
             reports={reports}
             selectedId={selectedId}
@@ -218,9 +218,9 @@ function App() {
           />
         </section>
 
-        {/* Right Panel - shows Detail, Form, or Delete Confirmation */}
+        {/* Bottom Panel - shows Detail, Form, or Delete Confirmation */}
         {(selectedId && selectedType) || formState || deleteConfirm ? (
-          <section className="w-96 bg-white overflow-hidden animate-slide-in-right flex-shrink-0">
+          <section className="flex-1 bg-white overflow-hidden animate-slide-up flex-shrink-0">
             {formState ? (
               <FormPanel
                 formState={formState}
