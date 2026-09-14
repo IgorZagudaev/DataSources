@@ -28,10 +28,14 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSelect = (id: string, type: string) => {
-    setSelectedId(id);
-    setSelectedType(type);
     setFormState(null);
     setDeleteConfirm(null);
+    setSelectedId(null);
+    setSelectedType(null);
+    setTimeout(() => {
+      setSelectedId(id);
+      setSelectedType(type);
+    }, 10);
   };
 
   const handleCloseDetail = () => {
@@ -45,21 +49,30 @@ function App() {
     setSelectedId(null);
     setSelectedType(null);
     setDeleteConfirm(null);
-    setFormState({ type, parentIds });
+    setFormState(null);
+    setTimeout(() => {
+      setFormState({ type, parentIds });
+    }, 10);
   };
 
   const handleEdit = (type: string, parentIds: string[], data: any) => {
     setSelectedId(null);
     setSelectedType(null);
     setDeleteConfirm(null);
-    setFormState({ type, parentIds, editData: data });
+    setFormState(null);
+    setTimeout(() => {
+      setFormState({ type, parentIds, editData: data });
+    }, 10);
   };
 
   const handleDelete = (id: string, type: string, parentIds: string[]) => {
     setSelectedId(null);
     setSelectedType(null);
     setFormState(null);
-    setDeleteConfirm({ id, type, parentIds });
+    setDeleteConfirm(null);
+    setTimeout(() => {
+      setDeleteConfirm({ id, type, parentIds });
+    }, 10);
   };
 
   const handleFormClose = () => {
