@@ -371,39 +371,47 @@ function TreeNodeItem({
 
   // Цвета для разных уровней иерархии с чередованием тональности
   const getBackgroundColor = (type: string, index: number, isSelected: boolean): string => {
-    if (isSelected) return 'bg-blue-100';
+    if (isSelected) return '#dbeafe'; // blue-100
     
     const isEven = index % 2 === 0;
     
     const colorMap: Record<string, [string, string]> = {
-      report:    isEven ? ['bg-blue-50', 'bg-blue-100']    : ['bg-blue-100', 'bg-blue-50'],
-      section:   isEven ? ['bg-green-50', 'bg-green-100']  : ['bg-green-100', 'bg-green-50'],
-      note:      isEven ? ['bg-yellow-50', 'bg-yellow-100']: ['bg-yellow-100', 'bg-yellow-50'],
-      indicator: isEven ? ['bg-purple-50', 'bg-purple-100']: ['bg-purple-100', 'bg-purple-50'],
-      slice:     isEven ? ['bg-orange-50', 'bg-orange-100']: ['bg-orange-100', 'bg-orange-50'],
-      source:    isEven ? ['bg-pink-50', 'bg-pink-100']    : ['bg-pink-100', 'bg-pink-50'],
+      report:    isEven ? ['#eff6ff', '#dbeafe'] : ['#dbeafe', '#eff6ff'], // blue-50, blue-100
+      section:   isEven ? ['#f0fdf4', '#dcfce7'] : ['#dcfce7', '#f0fdf4'], // green-50, green-100
+      note:      isEven ? ['#fefce8', '#fef9c3'] : ['#fef9c3', '#fefce8'], // yellow-50, yellow-100
+      indicator: isEven ? ['#faf5ff', '#f3e8ff'] : ['#f3e8ff', '#faf5ff'], // purple-50, purple-100
+      slice:     isEven ? ['#fff7ed', '#ffedd5'] : ['#ffedd5', '#fff7ed'], // orange-50, orange-100
+      source:    isEven ? ['#fdf2f8', '#fce7f3'] : ['#fce7f3', '#fdf2f8'], // pink-50, pink-100
     };
     
-    const colors = colorMap[type] || ['bg-gray-50', 'bg-gray-100'];
+    const colors = colorMap[type] || ['#f9fafb', '#f3f4f6'];
     return colors[0];
   };
 
-  const levelColors: Record<string, string> = {
-    report: 'border-l-blue-500',
-    section: 'border-l-green-500',
-    note: 'border-l-yellow-500',
-    indicator: 'border-l-purple-500',
-    slice: 'border-l-orange-500',
-    source: 'border-l-pink-500',
+  const getBorderColor = (type: string): string => {
+    const borderColors: Record<string, string> = {
+      report: '#3b82f6',    // blue-500
+      section: '#22c55e',   // green-500
+      note: '#eab308',      // yellow-500
+      indicator: '#a855f7', // purple-500
+      slice: '#f97316',     // orange-500
+      source: '#ec4899',    // pink-500
+    };
+    return borderColors[type] || 'transparent';
   };
 
   const bgColor = getBackgroundColor(type, index, isSelected);
+  const borderColor = getBorderColor(type);
 
   return (
     <div className={`select-none ${type === 'report' ? 'my-6' : ''}`}>
       <div
-        className={`flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all border-l-4 ${levelColors[type] || 'border-l-transparent'} ${bgColor} hover:opacity-80`}
-        style={{ paddingLeft: `${level * 16 + 8}px` }}
+        className="flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all border-l-4 hover:opacity-80"
+        style={{ 
+          paddingLeft: `${level * 16 + 8}px`,
+          backgroundColor: bgColor,
+          borderLeftColor: borderColor
+        }}
       >
         {/* Expand/Collapse */}
         <button
