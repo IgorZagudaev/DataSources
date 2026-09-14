@@ -92,6 +92,9 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
         case 'noteBlockSource':
           updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description);
           break;
+        case 'noteBlockSliceSource':
+          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description);
+          break;
       }
     } else {
       // Режим добавления
@@ -127,6 +130,9 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
           addNoteSource(parentIds[0], parentIds[1], parentIds[2], name, description);
           break;
         case 'noteBlockSource':
+          addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description);
+          break;
+        case 'noteBlockSliceSource':
           addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description);
           break;
       }
