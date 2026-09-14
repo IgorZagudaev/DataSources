@@ -21,6 +21,7 @@ export function DetailPanel({ reports, selectedId, selectedType, onClose }: Deta
     indicator: { label: 'Показатель (Уровень 4)', icon: '📊', color: 'bg-purple-100 text-purple-800' },
     slice: { label: 'Разрез данных (Уровень 5)', icon: '🔀', color: 'bg-orange-100 text-orange-800' },
     source: { label: 'Источник данных (Уровень 6)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
+    noteSource: { label: 'Источник данных (Уровень 6)', icon: '📚', color: 'bg-pink-100 text-pink-800' },
   };
 
   const typeInfo = typeLabels[selectedType] || typeLabels.report;
@@ -97,6 +98,7 @@ function getLevel(type: string): number {
     indicator: 4,
     slice: 5,
     source: 6,
+    noteSource: 6, // Источник напрямую в справке
   };
   return levels[type] || 0;
 }
@@ -119,6 +121,12 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
       for (const note of section.notes) {
         if (note.id === id && type === 'note') {
           return { id: note.id, name: note.name, description: note.description };
+        }
+        // Прямые источники справки
+        for (const source of note.sources) {
+          if (source.id === id && type === 'noteSource') {
+            return { id: source.id, name: source.name, description: source.description };
+          }
         }
         for (const indicator of note.indicators) {
           if (indicator.id === id && type === 'indicator') {
@@ -161,6 +169,16 @@ function BreadcrumbPath({ reports, selectedId, selectedType }: { reports: Report
           path.push({ name: section.name, type: 'section' });
           path.push({ name: note.name, type: 'note' });
           break;
+        }
+        // Прямые источники справки
+        for (const source of note.sources) {
+          if (source.id === selectedId) {
+            path.push({ name: report.name, type: 'report' });
+            path.push({ name: section.name, type: 'section' });
+            path.push({ name: note.name, type: 'note' });
+            path.push({ name: source.name, type: 'noteSource' });
+            break;
+          }
         }
         for (const indicator of note.indicators) {
           if (indicator.id === selectedId) {
@@ -232,6 +250,7 @@ function ChildrenSummary({ reports, selectedId, selectedType }: { reports: Repor
       for (const note of section.notes) {
         if (selectedType === 'note' && note.id === selectedId) {
           counts.push({ label: 'Показателей', count: note.indicators.length, icon: '📊' });
+          counts.push({ label: 'Источников', count: note.sources.length, icon: '📚' });
           const totalSlices = note.indicators.reduce((sum, i) => sum + i.slices.length, 0);
           counts.push({ label: 'Разрезов', count: totalSlices, icon: '🔀' });
           break;

@@ -4,6 +4,7 @@ import {
   addReport, updateReport, deleteReport,
   addSection, updateSection, deleteSection,
   addNote, updateNote, deleteNote,
+  addNoteSource, updateNoteSource, deleteNoteSource,
   addIndicator, updateIndicator, deleteIndicator,
   addSlice, updateSlice, deleteSlice,
   addSource, updateSource, deleteSource
@@ -90,6 +91,9 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
         case 'source':
           updateSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
           break;
+        case 'noteSource':
+          updateNoteSource(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
+          break;
       }
     } else {
       // Add mode
@@ -123,6 +127,11 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
         case 'source': {
           const src = addSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
           newId = src.id;
+          break;
+        }
+        case 'noteSource': {
+          const ns = addNoteSource(parentIds[0], parentIds[1], parentIds[2], name, description);
+          newId = ns.id;
           break;
         }
       }
@@ -165,6 +174,9 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
       case 'source':
         deleteSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
         break;
+      case 'noteSource':
+        deleteNoteSource(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
     }
     setDeleteConfirm(null);
   };
@@ -177,6 +189,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
       indicator: { name: 'Название показателя', description: 'Описание показателя' },
       slice: { name: 'Название разреза', description: 'Описание разреза данных' },
       source: { name: 'Название источника', description: 'Описание источника данных' },
+      noteSource: { name: 'Название источника', description: 'Описание источника данных' },
     };
     return labels[type] || { name: 'Название', description: 'Описание' };
   };
@@ -244,11 +257,16 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                     isSelected={selectedId === note.id}
                     onToggle={() => toggleExpand(note.id)}
                     onSelect={() => handleSelect(note.id, 'note')}
-                    onAddChild={() => handleAdd('indicator', [report.id, section.id, note.id])}
+                    onAddChild={() => {}}
                     onEdit={() => handleEdit('note', [report.id, section.id], note)}
                     onDelete={() => handleDelete(note.id, 'note', [report.id, section.id])}
-                    childLabel="+ Показатель"
+                    childOptions={[
+                      { label: '📊 Показатель', type: 'indicator' },
+                      { label: '📚 Источник', type: 'noteSource' }
+                    ]}
+                    onAddChildType={(type) => handleAdd(type, [report.id, section.id, note.id])}
                   >
+                    {/* Показатели */}
                     {note.indicators.map((indicator, indicatorIndex) => (
                       <TreeNodeItem
                         key={indicator.id}
@@ -307,6 +325,25 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                         ))}
                       </TreeNodeItem>
                     ))}
+                    {/* Прямые источники справки */}
+                    {note.sources.map((source, sourceIndex) => (
+                      <TreeNodeItem
+                        key={source.id}
+                        id={source.id}
+                        name={source.name}
+                        type="source"
+                        level={3}
+                        icon="📚"
+                        index={sourceIndex}
+                        isExpanded={false}
+                        isSelected={selectedId === source.id}
+                        onToggle={() => {}}
+                        onSelect={() => handleSelect(source.id, 'noteSource')}
+                        onAddChild={() => {}}
+                        onEdit={() => handleEdit('noteSource', [report.id, section.id, note.id], source)}
+                        onDelete={() => handleDelete(source.id, 'noteSource', [report.id, section.id, note.id])}
+                      />
+                    ))}
                   </TreeNodeItem>
                 ))}
               </TreeNodeItem>
@@ -359,14 +396,17 @@ interface TreeNodeItemProps {
   onDelete: () => void;
   children?: React.ReactNode;
   childLabel?: string;
+  childOptions?: Array<{ label: string; type: string }>;
+  onAddChildType?: (type: string) => void;
   index?: number;
 }
 
 function TreeNodeItem({
   name, type, level, icon, isExpanded, isSelected, index = 0,
   onToggle, onSelect, onAddChild, onEdit, onDelete,
-  children, childLabel
+  children, childLabel, childOptions, onAddChildType
 }: TreeNodeItemProps) {
+  const [showAddMenu, setShowAddMenu] = useState(false);
   const hasChildren = children && React.Children.count(children) > 0;
 
   // Цвета для разных уровней иерархии с чередованием тональности
@@ -436,7 +476,30 @@ function TreeNodeItem({
 
         {/* Actions - always visible */}
         <div className={`flex items-center gap-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}>
-          {childLabel ? (
+          {childOptions && onAddChildType ? (
+            <div className="relative">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowAddMenu(!showAddMenu); }}
+                className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors text-sm font-bold"
+                title="Добавить"
+              >
+                +
+              </button>
+              {showAddMenu && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 min-w-[140px]">
+                  {childOptions.map(opt => (
+                    <button
+                      key={opt.type}
+                      onClick={(e) => { e.stopPropagation(); onAddChildType(opt.type); setShowAddMenu(false); }}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors"
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : childLabel ? (
             <button
               onClick={(e) => { e.stopPropagation(); onAddChild(); }}
               className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors text-sm font-bold"

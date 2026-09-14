@@ -30,6 +30,7 @@ export interface Note {
   description?: string;
   sectionId: string;
   indicators: Indicator[];
+  sources: DataSource[]; // Прямые источники (альтернативная ветка)
 }
 
 export interface Section {

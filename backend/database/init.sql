@@ -60,6 +60,22 @@ CREATE TABLE IF NOT EXISTS notes (
 CREATE INDEX idx_notes_section_id ON notes(section_id);
 
 -- ============================================================
+-- Уровень 6 (альтернативный): Таблица источников данных напрямую в справках
+-- Отношение: N:1 к notes
+-- ============================================================
+CREATE TABLE IF NOT EXISTS note_sources (
+    id VARCHAR(36) PRIMARY KEY,
+    note_id VARCHAR(36) NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    name VARCHAR(500) NOT NULL,
+    description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_note_sources_note_id ON note_sources(note_id);
+
+-- ============================================================
 -- Уровень 4: Таблица показателей
 -- Отношение: N:1 к notes
 -- ============================================================
