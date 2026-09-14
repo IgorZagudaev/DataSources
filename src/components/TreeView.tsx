@@ -195,7 +195,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
           </button>
         </div>
 
-        {reports.map(report => (
+        {reports.map((report, reportIndex) => (
           <TreeNodeItem
             key={report.id}
             id={report.id}
@@ -203,6 +203,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
             type="report"
             level={0}
             icon="📋"
+            index={reportIndex}
             isExpanded={expandedNodes.has(report.id)}
             isSelected={selectedId === report.id}
             onToggle={() => toggleExpand(report.id)}
@@ -212,7 +213,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
             onDelete={() => handleDelete(report.id, 'report', [])}
             childLabel="+ Раздел"
           >
-            {report.sections.map(section => (
+            {report.sections.map((section, sectionIndex) => (
               <TreeNodeItem
                 key={section.id}
                 id={section.id}
@@ -220,6 +221,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                 type="section"
                 level={1}
                 icon="📁"
+                index={sectionIndex}
                 isExpanded={expandedNodes.has(section.id)}
                 isSelected={selectedId === section.id}
                 onToggle={() => toggleExpand(section.id)}
@@ -229,7 +231,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                 onDelete={() => handleDelete(section.id, 'section', [report.id])}
                 childLabel="+ Справка"
               >
-                {section.notes.map(note => (
+                {section.notes.map((note, noteIndex) => (
                   <TreeNodeItem
                     key={note.id}
                     id={note.id}
@@ -237,6 +239,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                     type="note"
                     level={2}
                     icon="📝"
+                    index={noteIndex}
                     isExpanded={expandedNodes.has(note.id)}
                     isSelected={selectedId === note.id}
                     onToggle={() => toggleExpand(note.id)}
@@ -246,7 +249,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                     onDelete={() => handleDelete(note.id, 'note', [report.id, section.id])}
                     childLabel="+ Показатель"
                   >
-                    {note.indicators.map(indicator => (
+                    {note.indicators.map((indicator, indicatorIndex) => (
                       <TreeNodeItem
                         key={indicator.id}
                         id={indicator.id}
@@ -254,6 +257,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                         type="indicator"
                         level={3}
                         icon="📊"
+                        index={indicatorIndex}
                         isExpanded={expandedNodes.has(indicator.id)}
                         isSelected={selectedId === indicator.id}
                         onToggle={() => toggleExpand(indicator.id)}
@@ -263,7 +267,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                         onDelete={() => handleDelete(indicator.id, 'indicator', [report.id, section.id, note.id])}
                         childLabel="+ Разрез"
                       >
-                        {indicator.slices.map(slice => (
+                        {indicator.slices.map((slice, sliceIndex) => (
                           <TreeNodeItem
                             key={slice.id}
                             id={slice.id}
@@ -271,6 +275,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                             type="slice"
                             level={4}
                             icon="🔀"
+                            index={sliceIndex}
                             isExpanded={expandedNodes.has(slice.id)}
                             isSelected={selectedId === slice.id}
                             onToggle={() => toggleExpand(slice.id)}
@@ -280,7 +285,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                             onDelete={() => handleDelete(slice.id, 'slice', [report.id, section.id, note.id, indicator.id])}
                             childLabel="+ Источник"
                           >
-                            {slice.sources.map(source => (
+                            {slice.sources.map((source, sourceIndex) => (
                               <TreeNodeItem
                                 key={source.id}
                                 id={source.id}
@@ -288,6 +293,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                                 type="source"
                                 level={5}
                                 icon="📚"
+                                index={sourceIndex}
                                 isExpanded={false}
                                 isSelected={selectedId === source.id}
                                 onToggle={() => {}}
@@ -353,14 +359,34 @@ interface TreeNodeItemProps {
   onDelete: () => void;
   children?: React.ReactNode;
   childLabel?: string;
+  index?: number;
 }
 
 function TreeNodeItem({
-  name, type, level, icon, isExpanded, isSelected,
+  name, type, level, icon, isExpanded, isSelected, index = 0,
   onToggle, onSelect, onAddChild, onEdit, onDelete,
   children, childLabel
 }: TreeNodeItemProps) {
   const hasChildren = children && React.Children.count(children) > 0;
+
+  // Цвета для разных уровней иерархии с чередованием тональности
+  const getBackgroundColor = (type: string, index: number, isSelected: boolean): string => {
+    if (isSelected) return 'bg-blue-100';
+    
+    const isEven = index % 2 === 0;
+    
+    const colorMap: Record<string, [string, string]> = {
+      report:    isEven ? ['bg-blue-50', 'bg-blue-100']    : ['bg-blue-100', 'bg-blue-50'],
+      section:   isEven ? ['bg-green-50', 'bg-green-100']  : ['bg-green-100', 'bg-green-50'],
+      note:      isEven ? ['bg-yellow-50', 'bg-yellow-100']: ['bg-yellow-100', 'bg-yellow-50'],
+      indicator: isEven ? ['bg-purple-50', 'bg-purple-100']: ['bg-purple-100', 'bg-purple-50'],
+      slice:     isEven ? ['bg-orange-50', 'bg-orange-100']: ['bg-orange-100', 'bg-orange-50'],
+      source:    isEven ? ['bg-pink-50', 'bg-pink-100']    : ['bg-pink-100', 'bg-pink-50'],
+    };
+    
+    const colors = colorMap[type] || ['bg-gray-50', 'bg-gray-100'];
+    return colors[0];
+  };
 
   const levelColors: Record<string, string> = {
     report: 'border-l-blue-500',
@@ -371,12 +397,12 @@ function TreeNodeItem({
     source: 'border-l-pink-500',
   };
 
+  const bgColor = getBackgroundColor(type, index, isSelected);
+
   return (
     <div className={`select-none ${type === 'report' ? 'my-6' : ''}`}>
       <div
-        className={`flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all
-          ${isSelected ? 'bg-blue-50 border-l-4 ' + (levelColors[type] || '') : 'hover:bg-gray-50 border-l-4 border-l-transparent'}
-        `}
+        className={`flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all border-l-4 ${levelColors[type] || 'border-l-transparent'} ${bgColor} hover:opacity-80`}
         style={{ paddingLeft: `${level * 16 + 8}px` }}
       >
         {/* Expand/Collapse */}
