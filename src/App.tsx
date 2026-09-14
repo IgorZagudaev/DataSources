@@ -207,7 +207,7 @@ function App() {
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Tree Panel */}
-        <section className="bg-white border-b border-gray-200 flex-1 overflow-hidden">
+        <section className="bg-white border-b border-gray-200 overflow-hidden" style={{ flex: '1 1 50%' }}>
           <TreeView
             reports={reports}
             selectedId={selectedId}
@@ -222,10 +222,8 @@ function App() {
         {(selectedId && selectedType) || formState || deleteConfirm ? (
           <section 
             key={formState ? `form-${formState.type}` : deleteConfirm ? 'delete' : `detail-${selectedId}`}
-            className="flex-1 bg-white overflow-hidden flex-shrink-0 border-t border-gray-200"
-            style={{
-              animation: 'slide-up 0.3s ease-out'
-            }}
+            className="bg-white overflow-hidden flex-shrink-0 border-t border-gray-200 animate-slide-up"
+            style={{ flex: '1 1 50%' }}
           >
             {formState ? (
               <FormPanel
