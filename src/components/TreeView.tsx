@@ -1,30 +1,17 @@
 import React, { useState } from 'react';
 import { Report } from '../types';
-import {
-  addReport, updateReport, deleteReport,
-  addSection, updateSection, deleteSection,
-  addNote, updateNote, deleteNote,
-  addNoteSource, updateNoteSource, deleteNoteSource,
-  addNoteBlock, updateNoteBlock, deleteNoteBlock,
-  addNoteBlockIndicator, updateNoteBlockIndicator, deleteNoteBlockIndicator,
-  addNoteBlockSlice, updateNoteBlockSlice, deleteNoteBlockSlice,
-  addNoteBlockSource, updateNoteBlockSource, deleteNoteBlockSource,
-  addIndicator, updateIndicator, deleteIndicator,
-  addSlice, updateSlice, deleteSlice,
-  addSource, updateSource, deleteSource
-} from '../store';
-import { Modal, EntityForm, ConfirmDialog } from './Modal';
 
 interface TreeViewProps {
   reports: Report[];
   selectedId: string | null;
   onSelect: (id: string, type: string) => void;
+  onAdd: (type: string, parentIds: string[]) => void;
+  onEdit: (type: string, parentIds: string[], data: any) => void;
+  onDelete: (id: string, type: string, parentIds: string[]) => void;
 }
 
-export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
+export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
-  const [modalState, setModalState] = useState<{ type: string; parentIds: string[]; editData?: any } | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: string; parentIds: string[] } | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedNodes(prev => {
@@ -44,6 +31,15 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
           if (s.id === id) { next.add(r.id); next.add(s.id); break; }
           for (const n of s.notes) {
             if (n.id === id) { next.add(r.id); next.add(s.id); next.add(n.id); break; }
+            for (const nb of n.noteBlocks || []) {
+              if (nb.id === id) { next.add(r.id); next.add(s.id); next.add(n.id); next.add(nb.id); break; }
+              for (const i of nb.indicators || []) {
+                if (i.id === id) { next.add(r.id); next.add(s.id); next.add(n.id); next.add(nb.id); next.add(i.id); break; }
+                for (const sl of i.slices || []) {
+                  if (sl.id === id) { next.add(r.id); next.add(s.id); next.add(n.id); next.add(nb.id); next.add(i.id); next.add(sl.id); break; }
+                }
+              }
+            }
             for (const i of n.indicators) {
               if (i.id === id) { next.add(r.id); next.add(s.id); next.add(n.id); next.add(i.id); break; }
               for (const sl of i.slices) {
@@ -63,206 +59,38 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
   };
 
   const handleAdd = (type: string, parentIds: string[]) => {
-    setModalState({ type, parentIds });
+    onAdd(type, parentIds);
+    // Auto-expand parent
+    setExpandedNodes(prev => {
+      const next = new Set(prev);
+      parentIds.forEach(id => next.add(id));
+      return next;
+    });
   };
 
   const handleEdit = (type: string, parentIds: string[], data: any) => {
-    setModalState({ type, parentIds, editData: data });
-  };
-
-  const handleSave = (name: string, description: string) => {
-    if (!modalState) return;
-    const { type, parentIds, editData } = modalState;
-
-    if (editData) {
-      // Edit mode
-      switch (type) {
-        case 'report':
-          updateReport(editData.id, name, description);
-          break;
-        case 'section':
-          updateSection(parentIds[0], editData.id, name, description);
-          break;
-        case 'note':
-          updateNote(parentIds[0], parentIds[1], editData.id, name, description);
-          break;
-        case 'indicator':
-          updateIndicator(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
-          break;
-        case 'slice':
-          updateSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], editData.id, name, description);
-          break;
-        case 'source':
-          updateSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
-          break;
-        case 'noteSource':
-          updateNoteSource(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
-          break;
-        case 'noteBlock':
-          updateNoteBlock(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
-          break;
-        case 'noteBlockIndicator':
-          updateNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], editData.id, name, description);
-          break;
-        case 'noteBlockSlice':
-          updateNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
-          break;
-
-        case 'noteBlockSliceSource':
-          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description);
-          break;
-      }
-    } else {
-      // Add mode
-      let newId = '';
-      switch (type) {
-        case 'report': {
-          const r = addReport(name, description);
-          newId = r.id;
-          break;
-        }
-        case 'section': {
-          const s = addSection(parentIds[0], name, description);
-          newId = s.id;
-          break;
-        }
-        case 'note': {
-          const n = addNote(parentIds[0], parentIds[1], name, description);
-          newId = n.id;
-          break;
-        }
-        case 'indicator': {
-          const ind = addIndicator(parentIds[0], parentIds[1], parentIds[2], name, description);
-          newId = ind.id;
-          break;
-        }
-        case 'slice': {
-          const sl = addSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
-          newId = sl.id;
-          break;
-        }
-        case 'source': {
-          const src = addSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
-          newId = src.id;
-          break;
-        }
-        case 'noteSource': {
-          const ns = addNoteSource(parentIds[0], parentIds[1], parentIds[2], name, description);
-          newId = ns.id;
-          break;
-        }
-        case 'noteBlock': {
-          const nb = addNoteBlock(parentIds[0], parentIds[1], parentIds[2], name, description);
-          newId = nb.id;
-          break;
-        }
-        case 'noteBlockIndicator': {
-          const nbi = addNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
-          newId = nbi.id;
-          break;
-        }
-        case 'noteBlockSlice': {
-          const nbs = addNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
-          newId = nbs.id;
-          break;
-        }
-
-        case 'noteBlockSliceSource': {
-          const nbss = addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description);
-          newId = nbss.id;
-          break;
-        }
-      }
-      // Auto-expand parent and new item
-      setExpandedNodes(prev => {
-        const next = new Set(prev);
-        parentIds.forEach(id => next.add(id));
-        if (newId && ['report', 'section', 'note', 'noteBlock', 'indicator', 'slice'].includes(type)) {
-          next.add(newId);
-        }
-        return next;
-      });
-    }
-    setModalState(null);
+    onEdit(type, parentIds, data);
   };
 
   const handleDelete = (id: string, type: string, parentIds: string[]) => {
-    setDeleteConfirm({ id, type, parentIds });
-  };
-
-  const confirmDelete = () => {
-    if (!deleteConfirm) return;
-    const { id, type, parentIds } = deleteConfirm;
-    switch (type) {
-      case 'report':
-        deleteReport(id);
-        break;
-      case 'section':
-        deleteSection(parentIds[0], id);
-        break;
-      case 'note':
-        deleteNote(parentIds[0], parentIds[1], id);
-        break;
-      case 'indicator':
-        deleteIndicator(parentIds[0], parentIds[1], parentIds[2], id);
-        break;
-      case 'slice':
-        deleteSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
-        break;
-      case 'source':
-        deleteSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
-        break;
-      case 'noteSource':
-        deleteNoteSource(parentIds[0], parentIds[1], parentIds[2], id);
-        break;
-      case 'noteBlock':
-        deleteNoteBlock(parentIds[0], parentIds[1], parentIds[2], id);
-        break;
-      case 'noteBlockIndicator':
-        deleteNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
-        break;
-      case 'noteBlockSlice':
-        deleteNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
-        break;
-
-      case 'noteBlockSliceSource':
-        deleteNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
-        break;
-    }
-    setDeleteConfirm(null);
-  };
-
-  const getLabels = (type: string) => {
-    const labels: Record<string, { name: string; description: string }> = {
-      report: { name: 'Название доклада', description: 'Описание доклада' },
-      section: { name: 'Название раздела', description: 'Описание раздела' },
-      note: { name: 'Название справки', description: 'Текст справки' },
-      noteBlock: { name: 'Название блока справки', description: 'Описание блока справки' },
-      indicator: { name: 'Название показателя', description: 'Описание показателя' },
-      slice: { name: 'Название разреза', description: 'Описание разреза данных' },
-      source: { name: 'Название источника', description: 'Описание источника данных' },
-      noteSource: { name: 'Название источника', description: 'Описание источника данных' },
-      noteBlockIndicator: { name: 'Название показателя', description: 'Описание показателя' },
-      noteBlockSlice: { name: 'Название разреза', description: 'Описание разреза данных' },
-      noteBlockSliceSource: { name: 'Название источника', description: 'Описание источника данных' },
-    };
-    return labels[type] || { name: 'Название', description: 'Описание' };
+    onDelete(id, type, parentIds);
   };
 
   return (
     <div className="h-full overflow-y-auto">
+      {/* Add Report button */}
+      <div className="p-3 border-b border-gray-200 bg-gray-50">
+        <button
+          onClick={() => handleAdd('report', [])}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+        >
+          <span>+</span>
+          Добавить доклад
+        </button>
+      </div>
+
       {/* Tree */}
       <div className="p-2">
-        <div className="mb-3">
-          <button
-            onClick={() => handleAdd('report', [])}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-          >
-            <span>+</span>
-            Добавить доклад
-          </button>
-        </div>
-
         {reports.map((report, reportIndex) => (
           <TreeNodeItem
             key={report.id}
@@ -353,7 +181,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                             isExpanded={expandedNodes.has(indicator.id)}
                             isSelected={selectedId === indicator.id}
                             onToggle={() => toggleExpand(indicator.id)}
-                            onSelect={() => handleSelect(indicator.id, 'indicator')}
+                            onSelect={() => handleSelect(indicator.id, 'noteBlockIndicator')}
                             onAddChild={() => handleAdd('noteBlockSlice', [report.id, section.id, note.id, noteBlock.id, indicator.id])}
                             onEdit={() => handleEdit('noteBlockIndicator', [report.id, section.id, note.id, noteBlock.id], indicator)}
                             onDelete={() => handleDelete(indicator.id, 'noteBlockIndicator', [report.id, section.id, note.id, noteBlock.id])}
@@ -371,7 +199,7 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                                 isExpanded={expandedNodes.has(slice.id)}
                                 isSelected={selectedId === slice.id}
                                 onToggle={() => toggleExpand(slice.id)}
-                                onSelect={() => handleSelect(slice.id, 'slice')}
+                                onSelect={() => handleSelect(slice.id, 'noteBlockSlice')}
                                 onAddChild={() => handleAdd('noteBlockSliceSource', [report.id, section.id, note.id, noteBlock.id, indicator.id, slice.id])}
                                 onEdit={() => handleEdit('noteBlockSlice', [report.id, section.id, note.id, noteBlock.id, indicator.id], slice)}
                                 onDelete={() => handleDelete(slice.id, 'noteBlockSlice', [report.id, section.id, note.id, noteBlock.id, indicator.id])}
@@ -399,7 +227,6 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
                             ))}
                           </TreeNodeItem>
                         ))}
-
                       </TreeNodeItem>
                     ))}
                     {/* Показатели */}
@@ -487,32 +314,6 @@ export function TreeView({ reports, selectedId, onSelect }: TreeViewProps) {
           </TreeNodeItem>
         ))}
       </div>
-
-      {/* Add/Edit Modal */}
-      <Modal
-        isOpen={modalState !== null}
-        onClose={() => setModalState(null)}
-        title={modalState?.editData ? 'Редактирование' : `Добавить: ${getLabels(modalState?.type || '').name}`}
-      >
-        {modalState && (
-          <EntityForm
-            onSave={handleSave}
-            onCancel={() => setModalState(null)}
-            initialName={modalState.editData?.name || ''}
-            initialDescription={modalState.editData?.description || ''}
-            nameLabel={getLabels(modalState.type).name}
-            descriptionLabel={getLabels(modalState.type).description}
-          />
-        )}
-      </Modal>
-
-      {/* Delete Confirmation */}
-      <ConfirmDialog
-        isOpen={deleteConfirm !== null}
-        onClose={() => setDeleteConfirm(null)}
-        onConfirm={confirmDelete}
-        message="Вы уверены, что хотите удалить этот элемент и все вложенные данные?"
-      />
     </div>
   );
 }

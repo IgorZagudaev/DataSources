@@ -2,12 +2,27 @@ import { useState, useRef } from 'react';
 import { useReports } from './hooks';
 import { TreeView } from './components/TreeView';
 import { DetailPanel } from './components/DetailPanel';
-import { resetData, exportData, importData } from './store';
+import { FormPanel, DeleteConfirmPanel } from './components/FormPanel';
+import {
+  resetData, exportData, importData,
+  deleteReport, deleteSection, deleteNote, deleteNoteBlock,
+  deleteIndicator, deleteNoteBlockIndicator,
+  deleteSlice, deleteNoteBlockSlice,
+  deleteSource, deleteNoteSource, deleteNoteBlockSource
+} from './store';
+
+interface FormState {
+  type: string;
+  parentIds: string[];
+  editData?: any;
+}
 
 function App() {
   const reports = useReports();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [formState, setFormState] = useState<FormState | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: string; parentIds: string[] } | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -15,11 +30,44 @@ function App() {
   const handleSelect = (id: string, type: string) => {
     setSelectedId(id);
     setSelectedType(type);
+    setFormState(null);
+    setDeleteConfirm(null);
   };
 
   const handleCloseDetail = () => {
     setSelectedId(null);
     setSelectedType(null);
+    setFormState(null);
+    setDeleteConfirm(null);
+  };
+
+  const handleAdd = (type: string, parentIds: string[]) => {
+    setSelectedId(null);
+    setSelectedType(null);
+    setDeleteConfirm(null);
+    setFormState({ type, parentIds });
+  };
+
+  const handleEdit = (type: string, parentIds: string[], data: any) => {
+    setSelectedId(null);
+    setSelectedType(null);
+    setDeleteConfirm(null);
+    setFormState({ type, parentIds, editData: data });
+  };
+
+  const handleDelete = (id: string, type: string, parentIds: string[]) => {
+    setSelectedId(null);
+    setSelectedType(null);
+    setFormState(null);
+    setDeleteConfirm({ id, type, parentIds });
+  };
+
+  const handleFormClose = () => {
+    setFormState(null);
+  };
+
+  const handleFormSave = () => {
+    setFormState(null);
   };
 
   const [showExportModal, setShowExportModal] = useState(false);
@@ -166,20 +214,76 @@ function App() {
             reports={reports}
             selectedId={selectedId}
             onSelect={handleSelect}
+            onAdd={handleAdd}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </section>
 
-        {/* Detail Panel - appears from bottom */}
-        {selectedId && selectedType && (
+        {/* Right Panel - shows Detail, Form, or Delete Confirmation */}
+        {(selectedId && selectedType) || formState || deleteConfirm ? (
           <section className="flex-1 bg-white overflow-hidden animate-slide-up">
-            <DetailPanel
-              reports={reports}
-              selectedId={selectedId}
-              selectedType={selectedType}
-              onClose={handleCloseDetail}
-            />
+            {formState ? (
+              <FormPanel
+                formState={formState}
+                onClose={handleFormClose}
+                onSave={handleFormSave}
+              />
+            ) : deleteConfirm ? (
+              <DeleteConfirmPanel
+                deleteConfirm={deleteConfirm}
+                onClose={() => setDeleteConfirm(null)}
+                onConfirm={() => {
+                  // Выполнить удаление
+                  const { id, type, parentIds } = deleteConfirm;
+                  switch (type) {
+                    case 'report':
+                      deleteReport(id);
+                      break;
+                    case 'section':
+                      deleteSection(parentIds[0], id);
+                      break;
+                    case 'note':
+                      deleteNote(parentIds[0], parentIds[1], id);
+                      break;
+                    case 'noteBlock':
+                      deleteNoteBlock(parentIds[0], parentIds[1], parentIds[2], id);
+                      break;
+                    case 'indicator':
+                      deleteIndicator(parentIds[0], parentIds[1], parentIds[2], id);
+                      break;
+                    case 'noteBlockIndicator':
+                      deleteNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+                      break;
+                    case 'slice':
+                      deleteSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+                      break;
+                    case 'noteBlockSlice':
+                      deleteNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+                      break;
+                    case 'source':
+                      deleteSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+                      break;
+                    case 'noteSource':
+                      deleteNoteSource(parentIds[0], parentIds[1], parentIds[2], id);
+                      break;
+                    case 'noteBlockSource':
+                      deleteNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
+                      break;
+                  }
+                  setDeleteConfirm(null);
+                }}
+              />
+            ) : (
+              <DetailPanel
+                reports={reports}
+                selectedId={selectedId!}
+                selectedType={selectedType!}
+                onClose={handleCloseDetail}
+              />
+            )}
           </section>
-        )}
+        ) : null}
       </div>
 
       {/* Import Modal */}
