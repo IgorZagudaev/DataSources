@@ -75,6 +75,9 @@ try {
         case 'notes':
             handleNotes($db, $method, $id, $input);
             break;
+        case 'noteSources':
+            handleNoteSources($db, $method, $id, $input);
+            break;
         case 'indicators':
             handleIndicators($db, $method, $id, $input);
             break;
@@ -183,9 +186,16 @@ function getNotesForSection(PDO $db, string $sectionId): array {
     
     foreach ($notes as &$note) {
         $note['indicators'] = getIndicatorsForNote($db, $note['id']);
+        $note['sources'] = getSourcesForNote($db, $note['id']);
     }
     
     return $notes;
+}
+
+function getSourcesForNote(PDO $db, string $noteId): array {
+    $stmt = $db->prepare("SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order");
+    $stmt->execute([$noteId]);
+    return $stmt->fetchAll();
 }
 
 // ============================================================
@@ -208,6 +218,32 @@ function handleNotes(PDO $db, string $method, ?string $id, ?array $input): void 
             
         case 'DELETE':
             $stmt = $db->prepare("DELETE FROM notes WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode(['success' => true]);
+            break;
+    }
+}
+
+// ============================================================
+// Note Sources handlers (Уровень 6 - напрямую в справке)
+// ============================================================
+function handleNoteSources(PDO $db, string $method, ?string $id, ?array $input): void {
+    switch ($method) {
+        case 'POST':
+            $newId = generateUUID();
+            $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
+            echo json_encode(['id' => $newId]);
+            break;
+            
+        case 'PUT':
+            $stmt = $db->prepare("UPDATE note_sources SET name = ?, description = ? WHERE id = ?");
+            $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            echo json_encode(['success' => true]);
+            break;
+            
+        case 'DELETE':
+            $stmt = $db->prepare("DELETE FROM note_sources WHERE id = ?");
             $stmt->execute([$id]);
             echo json_encode(['success' => true]);
             break;

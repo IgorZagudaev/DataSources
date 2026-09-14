@@ -1,6 +1,6 @@
 import { Report, Section, Note, Indicator, DataSlice, DataSource } from './types';
 
-const STORAGE_KEY = 'report_data_sources_reference_v2';
+const STORAGE_KEY = 'report_data_sources_reference_v3';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -11,21 +11,31 @@ function loadData(): Report[] {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
       const parsed = JSON.parse(data);
-      // Validate structure - check if it has the new linear hierarchy
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const firstReport = parsed[0];
-        // Check if sections have notes with indicators (new structure)
-        if (firstReport.sections && firstReport.sections.length > 0) {
-          const firstSection = firstReport.sections[0];
-          // New structure: section has 'notes' array, not 'indicators'
-          if (firstSection.notes !== undefined && firstSection.indicators === undefined) {
-            return parsed;
+      // Migrate old data: add 'sources' array to notes if missing
+      if (Array.isArray(parsed)) {
+        let needsMigration = false;
+        parsed.forEach((report: any) => {
+          if (report.sections) {
+            report.sections.forEach((section: any) => {
+              if (section.notes) {
+                section.notes.forEach((note: any) => {
+                  if (note.sources === undefined) {
+                    note.sources = [];
+                    needsMigration = true;
+                  }
+                });
+              }
+            });
           }
+        });
+        
+        if (needsMigration) {
+          console.log('Migrated old data structure');
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
         }
+        
+        return parsed;
       }
-      // Old structure detected, reset to default
-      console.log('Old data structure detected, resetting to default');
-      return getDefaultData();
     }
   } catch (e) {
     console.error('Error loading ', e);
@@ -59,6 +69,7 @@ function getDefaultData(): Report[] {
               name: 'Численность и состав населения',
               description: 'Справка о текущей численности и составе населения региона',
               sectionId: 'section-1',
+              sources: [],
               indicators: [
                 {
                   id: 'indicator-1',
@@ -117,6 +128,7 @@ function getDefaultData(): Report[] {
               name: 'Валовой региональный продукт',
               description: 'Справка о ВРП и его динамике',
               sectionId: 'section-2',
+              sources: [],
               indicators: [
                 {
                   id: 'indicator-2',
@@ -162,6 +174,7 @@ function getDefaultData(): Report[] {
               name: 'Объем инвестиций',
               description: 'Справка об объеме инвестиций в основной капитал',
               sectionId: 'section-3',
+              sources: [],
               indicators: [
                 {
                   id: 'indicator-3',
@@ -261,7 +274,7 @@ export function deleteSection(reportId: string, sectionId: string) {
 
 // Note CRUD (Уровень 3)
 export function addNote(reportId: string, sectionId: string, name: string, description?: string): Note {
-  const note: Note = { id: generateId(), name, description, sectionId, indicators: [] };
+  const note: Note = { id: generateId(), name, description, sectionId, indicators: [], sources: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? { ...s, notes: [...s.notes, note] } : s)
@@ -287,6 +300,48 @@ export function deleteNote(reportId: string, sectionId: string, noteId: string) 
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
       notes: s.notes.filter(n => n.id !== noteId)
+    } : s)
+  } : r);
+  notify();
+}
+
+// Note Source CRUD (Уровень 6 - напрямую в справке)
+export function addNoteSource(reportId: string, sectionId: string, noteId: string, name: string, description?: string): DataSource {
+  const source: DataSource = { id: generateId(), name, description, sliceId: noteId };
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? { ...n, sources: [...n.sources, source] } : n)
+    } : s)
+  } : r);
+  notify();
+  return source;
+}
+
+export function updateNoteSource(reportId: string, sectionId: string, noteId: string, sourceId: string, name: string, description?: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        sources: n.sources.map(src => src.id === sourceId ? { ...src, name, description } : src)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function deleteNoteSource(reportId: string, sectionId: string, noteId: string, sourceId: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        sources: n.sources.filter(src => src.id !== sourceId)
+      } : n)
     } : s)
   } : r);
   notify();
