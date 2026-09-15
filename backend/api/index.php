@@ -390,7 +390,18 @@ function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void
 function getSourcesForSlice(PDO $db, string $sliceId): array {
     $stmt = $db->prepare("SELECT * FROM data_sources WHERE slice_id = ? ORDER BY sort_order");
     $stmt->execute([$sliceId]);
-    return $stmt->fetchAll();
+    $sources = $stmt->fetchAll();
+    
+    // Decode source_types JSON
+    foreach ($sources as &$source) {
+        if (isset($source['source_types']) && $source['source_types']) {
+            $source['source_types'] = json_decode($source['source_types'], true);
+        } else {
+            $source['source_types'] = [];
+        }
+    }
+    
+    return $sources;
 }
 
 // ============================================================
@@ -400,14 +411,16 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['slice_id'], $input['name'], $input['description'] ?? null]);
+            $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
+            $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['slice_id'], $input['name'], $input['description'] ?? null, $sourceTypes]);
             echo json_encode(['id' => $newId]);
             break;
             
         case 'PUT':
-            $stmt = $db->prepare("UPDATE data_sources SET name = ?, description = ? WHERE id = ?");
-            $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
+            $stmt = $db->prepare("UPDATE data_sources SET name = ?, description = ?, source_types = ? WHERE id = ?");
+            $stmt->execute([$input['name'], $input['description'] ?? null, $sourceTypes, $id]);
             echo json_encode(['success' => true]);
             break;
             

@@ -12,6 +12,7 @@ import {
   addNoteBlockSlice, updateNoteBlockSlice,
   addNoteBlockSource, updateNoteBlockSource
 } from '../store';
+import { SOURCE_TYPES, SourceType } from '../types';
 
 interface FormPanelProps {
   formState: {
@@ -27,6 +28,7 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
   const [name, setName] = useState(formState?.editData?.name || '');
   const [shortName, setShortName] = useState(formState?.editData?.shortName || '');
   const [description, setDescription] = useState(formState?.editData?.description || '');
+  const [sourceTypes, setSourceTypes] = useState<SourceType[]>(formState?.editData?.sourceTypes || []);
 
   if (!formState) return null;
 
@@ -85,16 +87,16 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
           updateNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
           break;
         case 'source':
-          updateSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
+          updateSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description, sourceTypes);
           break;
         case 'noteSource':
-          updateNoteSource(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
+          updateNoteSource(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description, sourceTypes);
           break;
         case 'noteBlockSource':
-          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description);
+          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description, sourceTypes);
           break;
         case 'noteBlockSliceSource':
-          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description);
+          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description, sourceTypes);
           break;
       }
     } else {
@@ -125,16 +127,16 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
           addNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
           break;
         case 'source':
-          addSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
+          addSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description, sourceTypes);
           break;
         case 'noteSource':
-          addNoteSource(parentIds[0], parentIds[1], parentIds[2], name, description);
+          addNoteSource(parentIds[0], parentIds[1], parentIds[2], name, description, sourceTypes);
           break;
         case 'noteBlockSource':
-          addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description);
+          addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes);
           break;
         case 'noteBlockSliceSource':
-          addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description);
+          addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes);
           break;
       }
     }
@@ -210,6 +212,33 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
               rows={4}
             />
           </div>
+
+          {(formState.type === 'source' || formState.type === 'noteSource' || formState.type === 'noteBlockSource' || formState.type === 'noteBlockSliceSource') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Тип источника
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {SOURCE_TYPES.map((type) => (
+                  <label key={type} className="flex items-center gap-2 p-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={sourceTypes.includes(type)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSourceTypes([...sourceTypes, type]);
+                        } else {
+                          setSourceTypes(sourceTypes.filter(t => t !== type));
+                        }
+                      }}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">{type}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 mt-6">
