@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Report } from '../types';
 
 interface TreeViewProps {
@@ -12,6 +12,67 @@ interface TreeViewProps {
 
 export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('');
+  const [isAllExpanded, setIsAllExpanded] = useState<boolean>(false);
+
+  // Автоматическое раскрытие узлов при выборе типа источника
+  useEffect(() => {
+    if (!sourceTypeFilter) return;
+
+    const nodesToExpand = new Set<string>();
+
+    reports.forEach(report => {
+      report.sections.forEach(section => {
+        section.notes.forEach(note => {
+          // Проверяем прямые источники в справке
+          note.sources?.forEach(source => {
+            if (source.sourceTypes?.includes(sourceTypeFilter as any)) {
+              nodesToExpand.add(report.id);
+              nodesToExpand.add(section.id);
+              nodesToExpand.add(note.id);
+            }
+          });
+
+          // Проверяем источники в блоках справки
+          note.noteBlocks?.forEach(noteBlock => {
+            noteBlock.indicators?.forEach(indicator => {
+              indicator.slices?.forEach(slice => {
+                slice.sources?.forEach(source => {
+                  if (source.sourceTypes?.includes(sourceTypeFilter as any)) {
+                    nodesToExpand.add(report.id);
+                    nodesToExpand.add(section.id);
+                    nodesToExpand.add(note.id);
+                    nodesToExpand.add(noteBlock.id);
+                    nodesToExpand.add(indicator.id);
+                    nodesToExpand.add(slice.id);
+                  }
+                });
+              });
+            });
+          });
+
+          // Проверяем источники в показателях справки
+          note.indicators?.forEach(indicator => {
+            indicator.slices?.forEach(slice => {
+              slice.sources?.forEach(source => {
+                if (source.sourceTypes?.includes(sourceTypeFilter as any)) {
+                  nodesToExpand.add(report.id);
+                  nodesToExpand.add(section.id);
+                  nodesToExpand.add(note.id);
+                  nodesToExpand.add(indicator.id);
+                  nodesToExpand.add(slice.id);
+                }
+              });
+            });
+          });
+        });
+      });
+    });
+
+    if (nodesToExpand.size > 0) {
+      setExpandedNodes(prev => new Set([...prev, ...nodesToExpand]));
+    }
+  }, [sourceTypeFilter, reports]);
 
   const toggleExpand = (id: string) => {
     setExpandedNodes(prev => {
@@ -20,6 +81,43 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
       else next.add(id);
       return next;
     });
+  };
+
+  const expandAll = () => {
+    const allIds = new Set<string>();
+    
+    reports.forEach(report => {
+      allIds.add(report.id);
+      report.sections.forEach(section => {
+        allIds.add(section.id);
+        section.notes.forEach(note => {
+          allIds.add(note.id);
+          note.noteBlocks?.forEach(noteBlock => {
+            allIds.add(noteBlock.id);
+            noteBlock.indicators?.forEach(indicator => {
+              allIds.add(indicator.id);
+              indicator.slices?.forEach(slice => {
+                allIds.add(slice.id);
+              });
+            });
+          });
+          note.indicators?.forEach(indicator => {
+            allIds.add(indicator.id);
+            indicator.slices?.forEach(slice => {
+              allIds.add(slice.id);
+            });
+          });
+        });
+      });
+    });
+    
+    setExpandedNodes(allIds);
+    setIsAllExpanded(true);
+  };
+
+  const collapseAll = () => {
+    setExpandedNodes(new Set());
+    setIsAllExpanded(false);
   };
 
   const expandTo = (id: string) => {
@@ -76,8 +174,47 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
     onDelete(id, type, parentIds);
   };
 
+  // Проверка, содержит ли источник выбранный тип
+  const hasSourceType = (source: any): boolean => {
+    if (!sourceTypeFilter) return false;
+    return source.sourceTypes && source.sourceTypes.includes(sourceTypeFilter);
+  };
+
   return (
     <div className="h-full overflow-y-auto">
+      {/* Source Type Filter */}
+      <div className="px-6 pt-6 pb-4 bg-gray-50">
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          Подсветить источники
+        </label>
+        <select
+          value={sourceTypeFilter}
+          onChange={(e) => setSourceTypeFilter(e.target.value)}
+          className="w-64 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+        >
+          <option value="">Все типы</option>
+          <option value="Робот">Робот</option>
+          <option value="Ручная выгрузка">Ручная выгрузка</option>
+          <option value="ПО">ПО</option>
+          <option value="Дискор НП">Дискор НП</option>
+          <option value="ЭПС">ЭПС</option>
+          <option value="ЕАСД">ЕАСД</option>
+          <option value="Хранимые процедуры">Хранимые процедуры</option>
+          <option value="Другое">Другое</option>
+        </select>
+      </div>
+
+      {/* Tree Control Button */}
+      <div className="px-6 pb-4 bg-gray-50">
+        <button
+          onClick={isAllExpanded ? collapseAll : expandAll}
+          className="w-full px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
+          title={isAllExpanded ? "Свернуть всю иерархию" : "Развернуть всю иерархию"}
+        >
+          {isAllExpanded ? '▶ Свернуть всё' : '▼ Развернуть всё'}
+        </button>
+      </div>
+
       {/* Add Report button */}
       <div className="p-3 border-b border-gray-200 bg-gray-50">
         <button
@@ -216,6 +353,7 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                                     index={sourceIndex}
                                     isExpanded={false}
                                     isSelected={selectedId === source.id}
+                                    isHighlighted={hasSourceType(source)}
                                     onToggle={() => {}}
                                     onSelect={() => handleSelect(source.id, 'noteBlockSliceSource')}
                                     onAddChild={() => {}}
@@ -277,6 +415,7 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                                 index={sourceIndex}
                                 isExpanded={false}
                                 isSelected={selectedId === source.id}
+                                isHighlighted={hasSourceType(source)}
                                 onToggle={() => {}}
                                 onSelect={() => handleSelect(source.id, 'source')}
                                 onAddChild={() => {}}
@@ -300,6 +439,7 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                         index={sourceIndex}
                         isExpanded={false}
                         isSelected={selectedId === source.id}
+                        isHighlighted={hasSourceType(source)}
                         onToggle={() => {}}
                         onSelect={() => handleSelect(source.id, 'noteSource')}
                         onAddChild={() => {}}
@@ -335,18 +475,19 @@ interface TreeNodeItemProps {
   childLabel?: string;
   childLabels?: Array<{ label: string; action: () => void }>;
   index?: number;
+  isHighlighted?: boolean;
 }
 
 function TreeNodeItem({
   name, type, level, icon, isExpanded, isSelected, index = 0,
   onToggle, onSelect, onAddChild, onEdit, onDelete,
-  children, childLabel, childLabels
+  children, childLabel, childLabels, isHighlighted = false
 }: TreeNodeItemProps) {
   const hasChildren = children && React.Children.count(children) > 0;
 
   // Цвета для разных уровней иерархии с чередованием тональности
-  const getBackgroundColor = (type: string, index: number, isSelected: boolean): string => {
-    if (isSelected) return '#dbeafe'; // blue-100
+  const getBackgroundColor = (type: string, index: number, isSelected: boolean, isHighlighted: boolean): string => {
+    if (isHighlighted) return '#fef08a'; // yellow-200 - жёлтый для подсветки
     
     const isEven = index % 2 === 0;
     
@@ -359,6 +500,22 @@ function TreeNodeItem({
       slice:     isEven ? ['#f3e8ff', '#e9d5ff'] : ['#e9d5ff', '#f3e8ff'], // purple (фиолетовый)
       source:    isEven ? ['#f3f4f6', '#e5e7eb'] : ['#e5e7eb', '#f3f4f6'], // gray (серый)
     };
+    
+    // Более яркие цвета для выбранных элементов
+    const selectedColorMap: Record<string, string> = {
+      report:    '#f9a8d4', // pink-300 (ярко-розовый)
+      section:   '#7dd3fc', // sky-300 (ярко-голубой)
+      note:      '#fdba74', // orange-300 (ярко-оранжевый)
+      noteBlock: '#fcd34d', // amber-300 (ярко-янтарный)
+      indicator: '#86efac', // green-300 (ярко-зелёный)
+      slice:     '#d8b4fe', // purple-300 (ярко-фиолетовый)
+      source:    '#d1d5db', // gray-300 (ярко-серый)
+    };
+    
+    // Если элемент выбран, вернуть более яркий цвет
+    if (isSelected) {
+      return selectedColorMap[type] || '#bfdbfe';
+    }
     
     const colors = colorMap[type] || ['#f9fafb', '#f3f4f6'];
     return colors[0];
@@ -377,7 +534,7 @@ function TreeNodeItem({
     return borderColors[type] || 'transparent';
   };
 
-  const bgColor = getBackgroundColor(type, index, isSelected);
+  const bgColor = getBackgroundColor(type, index, isSelected, isHighlighted);
   const borderColor = getBorderColor(type);
 
   return (
