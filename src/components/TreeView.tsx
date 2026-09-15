@@ -82,6 +82,41 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
     });
   };
 
+  const expandAll = () => {
+    const allIds = new Set<string>();
+    
+    reports.forEach(report => {
+      allIds.add(report.id);
+      report.sections.forEach(section => {
+        allIds.add(section.id);
+        section.notes.forEach(note => {
+          allIds.add(note.id);
+          note.noteBlocks?.forEach(noteBlock => {
+            allIds.add(noteBlock.id);
+            noteBlock.indicators?.forEach(indicator => {
+              allIds.add(indicator.id);
+              indicator.slices?.forEach(slice => {
+                allIds.add(slice.id);
+              });
+            });
+          });
+          note.indicators?.forEach(indicator => {
+            allIds.add(indicator.id);
+            indicator.slices?.forEach(slice => {
+              allIds.add(slice.id);
+            });
+          });
+        });
+      });
+    });
+    
+    setExpandedNodes(allIds);
+  };
+
+  const collapseAll = () => {
+    setExpandedNodes(new Set());
+  };
+
   const expandTo = (id: string) => {
     setExpandedNodes(prev => {
       const next = new Set(prev);
@@ -164,6 +199,24 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
           <option value="Хранимые процедуры">Хранимые процедуры</option>
           <option value="Другое">Другое</option>
         </select>
+      </div>
+
+      {/* Tree Control Buttons */}
+      <div className="px-6 pb-4 bg-gray-50 flex gap-2">
+        <button
+          onClick={expandAll}
+          className="flex-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Развернуть всю иерархию"
+        >
+          ▼ Развернуть всё
+        </button>
+        <button
+          onClick={collapseAll}
+          className="flex-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Свернуть всю иерархию"
+        >
+          ▶ Свернуть всё
+        </button>
       </div>
 
       {/* Add Report button */}
