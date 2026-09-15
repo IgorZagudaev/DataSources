@@ -255,6 +255,26 @@ export function addReport(name: string, description?: string): Report {
   return report;
 }
 
+export function moveReportUp(id: string) {
+  const index = reports.findIndex(r => r.id === id);
+  if (index > 0) {
+    const newReports = [...reports];
+    [newReports[index - 1], newReports[index]] = [newReports[index], newReports[index - 1]];
+    reports = newReports;
+    notify();
+  }
+}
+
+export function moveReportDown(id: string) {
+  const index = reports.findIndex(r => r.id === id);
+  if (index < reports.length - 1) {
+    const newReports = [...reports];
+    [newReports[index], newReports[index + 1]] = [newReports[index + 1], newReports[index]];
+    reports = newReports;
+    notify();
+  }
+}
+
 export function updateReport(id: string, name: string, description?: string) {
   reports = reports.map(r => r.id === id ? { ...r, name, description } : r);
   notify();
@@ -289,6 +309,36 @@ export function deleteSection(reportId: string, sectionId: string) {
   notify();
 }
 
+export function moveSectionUp(reportId: string, sectionId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      const index = r.sections.findIndex(s => s.id === sectionId);
+      if (index > 0) {
+        const newSections = [...r.sections];
+        [newSections[index - 1], newSections[index]] = [newSections[index], newSections[index - 1]];
+        return { ...r, sections: newSections };
+      }
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveSectionDown(reportId: string, sectionId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      const index = r.sections.findIndex(s => s.id === sectionId);
+      if (index < r.sections.length - 1) {
+        const newSections = [...r.sections];
+        [newSections[index], newSections[index + 1]] = [newSections[index + 1], newSections[index]];
+        return { ...r, sections: newSections };
+      }
+    }
+    return r;
+  });
+  notify();
+}
+
 // Note CRUD (Уровень 3)
 export function addNote(reportId: string, sectionId: string, name: string, description?: string, shortName?: string): Note {
   const note: Note = { id: generateId(), name, shortName, description, sectionId, noteBlocks: [], indicators: [], sources: [] };
@@ -319,6 +369,52 @@ export function deleteNote(reportId: string, sectionId: string, noteId: string) 
       notes: s.notes.filter(n => n.id !== noteId)
     } : s)
   } : r);
+  notify();
+}
+
+export function moveNoteUp(reportId: string, sectionId: string, noteId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            const index = s.notes.findIndex(n => n.id === noteId);
+            if (index > 0) {
+              const newNotes = [...s.notes];
+              [newNotes[index - 1], newNotes[index]] = [newNotes[index], newNotes[index - 1]];
+              return { ...s, notes: newNotes };
+            }
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveNoteDown(reportId: string, sectionId: string, noteId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            const index = s.notes.findIndex(n => n.id === noteId);
+            if (index < s.notes.length - 1) {
+              const newNotes = [...s.notes];
+              [newNotes[index], newNotes[index + 1]] = [newNotes[index + 1], newNotes[index]];
+              return { ...s, notes: newNotes };
+            }
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
   notify();
 }
 
@@ -361,6 +457,68 @@ export function deleteNoteBlock(reportId: string, sectionId: string, noteId: str
       } : n)
     } : s)
   } : r);
+  notify();
+}
+
+export function moveNoteBlockUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  const index = n.noteBlocks.findIndex(nb => nb.id === noteBlockId);
+                  if (index > 0) {
+                    const newBlocks = [...n.noteBlocks];
+                    [newBlocks[index - 1], newBlocks[index]] = [newBlocks[index], newBlocks[index - 1]];
+                    return { ...n, noteBlocks: newBlocks };
+                  }
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveNoteBlockDown(reportId: string, sectionId: string, noteId: string, noteBlockId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  const index = n.noteBlocks.findIndex(nb => nb.id === noteBlockId);
+                  if (index < n.noteBlocks.length - 1) {
+                    const newBlocks = [...n.noteBlocks];
+                    [newBlocks[index], newBlocks[index + 1]] = [newBlocks[index + 1], newBlocks[index]];
+                    return { ...n, noteBlocks: newBlocks };
+                  }
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
   notify();
 }
 
@@ -412,6 +570,84 @@ export function deleteNoteBlockIndicator(reportId: string, sectionId: string, no
       } : n)
     } : s)
   } : r);
+  notify();
+}
+
+export function moveNoteBlockIndicatorUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        const index = nb.indicators.findIndex(i => i.id === indicatorId);
+                        if (index > 0) {
+                          const newIndicators = [...nb.indicators];
+                          [newIndicators[index - 1], newIndicators[index]] = [newIndicators[index], newIndicators[index - 1]];
+                          return { ...nb, indicators: newIndicators };
+                        }
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveNoteBlockIndicatorDown(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        const index = nb.indicators.findIndex(i => i.id === indicatorId);
+                        if (index < nb.indicators.length - 1) {
+                          const newIndicators = [...nb.indicators];
+                          [newIndicators[index], newIndicators[index + 1]] = [newIndicators[index + 1], newIndicators[index]];
+                          return { ...nb, indicators: newIndicators };
+                        }
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
   notify();
 }
 
@@ -472,6 +708,100 @@ export function deleteNoteBlockSlice(reportId: string, sectionId: string, noteId
       } : n)
     } : s)
   } : r);
+  notify();
+}
+
+export function moveNoteBlockSliceUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        return {
+                          ...nb,
+                          indicators: nb.indicators.map(i => {
+                            if (i.id === indicatorId) {
+                              const index = i.slices.findIndex(sl => sl.id === sliceId);
+                              if (index > 0) {
+                                const newSlices = [...i.slices];
+                                [newSlices[index - 1], newSlices[index]] = [newSlices[index], newSlices[index - 1]];
+                                return { ...i, slices: newSlices };
+                              }
+                            }
+                            return i;
+                          })
+                        };
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveNoteBlockSliceDown(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        return {
+                          ...nb,
+                          indicators: nb.indicators.map(i => {
+                            if (i.id === indicatorId) {
+                              const index = i.slices.findIndex(sl => sl.id === sliceId);
+                              if (index < i.slices.length - 1) {
+                                const newSlices = [...i.slices];
+                                [newSlices[index], newSlices[index + 1]] = [newSlices[index + 1], newSlices[index]];
+                                return { ...i, slices: newSlices };
+                              }
+                            }
+                            return i;
+                          })
+                        };
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
   notify();
 }
 
@@ -544,6 +874,116 @@ export function deleteNoteBlockSource(reportId: string, sectionId: string, noteI
   notify();
 }
 
+export function moveNoteBlockSourceUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        return {
+                          ...nb,
+                          indicators: nb.indicators.map(i => {
+                            if (i.id === indicatorId) {
+                              return {
+                                ...i,
+                                slices: i.slices.map(sl => {
+                                  if (sl.id === sliceId) {
+                                    const index = sl.sources.findIndex(src => src.id === sourceId);
+                                    if (index > 0) {
+                                      const newSources = [...sl.sources];
+                                      [newSources[index - 1], newSources[index]] = [newSources[index], newSources[index - 1]];
+                                      return { ...sl, sources: newSources };
+                                    }
+                                  }
+                                  return sl;
+                                })
+                              };
+                            }
+                            return i;
+                          })
+                        };
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveNoteBlockSourceDown(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        return {
+                          ...nb,
+                          indicators: nb.indicators.map(i => {
+                            if (i.id === indicatorId) {
+                              return {
+                                ...i,
+                                slices: i.slices.map(sl => {
+                                  if (sl.id === sliceId) {
+                                    const index = sl.sources.findIndex(src => src.id === sourceId);
+                                    if (index < sl.sources.length - 1) {
+                                      const newSources = [...sl.sources];
+                                      [newSources[index], newSources[index + 1]] = [newSources[index + 1], newSources[index]];
+                                      return { ...sl, sources: newSources };
+                                    }
+                                  }
+                                  return sl;
+                                })
+                              };
+                            }
+                            return i;
+                          })
+                        };
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
 
 
 // Note Source CRUD (Уровень 6 - напрямую в справке)
@@ -588,6 +1028,68 @@ export function deleteNoteSource(reportId: string, sectionId: string, noteId: st
   notify();
 }
 
+export function moveNoteSourceUp(reportId: string, sectionId: string, noteId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  const index = n.sources.findIndex(src => src.id === sourceId);
+                  if (index > 0) {
+                    const newSources = [...n.sources];
+                    [newSources[index - 1], newSources[index]] = [newSources[index], newSources[index - 1]];
+                    return { ...n, sources: newSources };
+                  }
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveNoteSourceDown(reportId: string, sectionId: string, noteId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  const index = n.sources.findIndex(src => src.id === sourceId);
+                  if (index < n.sources.length - 1) {
+                    const newSources = [...n.sources];
+                    [newSources[index], newSources[index + 1]] = [newSources[index + 1], newSources[index]];
+                    return { ...n, sources: newSources };
+                  }
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
 // Indicator CRUD (Уровень 4)
 export function addIndicator(reportId: string, sectionId: string, noteId: string, name: string, description?: string): Indicator {
   const indicator: Indicator = { id: generateId(), name, description, noteId, slices: [] };
@@ -627,6 +1129,68 @@ export function deleteIndicator(reportId: string, sectionId: string, noteId: str
       } : n)
     } : s)
   } : r);
+  notify();
+}
+
+export function moveIndicatorUp(reportId: string, sectionId: string, noteId: string, indicatorId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  const index = n.indicators.findIndex(i => i.id === indicatorId);
+                  if (index > 0) {
+                    const newIndicators = [...n.indicators];
+                    [newIndicators[index - 1], newIndicators[index]] = [newIndicators[index], newIndicators[index - 1]];
+                    return { ...n, indicators: newIndicators };
+                  }
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveIndicatorDown(reportId: string, sectionId: string, noteId: string, indicatorId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  const index = n.indicators.findIndex(i => i.id === indicatorId);
+                  if (index < n.indicators.length - 1) {
+                    const newIndicators = [...n.indicators];
+                    [newIndicators[index], newIndicators[index + 1]] = [newIndicators[index + 1], newIndicators[index]];
+                    return { ...n, indicators: newIndicators };
+                  }
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
   notify();
 }
 
@@ -678,6 +1242,84 @@ export function deleteSlice(reportId: string, sectionId: string, noteId: string,
       } : n)
     } : s)
   } : r);
+  notify();
+}
+
+export function moveSliceUp(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    indicators: n.indicators.map(i => {
+                      if (i.id === indicatorId) {
+                        const index = i.slices.findIndex(sl => sl.id === sliceId);
+                        if (index > 0) {
+                          const newSlices = [...i.slices];
+                          [newSlices[index - 1], newSlices[index]] = [newSlices[index], newSlices[index - 1]];
+                          return { ...i, slices: newSlices };
+                        }
+                      }
+                      return i;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveSliceDown(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    indicators: n.indicators.map(i => {
+                      if (i.id === indicatorId) {
+                        const index = i.slices.findIndex(sl => sl.id === sliceId);
+                        if (index < i.slices.length - 1) {
+                          const newSlices = [...i.slices];
+                          [newSlices[index], newSlices[index + 1]] = [newSlices[index + 1], newSlices[index]];
+                          return { ...i, slices: newSlices };
+                        }
+                      }
+                      return i;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
   notify();
 }
 
@@ -738,6 +1380,100 @@ export function deleteSource(reportId: string, sectionId: string, noteId: string
       } : n)
     } : s)
   } : r);
+  notify();
+}
+
+export function moveSourceUp(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    indicators: n.indicators.map(i => {
+                      if (i.id === indicatorId) {
+                        return {
+                          ...i,
+                          slices: i.slices.map(sl => {
+                            if (sl.id === sliceId) {
+                              const index = sl.sources.findIndex(src => src.id === sourceId);
+                              if (index > 0) {
+                                const newSources = [...sl.sources];
+                                [newSources[index - 1], newSources[index]] = [newSources[index], newSources[index - 1]];
+                                return { ...sl, sources: newSources };
+                              }
+                            }
+                            return sl;
+                          })
+                        };
+                      }
+                      return i;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveSourceDown(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    indicators: n.indicators.map(i => {
+                      if (i.id === indicatorId) {
+                        return {
+                          ...i,
+                          slices: i.slices.map(sl => {
+                            if (sl.id === sliceId) {
+                              const index = sl.sources.findIndex(src => src.id === sourceId);
+                              if (index < sl.sources.length - 1) {
+                                const newSources = [...sl.sources];
+                                [newSources[index], newSources[index + 1]] = [newSources[index + 1], newSources[index]];
+                                return { ...sl, sources: newSources };
+                              }
+                            }
+                            return sl;
+                          })
+                        };
+                      }
+                      return i;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
   notify();
 }
 

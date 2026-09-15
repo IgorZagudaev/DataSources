@@ -8,7 +8,18 @@ import {
   deleteReport, deleteSection, deleteNote, deleteNoteBlock,
   deleteIndicator, deleteNoteBlockIndicator,
   deleteSlice, deleteNoteBlockSlice,
-  deleteSource, deleteNoteSource, deleteNoteBlockSource
+  deleteSource, deleteNoteSource, deleteNoteBlockSource,
+  moveReportUp, moveReportDown,
+  moveSectionUp, moveSectionDown,
+  moveNoteUp, moveNoteDown,
+  moveNoteBlockUp, moveNoteBlockDown,
+  moveIndicatorUp, moveIndicatorDown,
+  moveNoteBlockIndicatorUp, moveNoteBlockIndicatorDown,
+  moveSliceUp, moveSliceDown,
+  moveNoteBlockSliceUp, moveNoteBlockSliceDown,
+  moveSourceUp, moveSourceDown,
+  moveNoteSourceUp, moveNoteSourceDown,
+  moveNoteBlockSourceUp, moveNoteBlockSourceDown
 } from './store';
 
 interface FormState {
@@ -78,6 +89,82 @@ function App() {
       setDeleteConfirm({ id, type, parentIds });
       setPanelKey(prev => prev + 1);
     }, 10);
+  };
+
+  const handleMoveUp = (type: string, id: string, parentIds: string[]) => {
+    switch (type) {
+      case 'report':
+        moveReportUp(id);
+        break;
+      case 'section':
+        moveSectionUp(parentIds[0], id);
+        break;
+      case 'note':
+        moveNoteUp(parentIds[0], parentIds[1], id);
+        break;
+      case 'noteBlock':
+        moveNoteBlockUp(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'indicator':
+        moveIndicatorUp(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'noteBlockIndicator':
+        moveNoteBlockIndicatorUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+        break;
+      case 'slice':
+        moveSliceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+        break;
+      case 'noteBlockSlice':
+        moveNoteBlockSliceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+        break;
+      case 'source':
+        moveSourceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+        break;
+      case 'noteSource':
+        moveNoteSourceUp(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'noteBlockSource':
+        moveNoteBlockSourceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
+        break;
+    }
+  };
+
+  const handleMoveDown = (type: string, id: string, parentIds: string[]) => {
+    switch (type) {
+      case 'report':
+        moveReportDown(id);
+        break;
+      case 'section':
+        moveSectionDown(parentIds[0], id);
+        break;
+      case 'note':
+        moveNoteDown(parentIds[0], parentIds[1], id);
+        break;
+      case 'noteBlock':
+        moveNoteBlockDown(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'indicator':
+        moveIndicatorDown(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'noteBlockIndicator':
+        moveNoteBlockIndicatorDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+        break;
+      case 'slice':
+        moveSliceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+        break;
+      case 'noteBlockSlice':
+        moveNoteBlockSliceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+        break;
+      case 'source':
+        moveSourceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+        break;
+      case 'noteSource':
+        moveNoteSourceDown(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'noteBlockSource':
+        moveNoteBlockSourceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
+        break;
+    }
   };
 
   const handleFormClose = () => {
@@ -235,6 +322,8 @@ function App() {
             onAdd={handleAdd}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onMoveUp={handleMoveUp}
+            onMoveDown={handleMoveDown}
           />
         </section>
 
