@@ -1,4 +1,4 @@
-import { Report, Section, Note, NoteBlock, Indicator, DataSlice, DataSource } from './types';
+import { Report, Section, Note, NoteBlock, Indicator, DataSlice, DataSource, SourceType } from './types';
 
 const STORAGE_KEY = 'report_data_sources_reference_v3';
 
@@ -36,6 +36,7 @@ function loadData(): Report[] {
                       }
                     });
                   }
+                  // shortName is optional, no migration needed
                 });
               }
             });
@@ -289,8 +290,8 @@ export function deleteSection(reportId: string, sectionId: string) {
 }
 
 // Note CRUD (Уровень 3)
-export function addNote(reportId: string, sectionId: string, name: string, description?: string): Note {
-  const note: Note = { id: generateId(), name, description, sectionId, noteBlocks: [], indicators: [], sources: [] };
+export function addNote(reportId: string, sectionId: string, name: string, description?: string, shortName?: string): Note {
+  const note: Note = { id: generateId(), name, shortName, description, sectionId, noteBlocks: [], indicators: [], sources: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? { ...s, notes: [...s.notes, note] } : s)
@@ -299,12 +300,12 @@ export function addNote(reportId: string, sectionId: string, name: string, descr
   return note;
 }
 
-export function updateNote(reportId: string, sectionId: string, noteId: string, name: string, description?: string) {
+export function updateNote(reportId: string, sectionId: string, noteId: string, name: string, description?: string, shortName?: string) {
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
-      notes: s.notes.map(n => n.id === noteId ? { ...n, name, description } : n)
+      notes: s.notes.map(n => n.id === noteId ? { ...n, name, description, shortName } : n)
     } : s)
   } : r);
   notify();
@@ -475,8 +476,8 @@ export function deleteNoteBlockSlice(reportId: string, sectionId: string, noteId
 }
 
 // NoteBlock Source CRUD (Источники в разрезах блока справки)
-export function addNoteBlockSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, name: string, description?: string): DataSource {
-  const source: DataSource = { id: generateId(), name, description, sliceId };
+export function addNoteBlockSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, name: string, description?: string, sourceTypes?: SourceType[]): DataSource {
+  const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
@@ -497,7 +498,7 @@ export function addNoteBlockSource(reportId: string, sectionId: string, noteId: 
   return source;
 }
 
-export function updateNoteBlockSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, sourceId: string, name: string, description?: string) {
+export function updateNoteBlockSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, sourceId: string, name: string, description?: string, sourceTypes?: SourceType[]) {
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
@@ -510,7 +511,7 @@ export function updateNoteBlockSource(reportId: string, sectionId: string, noteI
             ...i,
             slices: i.slices.map(sl => sl.id === sliceId ? {
               ...sl,
-              sources: sl.sources.map(src => src.id === sourceId ? { ...src, name, description } : src)
+              sources: sl.sources.map(src => src.id === sourceId ? { ...src, name, description, sourceTypes } : src)
             } : sl)
           } : i)
         } : nb)
@@ -546,8 +547,8 @@ export function deleteNoteBlockSource(reportId: string, sectionId: string, noteI
 
 
 // Note Source CRUD (Уровень 6 - напрямую в справке)
-export function addNoteSource(reportId: string, sectionId: string, noteId: string, name: string, description?: string): DataSource {
-  const source: DataSource = { id: generateId(), name, description, sliceId: noteId };
+export function addNoteSource(reportId: string, sectionId: string, noteId: string, name: string, description?: string, sourceTypes?: SourceType[]): DataSource {
+  const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId: noteId };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
@@ -559,14 +560,14 @@ export function addNoteSource(reportId: string, sectionId: string, noteId: strin
   return source;
 }
 
-export function updateNoteSource(reportId: string, sectionId: string, noteId: string, sourceId: string, name: string, description?: string) {
+export function updateNoteSource(reportId: string, sectionId: string, noteId: string, sourceId: string, name: string, description?: string, sourceTypes?: SourceType[]) {
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
       notes: s.notes.map(n => n.id === noteId ? {
         ...n,
-        sources: n.sources.map(src => src.id === sourceId ? { ...src, name, description } : src)
+        sources: n.sources.map(src => src.id === sourceId ? { ...src, name, description, sourceTypes } : src)
       } : n)
     } : s)
   } : r);
@@ -681,8 +682,8 @@ export function deleteSlice(reportId: string, sectionId: string, noteId: string,
 }
 
 // Source CRUD (Уровень 6)
-export function addSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, name: string, description?: string): DataSource {
-  const source: DataSource = { id: generateId(), name, description, sliceId };
+export function addSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, name: string, description?: string, sourceTypes?: SourceType[]): DataSource {
+  const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
@@ -700,7 +701,7 @@ export function addSource(reportId: string, sectionId: string, noteId: string, i
   return source;
 }
 
-export function updateSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string, name: string, description?: string) {
+export function updateSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string, name: string, description?: string, sourceTypes?: SourceType[]) {
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
@@ -711,7 +712,7 @@ export function updateSource(reportId: string, sectionId: string, noteId: string
           ...i,
           slices: i.slices.map(sl => sl.id === sliceId ? {
             ...sl,
-            sources: sl.sources.map(src => src.id === sourceId ? { ...src, name, description } : src)
+            sources: sl.sources.map(src => src.id === sourceId ? { ...src, name, description, sourceTypes } : src)
           } : sl)
         } : i)
       } : n)

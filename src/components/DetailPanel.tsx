@@ -59,6 +59,16 @@ export function DetailPanel({ reports, selectedId, selectedType, onClose }: Deta
           )}
         </div>
 
+        {/* Source Types */}
+        {entity.sourceTypes && entity.sourceTypes.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Типы источника</h3>
+            <p className="text-sm text-gray-700">
+              {entity.sourceTypes.join(' + ')}
+            </p>
+          </div>
+        )}
+
         {/* Hierarchy path */}
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Путь в иерархии</h3>
@@ -115,6 +125,7 @@ interface EntityInfo {
   id: string;
   name: string;
   description?: string;
+  sourceTypes?: string[];
 }
 
 function findEntity(reports: Report[], id: string, type: string): EntityInfo | null {
@@ -133,7 +144,7 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
         // Прямые источники справки
         for (const source of note.sources) {
           if (source.id === id && type === 'noteSource') {
-            return { id: source.id, name: source.name, description: source.description };
+            return { id: source.id, name: source.name, description: source.description, sourceTypes: source.sourceTypes };
           }
         }
         // Блоки справки
@@ -155,7 +166,7 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
               // Источники в разрезах блока справки
               for (const source of slice.sources || []) {
                 if (source.id === id && type === 'noteBlockSliceSource') {
-                  return { id: source.id, name: source.name, description: source.description };
+                  return { id: source.id, name: source.name, description: source.description, sourceTypes: source.sourceTypes };
                 }
               }
             }
@@ -171,7 +182,7 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
             }
             for (const source of slice.sources) {
               if (source.id === id && type === 'source') {
-                return { id: source.id, name: source.name, description: source.description };
+                return { id: source.id, name: source.name, description: source.description, sourceTypes: source.sourceTypes };
               }
             }
           }

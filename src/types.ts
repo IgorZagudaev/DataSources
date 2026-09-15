@@ -2,10 +2,24 @@
 // 7 уровней: Доклад → Раздел → Справка → [Блок справки] → Показатель → Разрез → Источник
 // Блок справки - необязательный уровень
 
+export const SOURCE_TYPES = [
+  'Робот',
+  'Ручная выгрузка',
+  'ПО',
+  'Дискор НП',
+  'ЭПС',
+  'ЕАСД',
+  'Хранимые процедуры',
+  'Другое'
+] as const;
+
+export type SourceType = typeof SOURCE_TYPES[number];
+
 export interface DataSource {
   id: string;
   name: string; // Источник данных (Уровень 6)
   description?: string;
+  sourceTypes?: SourceType[]; // Типы источника (множественный выбор)
   sliceId: string;
 }
 
@@ -36,6 +50,7 @@ export interface NoteBlock {
 export interface Note {
   id: string;
   name: string; // Название справки (Уровень 3)
+  shortName?: string; // Краткое название для отображения в списке
   description?: string;
   sectionId: string;
   noteBlocks: NoteBlock[]; // Блоки справки (необязательный уровень)

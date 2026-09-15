@@ -131,7 +131,7 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                   <TreeNodeItem
                     key={note.id}
                     id={note.id}
-                    name={note.name}
+                    name={note.shortName ? `${note.shortName} — ${note.name}` : note.name}
                     type="note"
                     level={2}
                     icon="📝"

@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS notes (
     id VARCHAR(36) PRIMARY KEY,
     section_id VARCHAR(36) NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
     name VARCHAR(500) NOT NULL,
+    short_name VARCHAR(200),
     description TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -133,6 +134,7 @@ CREATE TABLE IF NOT EXISTS data_sources (
     slice_id VARCHAR(36) NOT NULL REFERENCES data_slices(id) ON DELETE CASCADE,
     name VARCHAR(500) NOT NULL,
     description TEXT,
+    source_types TEXT, -- JSON array of source types
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

@@ -12,6 +12,7 @@ import {
   addNoteBlockSlice, updateNoteBlockSlice,
   addNoteBlockSource, updateNoteBlockSource
 } from '../store';
+import { SOURCE_TYPES, SourceType } from '../types';
 
 interface FormPanelProps {
   formState: {
@@ -25,15 +26,17 @@ interface FormPanelProps {
 
 export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
   const [name, setName] = useState(formState?.editData?.name || '');
+  const [shortName, setShortName] = useState(formState?.editData?.shortName || '');
   const [description, setDescription] = useState(formState?.editData?.description || '');
+  const [sourceTypes, setSourceTypes] = useState<SourceType[]>(formState?.editData?.sourceTypes || []);
 
   if (!formState) return null;
 
   const getLabels = (type: string) => {
-    const labels: Record<string, { name: string; description: string; title: string }> = {
+    const labels: Record<string, { name: string; description: string; title: string; shortName?: string }> = {
       report: { name: 'Название доклада', description: 'Описание доклада', title: 'Доклад' },
       section: { name: 'Название раздела', description: 'Описание раздела', title: 'Раздел' },
-      note: { name: 'Название справки', description: 'Текст справки', title: 'Справка' },
+      note: { name: 'Название справки', description: 'Текст справки', title: 'Справка', shortName: 'Краткое название' },
       noteBlock: { name: 'Название блока справки', description: 'Описание блока', title: 'Блок справки' },
       indicator: { name: 'Название показателя', description: 'Описание показателя', title: 'Показатель' },
       noteBlockIndicator: { name: 'Название показателя', description: 'Описание показателя', title: 'Показатель' },
@@ -66,7 +69,7 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
           updateSection(parentIds[0], editData.id, name, description);
           break;
         case 'note':
-          updateNote(parentIds[0], parentIds[1], editData.id, name, description);
+          updateNote(parentIds[0], parentIds[1], editData.id, name, description, shortName);
           break;
         case 'noteBlock':
           updateNoteBlock(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
@@ -84,16 +87,16 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
           updateNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
           break;
         case 'source':
-          updateSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
+          updateSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description, sourceTypes);
           break;
         case 'noteSource':
-          updateNoteSource(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
+          updateNoteSource(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description, sourceTypes);
           break;
         case 'noteBlockSource':
-          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description);
+          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description, sourceTypes);
           break;
         case 'noteBlockSliceSource':
-          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description);
+          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description, sourceTypes);
           break;
       }
     } else {
@@ -106,7 +109,7 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
           addSection(parentIds[0], name, description);
           break;
         case 'note':
-          addNote(parentIds[0], parentIds[1], name, description);
+          addNote(parentIds[0], parentIds[1], name, description, shortName);
           break;
         case 'noteBlock':
           addNoteBlock(parentIds[0], parentIds[1], parentIds[2], name, description);
@@ -124,16 +127,16 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
           addNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
           break;
         case 'source':
-          addSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
+          addSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description, sourceTypes);
           break;
         case 'noteSource':
-          addNoteSource(parentIds[0], parentIds[1], parentIds[2], name, description);
+          addNoteSource(parentIds[0], parentIds[1], parentIds[2], name, description, sourceTypes);
           break;
         case 'noteBlockSource':
-          addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description);
+          addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes);
           break;
         case 'noteBlockSliceSource':
-          addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description);
+          addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes);
           break;
       }
     }
@@ -182,6 +185,21 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
             />
           </div>
 
+          {formState.type === 'note' && labels.shortName && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {labels.shortName}
+              </label>
+              <input
+                type="text"
+                value={shortName}
+                onChange={(e) => setShortName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                placeholder="Введите краткое название..."
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {labels.description}
@@ -194,6 +212,33 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
               rows={4}
             />
           </div>
+
+          {(formState.type === 'source' || formState.type === 'noteSource' || formState.type === 'noteBlockSource' || formState.type === 'noteBlockSliceSource') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Тип источника
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {SOURCE_TYPES.map((type) => (
+                  <label key={type} className="flex items-center gap-2 p-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={sourceTypes.includes(type)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSourceTypes([...sourceTypes, type]);
+                        } else {
+                          setSourceTypes(sourceTypes.filter(t => t !== type));
+                        }
+                      }}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">{type}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 mt-6">
