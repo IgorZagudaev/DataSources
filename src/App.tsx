@@ -24,6 +24,7 @@ function App() {
   const [formState, setFormState] = useState<FormState | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: string; parentIds: string[] } | null>(null);
   const [panelKey, setPanelKey] = useState(0);
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -193,6 +194,26 @@ function App() {
             </div>
           </div>
 
+          {/* Source Type Filter */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 hidden md:inline">Фильтр по типу:</label>
+            <select
+              value={sourceTypeFilter}
+              onChange={(e) => setSourceTypeFilter(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            >
+              <option value="">Все типы</option>
+              <option value="Робот">Робот</option>
+              <option value="Ручная выгрузка">Ручная выгрузка</option>
+              <option value="ПО">ПО</option>
+              <option value="Дискор НП">Дискор НП</option>
+              <option value="ЭПС">ЭПС</option>
+              <option value="ЕАСД">ЕАСД</option>
+              <option value="Хранимые процедуры">Хранимые процедуры</option>
+              <option value="Другое">Другое</option>
+            </select>
+          </div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={handleExport}
@@ -233,6 +254,7 @@ function App() {
             onAdd={handleAdd}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            sourceTypeFilter={sourceTypeFilter}
           />
         </section>
 

@@ -8,9 +8,10 @@ interface TreeViewProps {
   onAdd: (type: string, parentIds: string[]) => void;
   onEdit: (type: string, parentIds: string[], data: any) => void;
   onDelete: (id: string, type: string, parentIds: string[]) => void;
+  sourceTypeFilter?: string;
 }
 
-export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete }: TreeViewProps) {
+export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete, sourceTypeFilter = '' }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
 
   const toggleExpand = (id: string) => {
@@ -74,6 +75,12 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
 
   const handleDelete = (id: string, type: string, parentIds: string[]) => {
     onDelete(id, type, parentIds);
+  };
+
+  // Проверка, содержит ли источник выбранный тип
+  const hasSourceType = (source: any): boolean => {
+    if (!sourceTypeFilter) return false;
+    return source.sourceTypes && source.sourceTypes.includes(sourceTypeFilter);
   };
 
   return (
@@ -216,6 +223,7 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                                     index={sourceIndex}
                                     isExpanded={false}
                                     isSelected={selectedId === source.id}
+                                    isHighlighted={hasSourceType(source)}
                                     onToggle={() => {}}
                                     onSelect={() => handleSelect(source.id, 'noteBlockSliceSource')}
                                     onAddChild={() => {}}
@@ -277,6 +285,7 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                                 index={sourceIndex}
                                 isExpanded={false}
                                 isSelected={selectedId === source.id}
+                                isHighlighted={hasSourceType(source)}
                                 onToggle={() => {}}
                                 onSelect={() => handleSelect(source.id, 'source')}
                                 onAddChild={() => {}}
@@ -300,6 +309,7 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                         index={sourceIndex}
                         isExpanded={false}
                         isSelected={selectedId === source.id}
+                        isHighlighted={hasSourceType(source)}
                         onToggle={() => {}}
                         onSelect={() => handleSelect(source.id, 'noteSource')}
                         onAddChild={() => {}}
@@ -335,18 +345,20 @@ interface TreeNodeItemProps {
   childLabel?: string;
   childLabels?: Array<{ label: string; action: () => void }>;
   index?: number;
+  isHighlighted?: boolean;
 }
 
 function TreeNodeItem({
   name, type, level, icon, isExpanded, isSelected, index = 0,
   onToggle, onSelect, onAddChild, onEdit, onDelete,
-  children, childLabel, childLabels
+  children, childLabel, childLabels, isHighlighted = false
 }: TreeNodeItemProps) {
   const hasChildren = children && React.Children.count(children) > 0;
 
   // Цвета для разных уровней иерархии с чередованием тональности
-  const getBackgroundColor = (type: string, index: number, isSelected: boolean): string => {
+  const getBackgroundColor = (type: string, index: number, isSelected: boolean, isHighlighted: boolean): string => {
     if (isSelected) return '#dbeafe'; // blue-100
+    if (isHighlighted) return '#fef08a'; // yellow-200 - жёлтый для подсветки
     
     const isEven = index % 2 === 0;
     
@@ -377,7 +389,7 @@ function TreeNodeItem({
     return borderColors[type] || 'transparent';
   };
 
-  const bgColor = getBackgroundColor(type, index, isSelected);
+  const bgColor = getBackgroundColor(type, index, isSelected, isHighlighted);
   const borderColor = getBorderColor(type);
 
   return (
