@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Report } from '../types';
 
 interface TreeViewProps {
@@ -13,6 +13,65 @@ interface TreeViewProps {
 export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
   const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('');
+
+  // Автоматическое раскрытие узлов при выборе типа источника
+  useEffect(() => {
+    if (!sourceTypeFilter) return;
+
+    const nodesToExpand = new Set<string>();
+
+    reports.forEach(report => {
+      report.sections.forEach(section => {
+        section.notes.forEach(note => {
+          // Проверяем прямые источники в справке
+          note.sources?.forEach(source => {
+            if (source.sourceTypes?.includes(sourceTypeFilter as any)) {
+              nodesToExpand.add(report.id);
+              nodesToExpand.add(section.id);
+              nodesToExpand.add(note.id);
+            }
+          });
+
+          // Проверяем источники в блоках справки
+          note.noteBlocks?.forEach(noteBlock => {
+            noteBlock.indicators?.forEach(indicator => {
+              indicator.slices?.forEach(slice => {
+                slice.sources?.forEach(source => {
+                  if (source.sourceTypes?.includes(sourceTypeFilter as any)) {
+                    nodesToExpand.add(report.id);
+                    nodesToExpand.add(section.id);
+                    nodesToExpand.add(note.id);
+                    nodesToExpand.add(noteBlock.id);
+                    nodesToExpand.add(indicator.id);
+                    nodesToExpand.add(slice.id);
+                  }
+                });
+              });
+            });
+          });
+
+          // Проверяем источники в показателях справки
+          note.indicators?.forEach(indicator => {
+            indicator.slices?.forEach(slice => {
+              slice.sources?.forEach(source => {
+                if (source.sourceTypes?.includes(sourceTypeFilter as any)) {
+                  nodesToExpand.add(report.id);
+                  nodesToExpand.add(section.id);
+                  nodesToExpand.add(note.id);
+                  nodesToExpand.add(indicator.id);
+                  nodesToExpand.add(slice.id);
+                }
+              });
+            });
+          });
+        });
+      });
+    });
+
+    if (nodesToExpand.size > 0) {
+      setExpandedNodes(prev => new Set([...prev, ...nodesToExpand]));
+    }
+  }, [sourceTypeFilter, reports]);
 
   const toggleExpand = (id: string) => {
     setExpandedNodes(prev => {
@@ -86,8 +145,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
   return (
     <div className="h-full overflow-y-auto">
       {/* Source Type Filter */}
-      <div className="px-3 pt-3 pb-2 bg-gray-50">
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+      <div className="px-6 pt-6 pb-4 bg-gray-50">
+        <label className="block text-sm font-medium text-gray-700 mb-3">
           Подсветить источники
         </label>
         <select
