@@ -487,7 +487,6 @@ function TreeNodeItem({
 
   // Цвета для разных уровней иерархии с чередованием тональности
   const getBackgroundColor = (type: string, index: number, isSelected: boolean, isHighlighted: boolean): string => {
-    if (isSelected) return '#dbeafe'; // blue-100
     if (isHighlighted) return '#fef08a'; // yellow-200 - жёлтый для подсветки
     
     const isEven = index % 2 === 0;
@@ -501,6 +500,22 @@ function TreeNodeItem({
       slice:     isEven ? ['#f3e8ff', '#e9d5ff'] : ['#e9d5ff', '#f3e8ff'], // purple (фиолетовый)
       source:    isEven ? ['#f3f4f6', '#e5e7eb'] : ['#e5e7eb', '#f3f4f6'], // gray (серый)
     };
+    
+    // Более яркие цвета для выбранных элементов
+    const selectedColorMap: Record<string, string> = {
+      report:    '#f9a8d4', // pink-300 (ярко-розовый)
+      section:   '#7dd3fc', // sky-300 (ярко-голубой)
+      note:      '#fdba74', // orange-300 (ярко-оранжевый)
+      noteBlock: '#fcd34d', // amber-300 (ярко-янтарный)
+      indicator: '#86efac', // green-300 (ярко-зелёный)
+      slice:     '#d8b4fe', // purple-300 (ярко-фиолетовый)
+      source:    '#d1d5db', // gray-300 (ярко-серый)
+    };
+    
+    // Если элемент выбран, вернуть более яркий цвет
+    if (isSelected) {
+      return selectedColorMap[type] || '#bfdbfe';
+    }
     
     const colors = colorMap[type] || ['#f9fafb', '#f3f4f6'];
     return colors[0];
