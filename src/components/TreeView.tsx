@@ -8,11 +8,11 @@ interface TreeViewProps {
   onAdd: (type: string, parentIds: string[]) => void;
   onEdit: (type: string, parentIds: string[], data: any) => void;
   onDelete: (id: string, type: string, parentIds: string[]) => void;
-  sourceTypeFilter?: string;
 }
 
-export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete, sourceTypeFilter = '' }: TreeViewProps) {
+export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('');
 
   const toggleExpand = (id: string) => {
     setExpandedNodes(prev => {
@@ -85,6 +85,28 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
 
   return (
     <div className="h-full overflow-y-auto">
+      {/* Source Type Filter */}
+      <div className="p-3 border-b border-gray-200 bg-gray-50">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Подсветить источники
+        </label>
+        <select
+          value={sourceTypeFilter}
+          onChange={(e) => setSourceTypeFilter(e.target.value)}
+          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+        >
+          <option value="">Все типы</option>
+          <option value="Робот">Робот</option>
+          <option value="Ручная выгрузка">Ручная выгрузка</option>
+          <option value="ПО">ПО</option>
+          <option value="Дискор НП">Дискор НП</option>
+          <option value="ЭПС">ЭПС</option>
+          <option value="ЕАСД">ЕАСД</option>
+          <option value="Хранимые процедуры">Хранимые процедуры</option>
+          <option value="Другое">Другое</option>
+        </select>
+      </div>
+
       {/* Add Report button */}
       <div className="p-3 border-b border-gray-200 bg-gray-50">
         <button
