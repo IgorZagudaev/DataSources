@@ -13,6 +13,7 @@ interface TreeViewProps {
 export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
   const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('');
+  const [isAllExpanded, setIsAllExpanded] = useState<boolean>(false);
 
   // Автоматическое раскрытие узлов при выборе типа источника
   useEffect(() => {
@@ -111,10 +112,12 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
     });
     
     setExpandedNodes(allIds);
+    setIsAllExpanded(true);
   };
 
   const collapseAll = () => {
     setExpandedNodes(new Set());
+    setIsAllExpanded(false);
   };
 
   const expandTo = (id: string) => {
@@ -201,21 +204,14 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
         </select>
       </div>
 
-      {/* Tree Control Buttons */}
-      <div className="px-6 pb-4 bg-gray-50 flex gap-2">
+      {/* Tree Control Button */}
+      <div className="px-6 pb-4 bg-gray-50">
         <button
-          onClick={expandAll}
-          className="flex-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Развернуть всю иерархию"
+          onClick={isAllExpanded ? collapseAll : expandAll}
+          className="w-full px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
+          title={isAllExpanded ? "Свернуть всю иерархию" : "Развернуть всю иерархию"}
         >
-          ▼ Развернуть всё
-        </button>
-        <button
-          onClick={collapseAll}
-          className="flex-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Свернуть всю иерархию"
-        >
-          ▶ Свернуть всё
+          {isAllExpanded ? '▶ Свернуть всё' : '▼ Развернуть всё'}
         </button>
       </div>
 
