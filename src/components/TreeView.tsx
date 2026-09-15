@@ -8,9 +8,11 @@ interface TreeViewProps {
   onAdd: (type: string, parentIds: string[]) => void;
   onEdit: (type: string, parentIds: string[], data: any) => void;
   onDelete: (id: string, type: string, parentIds: string[]) => void;
+  onMoveUp: (type: string, id: string, parentIds: string[]) => void;
+  onMoveDown: (type: string, id: string, parentIds: string[]) => void;
 }
 
-export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete }: TreeViewProps) {
+export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete, onMoveUp, onMoveDown }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
   const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('');
   const [isAllExpanded, setIsAllExpanded] = useState<boolean>(false);
@@ -244,6 +246,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
             onAddChild={() => handleAdd('section', [report.id])}
             onEdit={() => handleEdit('report', [report.id], report)}
             onDelete={() => handleDelete(report.id, 'report', [])}
+            onMoveUp={() => onMoveUp('report', report.id, [])}
+            onMoveDown={() => onMoveDown('report', report.id, [])}
             childLabel="+ Раздел"
           >
             {report.sections.map((section, sectionIndex) => (
@@ -262,6 +266,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                 onAddChild={() => handleAdd('note', [report.id, section.id])}
                 onEdit={() => handleEdit('section', [report.id], section)}
                 onDelete={() => handleDelete(section.id, 'section', [report.id])}
+                onMoveUp={() => onMoveUp('section', section.id, [report.id])}
+                onMoveDown={() => onMoveDown('section', section.id, [report.id])}
                 childLabel="+ Справка"
               >
                 {section.notes.map((note, noteIndex) => (
@@ -280,6 +286,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                     onAddChild={() => {}}
                     onEdit={() => handleEdit('note', [report.id, section.id], note)}
                     onDelete={() => handleDelete(note.id, 'note', [report.id, section.id])}
+                    onMoveUp={() => onMoveUp('note', note.id, [report.id, section.id])}
+                    onMoveDown={() => onMoveDown('note', note.id, [report.id, section.id])}
                     childLabels={[
                       { label: 'Блок справки', action: () => handleAdd('noteBlock', [report.id, section.id, note.id]) },
                       { label: 'Показатель', action: () => handleAdd('indicator', [report.id, section.id, note.id]) },
@@ -302,6 +310,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                         onSelect={() => handleSelect(noteBlock.id, 'noteBlock')}
                         onEdit={() => handleEdit('noteBlock', [report.id, section.id, note.id], noteBlock)}
                         onDelete={() => handleDelete(noteBlock.id, 'noteBlock', [report.id, section.id, note.id])}
+                        onMoveUp={() => onMoveUp('noteBlock', noteBlock.id, [report.id, section.id, note.id])}
+                        onMoveDown={() => onMoveDown('noteBlock', noteBlock.id, [report.id, section.id, note.id])}
                         childLabel="+ Показатель"
                         onAddChild={() => handleAdd('noteBlockIndicator', [report.id, section.id, note.id, noteBlock.id])}
                       >
@@ -322,6 +332,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                             onAddChild={() => handleAdd('noteBlockSlice', [report.id, section.id, note.id, noteBlock.id, indicator.id])}
                             onEdit={() => handleEdit('noteBlockIndicator', [report.id, section.id, note.id, noteBlock.id], indicator)}
                             onDelete={() => handleDelete(indicator.id, 'noteBlockIndicator', [report.id, section.id, note.id, noteBlock.id])}
+                            onMoveUp={() => onMoveUp('noteBlockIndicator', indicator.id, [report.id, section.id, note.id, noteBlock.id])}
+                            onMoveDown={() => onMoveDown('noteBlockIndicator', indicator.id, [report.id, section.id, note.id, noteBlock.id])}
                             childLabel="+ Разрез"
                           >
                             {indicator.slices.map((slice, sliceIndex) => (
@@ -340,6 +352,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                                 onAddChild={() => handleAdd('noteBlockSliceSource', [report.id, section.id, note.id, noteBlock.id, indicator.id, slice.id])}
                                 onEdit={() => handleEdit('noteBlockSlice', [report.id, section.id, note.id, noteBlock.id, indicator.id], slice)}
                                 onDelete={() => handleDelete(slice.id, 'noteBlockSlice', [report.id, section.id, note.id, noteBlock.id, indicator.id])}
+                                onMoveUp={() => onMoveUp('noteBlockSlice', slice.id, [report.id, section.id, note.id, noteBlock.id, indicator.id])}
+                                onMoveDown={() => onMoveDown('noteBlockSlice', slice.id, [report.id, section.id, note.id, noteBlock.id, indicator.id])}
                                 childLabel="+ Источник"
                               >
                                 {slice.sources.map((source, sourceIndex) => (
@@ -359,6 +373,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                                     onAddChild={() => {}}
                                     onEdit={() => handleEdit('noteBlockSliceSource', [report.id, section.id, note.id, noteBlock.id, indicator.id, slice.id], source)}
                                     onDelete={() => handleDelete(source.id, 'noteBlockSliceSource', [report.id, section.id, note.id, noteBlock.id, indicator.id, slice.id])}
+                                    onMoveUp={() => onMoveUp('noteBlockSource', source.id, [report.id, section.id, note.id, noteBlock.id, indicator.id, slice.id])}
+                                    onMoveDown={() => onMoveDown('noteBlockSource', source.id, [report.id, section.id, note.id, noteBlock.id, indicator.id, slice.id])}
                                   />
                                 ))}
                               </TreeNodeItem>
@@ -384,6 +400,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                         onAddChild={() => handleAdd('slice', [report.id, section.id, note.id, indicator.id])}
                         onEdit={() => handleEdit('indicator', [report.id, section.id, note.id], indicator)}
                         onDelete={() => handleDelete(indicator.id, 'indicator', [report.id, section.id, note.id])}
+                        onMoveUp={() => onMoveUp('indicator', indicator.id, [report.id, section.id, note.id])}
+                        onMoveDown={() => onMoveDown('indicator', indicator.id, [report.id, section.id, note.id])}
                         childLabel="+ Разрез"
                       >
                         {indicator.slices.map((slice, sliceIndex) => (
@@ -402,6 +420,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                             onAddChild={() => handleAdd('source', [report.id, section.id, note.id, indicator.id, slice.id])}
                             onEdit={() => handleEdit('slice', [report.id, section.id, note.id, indicator.id], slice)}
                             onDelete={() => handleDelete(slice.id, 'slice', [report.id, section.id, note.id, indicator.id])}
+                            onMoveUp={() => onMoveUp('slice', slice.id, [report.id, section.id, note.id, indicator.id])}
+                            onMoveDown={() => onMoveDown('slice', slice.id, [report.id, section.id, note.id, indicator.id])}
                             childLabel="+ Источник"
                           >
                             {slice.sources.map((source, sourceIndex) => (
@@ -421,6 +441,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                                 onAddChild={() => {}}
                                 onEdit={() => handleEdit('source', [report.id, section.id, note.id, indicator.id, slice.id], source)}
                                 onDelete={() => handleDelete(source.id, 'source', [report.id, section.id, note.id, indicator.id, slice.id])}
+                                onMoveUp={() => onMoveUp('source', source.id, [report.id, section.id, note.id, indicator.id, slice.id])}
+                                onMoveDown={() => onMoveDown('source', source.id, [report.id, section.id, note.id, indicator.id, slice.id])}
                               />
                             ))}
                           </TreeNodeItem>
@@ -445,6 +467,8 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
                         onAddChild={() => {}}
                         onEdit={() => handleEdit('noteSource', [report.id, section.id, note.id], source)}
                         onDelete={() => handleDelete(source.id, 'noteSource', [report.id, section.id, note.id])}
+                        onMoveUp={() => onMoveUp('noteSource', source.id, [report.id, section.id, note.id])}
+                        onMoveDown={() => onMoveDown('noteSource', source.id, [report.id, section.id, note.id])}
                       />
                     ))}
                   </TreeNodeItem>
@@ -471,6 +495,8 @@ interface TreeNodeItemProps {
   onAddChild: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   children?: React.ReactNode;
   childLabel?: string;
   childLabels?: Array<{ label: string; action: () => void }>;
@@ -480,7 +506,7 @@ interface TreeNodeItemProps {
 
 function TreeNodeItem({
   name, type, level, icon, isExpanded, isSelected, index = 0,
-  onToggle, onSelect, onAddChild, onEdit, onDelete,
+  onToggle, onSelect, onAddChild, onEdit, onDelete, onMoveUp, onMoveDown,
   children, childLabel, childLabels, isHighlighted = false
 }: TreeNodeItemProps) {
   const hasChildren = children && React.Children.count(children) > 0;
@@ -590,6 +616,24 @@ function TreeNodeItem({
               +
             </button>
           ) : null}
+          {onMoveUp && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+              className="p-1.5 text-purple-600 hover:bg-purple-100 rounded transition-colors text-sm"
+              title="Переместить вверх"
+            >
+              ↑
+            </button>
+          )}
+          {onMoveDown && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+              className="p-1.5 text-purple-600 hover:bg-purple-100 rounded transition-colors text-sm"
+              title="Переместить вниз"
+            >
+              ↓
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
             className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors text-sm"
