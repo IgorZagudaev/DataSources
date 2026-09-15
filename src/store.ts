@@ -36,6 +36,7 @@ function loadData(): Report[] {
                       }
                     });
                   }
+                  // shortName is optional, no migration needed
                 });
               }
             });
@@ -289,8 +290,8 @@ export function deleteSection(reportId: string, sectionId: string) {
 }
 
 // Note CRUD (Уровень 3)
-export function addNote(reportId: string, sectionId: string, name: string, description?: string): Note {
-  const note: Note = { id: generateId(), name, description, sectionId, noteBlocks: [], indicators: [], sources: [] };
+export function addNote(reportId: string, sectionId: string, name: string, description?: string, shortName?: string): Note {
+  const note: Note = { id: generateId(), name, shortName, description, sectionId, noteBlocks: [], indicators: [], sources: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? { ...s, notes: [...s.notes, note] } : s)
@@ -299,12 +300,12 @@ export function addNote(reportId: string, sectionId: string, name: string, descr
   return note;
 }
 
-export function updateNote(reportId: string, sectionId: string, noteId: string, name: string, description?: string) {
+export function updateNote(reportId: string, sectionId: string, noteId: string, name: string, description?: string, shortName?: string) {
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
       ...s,
-      notes: s.notes.map(n => n.id === noteId ? { ...n, name, description } : n)
+      notes: s.notes.map(n => n.id === noteId ? { ...n, name, description, shortName } : n)
     } : s)
   } : r);
   notify();

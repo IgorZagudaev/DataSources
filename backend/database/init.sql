@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS notes (
     id VARCHAR(36) PRIMARY KEY,
     section_id VARCHAR(36) NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
     name VARCHAR(500) NOT NULL,
+    short_name VARCHAR(200),
     description TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

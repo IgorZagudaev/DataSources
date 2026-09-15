@@ -240,14 +240,14 @@ function handleNotes(PDO $db, string $method, ?string $id, ?array $input): void 
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['section_id'], $input['name'], $input['description'] ?? null]);
+            $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['section_id'], $input['name'], $input['short_name'] ?? null, $input['description'] ?? null]);
             echo json_encode(['id' => $newId]);
             break;
             
         case 'PUT':
-            $stmt = $db->prepare("UPDATE notes SET name = ?, description = ? WHERE id = ?");
-            $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            $stmt = $db->prepare("UPDATE notes SET name = ?, short_name = ?, description = ? WHERE id = ?");
+            $stmt->execute([$input['name'], $input['short_name'] ?? null, $input['description'] ?? null, $id]);
             echo json_encode(['success' => true]);
             break;
             

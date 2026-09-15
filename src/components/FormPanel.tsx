@@ -25,15 +25,16 @@ interface FormPanelProps {
 
 export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
   const [name, setName] = useState(formState?.editData?.name || '');
+  const [shortName, setShortName] = useState(formState?.editData?.shortName || '');
   const [description, setDescription] = useState(formState?.editData?.description || '');
 
   if (!formState) return null;
 
   const getLabels = (type: string) => {
-    const labels: Record<string, { name: string; description: string; title: string }> = {
+    const labels: Record<string, { name: string; description: string; title: string; shortName?: string }> = {
       report: { name: 'Название доклада', description: 'Описание доклада', title: 'Доклад' },
       section: { name: 'Название раздела', description: 'Описание раздела', title: 'Раздел' },
-      note: { name: 'Название справки', description: 'Текст справки', title: 'Справка' },
+      note: { name: 'Название справки', description: 'Текст справки', title: 'Справка', shortName: 'Краткое название' },
       noteBlock: { name: 'Название блока справки', description: 'Описание блока', title: 'Блок справки' },
       indicator: { name: 'Название показателя', description: 'Описание показателя', title: 'Показатель' },
       noteBlockIndicator: { name: 'Название показателя', description: 'Описание показателя', title: 'Показатель' },
@@ -66,7 +67,7 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
           updateSection(parentIds[0], editData.id, name, description);
           break;
         case 'note':
-          updateNote(parentIds[0], parentIds[1], editData.id, name, description);
+          updateNote(parentIds[0], parentIds[1], editData.id, name, description, shortName);
           break;
         case 'noteBlock':
           updateNoteBlock(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
@@ -106,7 +107,7 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
           addSection(parentIds[0], name, description);
           break;
         case 'note':
-          addNote(parentIds[0], parentIds[1], name, description);
+          addNote(parentIds[0], parentIds[1], name, description, shortName);
           break;
         case 'noteBlock':
           addNoteBlock(parentIds[0], parentIds[1], parentIds[2], name, description);
@@ -181,6 +182,21 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
               required
             />
           </div>
+
+          {formState.type === 'note' && labels.shortName && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {labels.shortName}
+              </label>
+              <input
+                type="text"
+                value={shortName}
+                onChange={(e) => setShortName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                placeholder="Введите краткое название..."
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

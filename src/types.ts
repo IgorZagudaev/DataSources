@@ -36,6 +36,7 @@ export interface NoteBlock {
 export interface Note {
   id: string;
   name: string; // Название справки (Уровень 3)
+  shortName?: string; // Краткое название для отображения в списке
   description?: string;
   sectionId: string;
   noteBlocks: NoteBlock[]; // Блоки справки (необязательный уровень)
