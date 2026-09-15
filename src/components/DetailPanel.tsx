@@ -63,13 +63,9 @@ export function DetailPanel({ reports, selectedId, selectedType, onClose }: Deta
         {entity.sourceTypes && entity.sourceTypes.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Типы источника</h3>
-            <div className="flex flex-wrap gap-2">
-              {entity.sourceTypes.map((type) => (
-                <span key={type} className="px-3 py-1 text-sm bg-pink-100 text-pink-800 rounded-full">
-                  {type}
-                </span>
-              ))}
-            </div>
+            <p className="text-sm text-gray-700">
+              {entity.sourceTypes.join(' + ')}
+            </p>
           </div>
         )}
 
