@@ -1489,17 +1489,108 @@ export function exportData(): string {
 export function importData(json: string): boolean {
   try {
     const data = JSON.parse(json);
+    let reportsToImport: Report[];
+    
     // Поддержка обоих форматов: массив или объект с ключом "reports"
     if (Array.isArray(data)) {
-      reports = data;
-      notify();
-      return true;
+      reportsToImport = data;
     } else if (data && typeof data === 'object' && Array.isArray(data.reports)) {
-      reports = data.reports;
-      notify();
-      return true;
+      reportsToImport = data.reports;
+    } else {
+      return false;
     }
-    return false;
+    
+    // Генерируем новые ID для всех элементов
+    const importedReports = reportsToImport.map(report => {
+      const newReportId = generateId();
+      
+      return {
+        ...report,
+        id: newReportId,
+        sections: report.sections.map(section => {
+          const newSectionId = generateId();
+          
+          return {
+            ...section,
+            id: newSectionId,
+            reportId: newReportId,
+            notes: section.notes.map(note => {
+              const newNoteId = generateId();
+              
+              return {
+                ...note,
+                id: newNoteId,
+                sectionId: newSectionId,
+                noteBlocks: (note.noteBlocks || []).map(noteBlock => {
+                  const newNoteBlockId = generateId();
+                  
+                  return {
+                    ...noteBlock,
+                    id: newNoteBlockId,
+                    noteId: newNoteId,
+                    indicators: (noteBlock.indicators || []).map(indicator => {
+                      const newIndicatorId = generateId();
+                      
+                      return {
+                        ...indicator,
+                        id: newIndicatorId,
+                        noteId: newNoteId,
+                        slices: (indicator.slices || []).map(slice => {
+                          const newSliceId = generateId();
+                          
+                          return {
+                            ...slice,
+                            id: newSliceId,
+                            indicatorId: newIndicatorId,
+                            sources: (slice.sources || []).map(source => ({
+                              ...source,
+                              id: generateId(),
+                              sliceId: newSliceId
+                            }))
+                          };
+                        })
+                      };
+                    })
+                  };
+                }),
+                indicators: (note.indicators || []).map(indicator => {
+                  const newIndicatorId = generateId();
+                  
+                  return {
+                    ...indicator,
+                    id: newIndicatorId,
+                    noteId: newNoteId,
+                    slices: (indicator.slices || []).map(slice => {
+                      const newSliceId = generateId();
+                      
+                      return {
+                        ...slice,
+                        id: newSliceId,
+                        indicatorId: newIndicatorId,
+                        sources: (slice.sources || []).map(source => ({
+                          ...source,
+                          id: generateId(),
+                          sliceId: newSliceId
+                        }))
+                      };
+                    })
+                  };
+                }),
+                sources: (note.sources || []).map(source => ({
+                  ...source,
+                  id: generateId(),
+                  sliceId: newNoteId
+                }))
+              };
+            })
+          };
+        })
+      };
+    });
+    
+    reports = importedReports;
+    notify();
+    return true;
   } catch {
     return false;
   }

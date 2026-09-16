@@ -1,205 +1,49 @@
-[
-  {
-    "id": "report-1",
-    "name": "Социально-экономическое развитие региона 2024",
-    "description": "Ежегодный доклад о социально-экономическом развитии региона",
-    "sections": [
-      {
-        "id": "section-1",
-        "name": "Демография",
-        "description": "Раздел о демографических показателях",
-        "reportId": "report-1",
-        "notes": [
-          {
-            "id": "note-1",
-            "name": "Численность и состав населения",
-            "shortName": "Численность",
-            "description": "Справка о текущей численности и составе населения региона",
-            "sectionId": "section-1",
-            "noteBlocks": [
-              {
-                "id": "noteBlock-1",
-                "name": "Естественное движение",
-                "description": "Показатели рождаемости и смертности",
-                "noteId": "note-1",
-                "indicators": [
-                  {
-                    "id": "indicator-1",
-                    "name": "Рождаемость",
-                    "description": "Количество родившихся на 1000 человек населения",
-                    "noteId": "note-1",
-                    "slices": [
-                      {
-                        "id": "slice-1",
-                        "name": "По годам",
-                        "description": "Динамика за последние 5 лет",
-                        "indicatorId": "indicator-1",
-                        "sources": [
-                          {
-                            "id": "source-1",
-                            "name": "ЗАГС",
-                            "description": "Данные о регистрации актов гражданского состояния",
-                            "sliceId": "slice-1",
-                            "sourceTypes": ["Ручная выгрузка"]
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ],
-                "sources": []
-              }
-            ],
-            "indicators": [
-              {
-                "id": "indicator-2",
-                "name": "Численность населения",
-                "description": "Общая численность постоянного населения",
-                "noteId": "note-1",
-                "slices": [
-                  {
-                    "id": "slice-2",
-                    "name": "По полу",
-                    "description": "Разбивка по мужскому и женскому населению",
-                    "indicatorId": "indicator-2",
-                    "sources": [
-                      {
-                        "id": "source-2",
-                        "name": "Росстат (форма 1-Т)",
-                        "description": "Ежегодные данные Федеральной службы государственной статистики",
-                        "sliceId": "slice-2",
-                        "sourceTypes": ["Робот", "ЕАСД"]
-                      },
-                      {
-                        "id": "source-3",
-                        "name": "Перепись населения 2020",
-                        "description": "Данные Всероссийской переписи населения",
-                        "sliceId": "slice-2",
-                        "sourceTypes": ["Другое"]
-                      }
-                    ]
-                  },
-                  {
-                    "id": "slice-3",
-                    "name": "По возрастным группам",
-                    "description": "Разбивка по возрастным группам",
-                    "indicatorId": "indicator-2",
-                    "sources": [
-                      {
-                        "id": "source-4",
-                        "name": "Росстат",
-                        "description": "Данные Росстата по возрастному составу",
-                        "sliceId": "slice-3",
-                        "sourceTypes": ["ПО", "Хранимые процедуры"]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ],
-            "sources": [
-              {
-                "id": "source-5",
-                "name": "Минэкономразвития",
-                "description": "Прямой источник данных из министерства",
-                "sliceId": "note-1",
-                "sourceTypes": ["ЭПС", "Дискор НП"]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "id": "section-2",
-        "name": "Экономика",
-        "description": "Раздел об экономических показателях",
-        "reportId": "report-1",
-        "notes": [
-          {
-            "id": "note-2",
-            "name": "Валовой региональный продукт",
-            "shortName": "ВРП",
-            "description": "Справка о ВРП и его динамике",
-            "sectionId": "section-2",
-            "noteBlocks": [],
-            "indicators": [
-              {
-                "id": "indicator-3",
-                "name": "ВРП",
-                "description": "Валовой региональный продукт",
-                "noteId": "note-2",
-                "slices": [
-                  {
-                    "id": "slice-4",
-                    "name": "По видам экономической деятельности",
-                    "description": "Разбивка по ОКВЭД",
-                    "indicatorId": "indicator-3",
-                    "sources": [
-                      {
-                        "id": "source-6",
-                        "name": "Росстат (форма 1-ВРП)",
-                        "description": "Данные о валовом региональном продукте",
-                        "sliceId": "slice-4",
-                        "sourceTypes": ["Робот"]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ],
-            "sources": []
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "report-2",
-    "name": "Анализ инвестиционного климата 2024",
-    "description": "Доклад об инвестиционной привлекательности региона",
-    "sections": [
-      {
-        "id": "section-3",
-        "name": "Инвестиции в основной капитал",
-        "description": "Раздел об инвестициях в основной капитал",
-        "reportId": "report-2",
-        "notes": [
-          {
-            "id": "note-3",
-            "name": "Объем инвестиций",
-            "shortName": "Инвестиции",
-            "description": "Справка об объеме инвестиций в основной капитал",
-            "sectionId": "section-3",
-            "noteBlocks": [],
-            "indicators": [
-              {
-                "id": "indicator-4",
-                "name": "Инвестиции в основной капитал",
-                "description": "Объем инвестиций в основной капитал",
-                "noteId": "note-3",
-                "slices": [
-                  {
-                    "id": "slice-5",
-                    "name": "По источникам финансирования",
-                    "description": "Разбивка по источникам финансирования",
-                    "indicatorId": "indicator-4",
-                    "sources": [
-                      {
-                        "id": "source-7",
-                        "name": "Росстат (форма 1-инвестиции)",
-                        "description": "Данные Федеральной службы государственной статистики",
-                        "sliceId": "slice-5",
-                        "sourceTypes": ["Ручная выгрузка", "ПО"]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ],
-            "sources": []
-          }
-        ]
-      }
-    ]
-  }
-]
+{
+  "reports": [
+    {
+      "name": "Доклад 1",
+      "description": "Первый тестовый доклад",
+      "sections": [
+        {
+          "name": "Раздел A",
+          "description": "Основной раздел",
+          "notes": [
+            {
+              "name": "Справка по продажам",
+              "shortName": "Продажи",
+              "description": "Информация о продажах",
+              "noteBlocks": [
+                {
+                  "name": "Блок 1",
+                  "description": "Основные показатели",
+                  "indicators": [],
+                  "sources": []
+                }
+              ],
+              "indicators": [
+                {
+                  "name": "Объем продаж",
+                  "description": "Общий объем",
+                  "slices": [
+                    {
+                      "name": "По регионам",
+                      "description": "Разбивка по регионам",
+                      "sources": [
+                        {
+                          "name": "Источник 1",
+                          "description": "База данных продаж",
+                          "sourceTypes": ["ПО"]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "sources": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
