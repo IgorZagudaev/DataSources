@@ -1,0 +1,49 @@
+{
+  "reports": [
+    {
+      "name": "Доклад 1",
+      "description": "Первый тестовый доклад",
+      "sections": [
+        {
+          "name": "Раздел A",
+          "description": "Основной раздел",
+          "notes": [
+            {
+              "name": "Справка по продажам",
+              "shortName": "Продажи",
+              "description": "Информация о продажах",
+              "noteBlocks": [
+                {
+                  "name": "Блок 1",
+                  "description": "Основные показатели",
+                  "indicators": [],
+                  "sources": []
+                }
+              ],
+              "indicators": [
+                {
+                  "name": "Объем продаж",
+                  "description": "Общий объем",
+                  "slices": [
+                    {
+                      "name": "По регионам",
+                      "description": "Разбивка по регионам",
+                      "sources": [
+                        {
+                          "name": "Источник 1",
+                          "description": "База данных продаж",
+                          "sourceTypes": ["ПО"]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "sources": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

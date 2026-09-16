@@ -1483,19 +1483,150 @@ export function resetData() {
 }
 
 export function exportData(): string {
-  return JSON.stringify(reports, null, 2);
+  // Рекурсивно удаляем все ID и ссылки на ID для удобного импорта
+  const removeIds = (obj: any): any => {
+    if (Array.isArray(obj)) {
+      return obj.map(removeIds);
+    } else if (obj && typeof obj === 'object') {
+      const result: any = {};
+      for (const key in obj) {
+        // Пропускаем поля id и все поля заканчивающиеся на Id
+        if (key === 'id' || key.endsWith('Id')) {
+          continue;
+        }
+        result[key] = removeIds(obj[key]);
+      }
+      return result;
+    }
+    return obj;
+  };
+  
+  const exportableReports = removeIds(reports);
+  return JSON.stringify(exportableReports, null, 2);
 }
 
 export function importData(json: string): boolean {
   try {
+    console.log('=== НАЧАЛО importData ===');
+    console.log('Начало импорта, JSON длина:', json.length);
     const data = JSON.parse(json);
+    console.log('JSON распарсен:', data);
+    let reportsToImport: any[];
+    
+    // Поддержка обоих форматов: массив или объект с ключом "reports"
     if (Array.isArray(data)) {
-      reports = data;
-      notify();
-      return true;
+      console.log('Формат: массив');
+      reportsToImport = data;
+    } else if (data && typeof data === 'object' && Array.isArray(data.reports)) {
+      console.log('Формат: объект с reports');
+      reportsToImport = data.reports;
+    } else {
+      console.error('Неверный формат данных: ожидается массив или объект с ключом "reports"');
+      return false;
     }
-    return false;
-  } catch {
+    
+    console.log('Импортируется отчетов:', reportsToImport.length);
+    
+    // Генерируем новые ID для всех элементов
+    const importedReports = reportsToImport.map(report => {
+      const newReportId = generateId();
+      
+      return {
+        ...report,
+        id: newReportId,
+        sections: (report.sections || []).map((section: any) => {
+          const newSectionId = generateId();
+          
+          return {
+            ...section,
+            id: newSectionId,
+            reportId: newReportId,
+            notes: (section.notes || []).map((note: any) => {
+              const newNoteId = generateId();
+              
+              return {
+                ...note,
+                id: newNoteId,
+                sectionId: newSectionId,
+                noteBlocks: (note.noteBlocks || []).map((noteBlock: any) => {
+                  const newNoteBlockId = generateId();
+                  
+                  return {
+                    ...noteBlock,
+                    id: newNoteBlockId,
+                    noteId: newNoteId,
+                    indicators: (noteBlock.indicators || []).map((indicator: any) => {
+                      const newIndicatorId = generateId();
+                      
+                      return {
+                        ...indicator,
+                        id: newIndicatorId,
+                        noteId: newNoteId,
+                        slices: (indicator.slices || []).map((slice: any) => {
+                          const newSliceId = generateId();
+                          
+                          return {
+                            ...slice,
+                            id: newSliceId,
+                            indicatorId: newIndicatorId,
+                            sources: (slice.sources || []).map((source: any) => ({
+                              ...source,
+                              id: generateId(),
+                              sliceId: newSliceId
+                            }))
+                          };
+                        })
+                      };
+                    })
+                  };
+                }),
+                indicators: (note.indicators || []).map((indicator: any) => {
+                  const newIndicatorId = generateId();
+                  
+                  return {
+                    ...indicator,
+                    id: newIndicatorId,
+                    noteId: newNoteId,
+                    slices: (indicator.slices || []).map((slice: any) => {
+                      const newSliceId = generateId();
+                      
+                      return {
+                        ...slice,
+                        id: newSliceId,
+                        indicatorId: newIndicatorId,
+                        sources: (slice.sources || []).map((source: any) => ({
+                          ...source,
+                          id: generateId(),
+                          sliceId: newSliceId
+                        }))
+                      };
+                    })
+                  };
+                }),
+                sources: (note.sources || []).map((source: any) => ({
+                  ...source,
+                  id: generateId(),
+                  sliceId: newNoteId
+                }))
+              };
+            })
+          };
+        })
+      };
+    });
+    
+    console.log('Импортированные отчеты:', importedReports);
+    // Добавляем новые данные к существующим, а не заменяем
+    reports = [...reports, ...importedReports];
+    console.log('Новые данные добавлены к существующим');
+    notify();
+    console.log('notify() вызван');
+    console.log('=== КОНЕЦ importData (успех) ===');
+    return true;
+  } catch (error) {
+    console.error('=== ОШИБКА importData ===');
+    console.error('Ошибка импорта:', error);
+    console.error('=== КОНЕЦ importData (ошибка) ===');
     return false;
   }
 }
