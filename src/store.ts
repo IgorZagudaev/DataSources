@@ -1483,7 +1483,26 @@ export function resetData() {
 }
 
 export function exportData(): string {
-  return JSON.stringify(reports, null, 2);
+  // Рекурсивно удаляем все ID и ссылки на ID для удобного импорта
+  const removeIds = (obj: any): any => {
+    if (Array.isArray(obj)) {
+      return obj.map(removeIds);
+    } else if (obj && typeof obj === 'object') {
+      const result: any = {};
+      for (const key in obj) {
+        // Пропускаем поля id и все поля заканчивающиеся на Id
+        if (key === 'id' || key.endsWith('Id')) {
+          continue;
+        }
+        result[key] = removeIds(obj[key]);
+      }
+      return result;
+    }
+    return obj;
+  };
+  
+  const exportableReports = removeIds(reports);
+  return JSON.stringify(exportableReports, null, 2);
 }
 
 export function importData(json: string): boolean {
