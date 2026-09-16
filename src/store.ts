@@ -1488,17 +1488,25 @@ export function exportData(): string {
 
 export function importData(json: string): boolean {
   try {
+    console.log('=== НАЧАЛО importData ===');
+    console.log('Начало импорта, JSON длина:', json.length);
     const data = JSON.parse(json);
-    let reportsToImport: Report[];
+    console.log('JSON распарсен:', data);
+    let reportsToImport: any[];
     
     // Поддержка обоих форматов: массив или объект с ключом "reports"
     if (Array.isArray(data)) {
+      console.log('Формат: массив');
       reportsToImport = data;
     } else if (data && typeof data === 'object' && Array.isArray(data.reports)) {
+      console.log('Формат: объект с reports');
       reportsToImport = data.reports;
     } else {
+      console.error('Неверный формат данных: ожидается массив или объект с ключом "reports"');
       return false;
     }
+    
+    console.log('Импортируется отчетов:', reportsToImport.length);
     
     // Генерируем новые ID для всех элементов
     const importedReports = reportsToImport.map(report => {
@@ -1507,42 +1515,42 @@ export function importData(json: string): boolean {
       return {
         ...report,
         id: newReportId,
-        sections: report.sections.map(section => {
+        sections: (report.sections || []).map((section: any) => {
           const newSectionId = generateId();
           
           return {
             ...section,
             id: newSectionId,
             reportId: newReportId,
-            notes: section.notes.map(note => {
+            notes: (section.notes || []).map((note: any) => {
               const newNoteId = generateId();
               
               return {
                 ...note,
                 id: newNoteId,
                 sectionId: newSectionId,
-                noteBlocks: (note.noteBlocks || []).map(noteBlock => {
+                noteBlocks: (note.noteBlocks || []).map((noteBlock: any) => {
                   const newNoteBlockId = generateId();
                   
                   return {
                     ...noteBlock,
                     id: newNoteBlockId,
                     noteId: newNoteId,
-                    indicators: (noteBlock.indicators || []).map(indicator => {
+                    indicators: (noteBlock.indicators || []).map((indicator: any) => {
                       const newIndicatorId = generateId();
                       
                       return {
                         ...indicator,
                         id: newIndicatorId,
                         noteId: newNoteId,
-                        slices: (indicator.slices || []).map(slice => {
+                        slices: (indicator.slices || []).map((slice: any) => {
                           const newSliceId = generateId();
                           
                           return {
                             ...slice,
                             id: newSliceId,
                             indicatorId: newIndicatorId,
-                            sources: (slice.sources || []).map(source => ({
+                            sources: (slice.sources || []).map((source: any) => ({
                               ...source,
                               id: generateId(),
                               sliceId: newSliceId
@@ -1553,21 +1561,21 @@ export function importData(json: string): boolean {
                     })
                   };
                 }),
-                indicators: (note.indicators || []).map(indicator => {
+                indicators: (note.indicators || []).map((indicator: any) => {
                   const newIndicatorId = generateId();
                   
                   return {
                     ...indicator,
                     id: newIndicatorId,
                     noteId: newNoteId,
-                    slices: (indicator.slices || []).map(slice => {
+                    slices: (indicator.slices || []).map((slice: any) => {
                       const newSliceId = generateId();
                       
                       return {
                         ...slice,
                         id: newSliceId,
                         indicatorId: newIndicatorId,
-                        sources: (slice.sources || []).map(source => ({
+                        sources: (slice.sources || []).map((source: any) => ({
                           ...source,
                           id: generateId(),
                           sliceId: newSliceId
@@ -1576,7 +1584,7 @@ export function importData(json: string): boolean {
                     })
                   };
                 }),
-                sources: (note.sources || []).map(source => ({
+                sources: (note.sources || []).map((source: any) => ({
                   ...source,
                   id: generateId(),
                   sliceId: newNoteId
@@ -1588,10 +1596,17 @@ export function importData(json: string): boolean {
       };
     });
     
+    console.log('Импортированные отчеты:', importedReports);
     reports = importedReports;
+    console.log('Переменная reports обновлена');
     notify();
+    console.log('notify() вызван');
+    console.log('=== КОНЕЦ importData (успех) ===');
     return true;
-  } catch {
+  } catch (error) {
+    console.error('=== ОШИБКА importData ===');
+    console.error('Ошибка импорта:', error);
+    console.error('=== КОНЕЦ importData (ошибка) ===');
     return false;
   }
 }

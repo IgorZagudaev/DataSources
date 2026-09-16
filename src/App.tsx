@@ -223,16 +223,120 @@ function App() {
   };
 
   const handleImport = () => {
+    console.log('=== НАЧАЛО handleImport ===');
+    console.log('importText:', importText);
+    console.log('importText.trim():', importText.trim());
+    console.log('importText.trim() truthy?:', !!importText.trim());
+    
     if (importText.trim()) {
-      const success = importData(importText);
-      if (success) {
-        setShowImportModal(false);
-        setImportText('');
-        setSelectedId(null);
-        setSelectedType(null);
-      } else {
-        alert('Ошибка: неверный формат данных');
+      console.log('Вызов importData...');
+      try {
+        const success = importData(importText);
+        console.log('Результат importData:', success);
+        if (success) {
+          console.log('Импорт успешен, закрываем модальное окно');
+          setShowImportModal(false);
+          setImportText('');
+          setSelectedId(null);
+          setSelectedType(null);
+          // Используем setTimeout чтобы alert не блокировал обновление UI
+          setTimeout(() => {
+            alert('Импорт выполнен успешно! Данные загружены.');
+          }, 100);
+        } else {
+          console.error('Импорт не удался');
+          setTimeout(() => {
+            alert('Ошибка: неверный формат данных. Проверьте консоль браузера для деталей.');
+          }, 100);
+        }
+      } catch (error) {
+        console.error('Исключение при импорте:', error);
+        setTimeout(() => {
+          alert('Ошибка при импорте: ' + error);
+        }, 100);
       }
+    } else {
+      console.log('importText пустой');
+      setTimeout(() => {
+        alert('Пожалуйста, вставьте JSON данные для импорта');
+      }, 100);
+    }
+    console.log('=== КОНЕЦ handleImport ===');
+  };
+
+  // Функция для тестирования импорта
+  const testImport = () => {
+    const testJson = JSON.stringify({
+      reports: [
+        {
+          name: "Тестовый доклад",
+          description: "Описание",
+          sections: [
+            {
+              name: "Тестовый раздел",
+              description: "Описание раздела",
+              notes: [
+                {
+                  name: "Тестовая справка",
+                  shortName: "Тест",
+                  description: "Описание справки",
+                  noteBlocks: [],
+                  indicators: [],
+                  sources: []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+    
+    console.log('Тестовый JSON:', testJson);
+    setImportText(testJson);
+    console.log('Тестовый JSON установлен в importText');
+  };
+
+  // Функция для прямой загрузки тестовых данных
+  const directTestImport = () => {
+    console.log('=== ПРЯМАЯ ЗАГРУЗКА ТЕСТОВЫХ ДАННЫХ ===');
+    const testJson = JSON.stringify({
+      reports: [
+        {
+          name: "Тестовый доклад",
+          description: "Описание",
+          sections: [
+            {
+              name: "Тестовый раздел",
+              description: "Описание раздела",
+              notes: [
+                {
+                  name: "Тестовая справка",
+                  shortName: "Тест",
+                  description: "Описание справки",
+                  noteBlocks: [],
+                  indicators: [],
+                  sources: []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+    
+    console.log('Вызов importData напрямую...');
+    const success = importData(testJson);
+    console.log('Результат:', success);
+    
+    if (success) {
+      console.log('Успех! Закрываем модальное окно и очищаем поля');
+      setShowImportModal(false);
+      setImportText('');
+      setSelectedId(null);
+      setSelectedType(null);
+      alert('Тестовые данные загружены напрямую!');
+    } else {
+      alert('Ошибка при прямой загрузке тестовых данных');
     }
   };
 
@@ -429,11 +533,41 @@ function App() {
               </div>
               <textarea
                 value={importText}
-                onChange={(e) => setImportText(e.target.value)}
+                onChange={(e) => {
+                  console.log('Textarea изменен, новая длина:', e.target.value.length);
+                  setImportText(e.target.value);
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none font-mono text-xs"
                 rows={6}
                 placeholder='[{"id":"...","name":"...","sections":[...]}]'
               />
+              <button
+                onClick={() => {
+                  console.log('Кнопка тестовых данных нажата');
+                  testImport();
+                }}
+                className="w-full px-3 py-2 text-sm text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors mb-2"
+              >
+                Загрузить тестовые данные в поле
+              </button>
+              <button
+                onClick={() => {
+                  console.log('Кнопка прямой загрузки нажата');
+                  directTestImport();
+                }}
+                className="w-full px-3 py-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors mb-2"
+              >
+                Прямая загрузка тестовых данных
+              </button>
+              <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
+                <p><strong>Инструкция по отладке:</strong></p>
+                <p>1. Откройте консоль браузера (F12)</p>
+                <p>2. Нажмите "Прямая загрузка тестовых данных"</p>
+                <p>3. Проверьте логи в консоли</p>
+                <p>4. Если видите "=== ПРЯМАЯ ЗАГРУЗКА ТЕСТОВЫХ ДАННЫХ ===" и "Результат: true", но данные не появились - проблема в обновлении UI</p>
+                <p>5. Попробуйте обновить страницу (F5) после импорта</p>
+                <p>6. Если после обновления данные появились - проблема в реактивности</p>
+              </div>
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setShowImportModal(false)}
@@ -442,7 +576,13 @@ function App() {
                   Отмена
                 </button>
                 <button
-                  onClick={handleImport}
+                  onClick={() => {
+                    console.log('=== КНОПКА ИМПОРТИРОВАТЬ НАЖАТА ===');
+                    console.log('Содержимое importText:', importText);
+                    console.log('Длина importText:', importText.length);
+                    console.log('Первые 100 символов:', importText.substring(0, 100));
+                    handleImport();
+                  }}
                   disabled={!importText.trim()}
                   className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 rounded-lg transition-colors"
                 >
