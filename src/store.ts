@@ -1489,8 +1489,13 @@ export function exportData(): string {
 export function importData(json: string): boolean {
   try {
     const data = JSON.parse(json);
+    // Поддержка обоих форматов: массив или объект с ключом "reports"
     if (Array.isArray(data)) {
       reports = data;
+      notify();
+      return true;
+    } else if (data && typeof data === 'object' && Array.isArray(data.reports)) {
+      reports = data.reports;
       notify();
       return true;
     }
