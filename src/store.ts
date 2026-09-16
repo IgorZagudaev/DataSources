@@ -1597,8 +1597,9 @@ export function importData(json: string): boolean {
     });
     
     console.log('Импортированные отчеты:', importedReports);
-    reports = importedReports;
-    console.log('Переменная reports обновлена');
+    // Добавляем новые данные к существующим, а не заменяем
+    reports = [...reports, ...importedReports];
+    console.log('Новые данные добавлены к существующим');
     notify();
     console.log('notify() вызван');
     console.log('=== КОНЕЦ importData (успех) ===');
