@@ -224,29 +224,32 @@ function App() {
 
   const handleImport = () => {
     console.log('=== НАЧАЛО handleImport ===');
-    console.log('importText:', importText);
-    console.log('importText.trim():', importText.trim());
-    console.log('importText.trim() truthy?:', !!importText.trim());
+    console.log('Текущий importText:', importText);
+    console.log('Длина importText:', importText.length);
     
-    if (importText.trim()) {
-      console.log('Вызов importData...');
+    // Получаем актуальное значение из textarea
+    const currentText = importText.trim();
+    console.log('После trim:', currentText);
+    console.log('Длина после trim:', currentText.length);
+    
+    if (currentText) {
+      console.log('Вызов importData с текстом длиной:', currentText.length);
       try {
-        const success = importData(importText);
+        const success = importData(currentText);
         console.log('Результат importData:', success);
         if (success) {
-          console.log('Импорт успешен, закрываем модальное окно');
+          console.log('Импорт успешен!');
           setShowImportModal(false);
           setImportText('');
           setSelectedId(null);
           setSelectedType(null);
-          // Используем setTimeout чтобы alert не блокировал обновление UI
           setTimeout(() => {
             alert('Импорт выполнен успешно! Данные загружены.');
           }, 100);
         } else {
           console.error('Импорт не удался');
           setTimeout(() => {
-            alert('Ошибка: неверный формат данных. Проверьте консоль браузера для деталей.');
+            alert('Ошибка: неверный формат данных');
           }, 100);
         }
       } catch (error) {
@@ -256,7 +259,7 @@ function App() {
         }, 100);
       }
     } else {
-      console.log('importText пустой');
+      console.log('Текст пустой после trim');
       setTimeout(() => {
         alert('Пожалуйста, вставьте JSON данные для импорта');
       }, 100);
@@ -534,8 +537,12 @@ function App() {
               <textarea
                 value={importText}
                 onChange={(e) => {
-                  console.log('Textarea изменен, новая длина:', e.target.value.length);
-                  setImportText(e.target.value);
+                  const newValue = e.target.value;
+                  console.log('Textarea onChange вызван');
+                  console.log('Новое значение (первые 100 символов):', newValue.substring(0, 100));
+                  console.log('Длина нового значения:', newValue.length);
+                  setImportText(newValue);
+                  console.log('setImportText вызван с длиной:', newValue.length);
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none font-mono text-xs"
                 rows={6}
@@ -578,9 +585,10 @@ function App() {
                 <button
                   onClick={() => {
                     console.log('=== КНОПКА ИМПОРТИРОВАТЬ НАЖАТА ===');
-                    console.log('Содержимое importText:', importText);
+                    console.log('importText перед вызовом handleImport:', importText);
                     console.log('Длина importText:', importText.length);
                     console.log('Первые 100 символов:', importText.substring(0, 100));
+                    console.log('Вызов handleImport...');
                     handleImport();
                   }}
                   disabled={!importText.trim()}
