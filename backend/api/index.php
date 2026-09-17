@@ -125,21 +125,32 @@ try {
 function handleReports(PDO $db, string $method, ?string $id, ?array $input): void {
     switch ($method) {
         case 'GET':
-            if ($id) {
-                $stmt = $db->prepare("SELECT * FROM reports WHERE id = ?");
-                $stmt->execute([$id]);
-                $report = $stmt->fetch();
-                if ($report) {
-                    $report['sections'] = getSectionsForReport($db, $id);
+            try {
+                if ($id) {
+                    $stmt = $db->prepare("SELECT * FROM reports WHERE id = ?");
+                    $stmt->execute([$id]);
+                    $report = $stmt->fetch();
+                    if ($report) {
+                        $report['sections'] = getSectionsForReport($db, $id);
+                    }
+                    echo json_encode($report ?: ['error' => 'Not found']);
+                } else {
+                    $stmt = $db->query("SELECT * FROM reports ORDER BY created_at");
+                    $reports = $stmt->fetchAll();
+                    foreach ($reports as &$report) {
+                        try {
+                            $report['sections'] = getSectionsForReport($db, $report['id']);
+                        } catch (Exception $e) {
+                            error_log("Error loading sections for report {$report['id']}: " . $e->getMessage());
+                            $report['sections'] = [];
+                        }
+                    }
+                    echo json_encode($reports);
                 }
-                echo json_encode($report ?: ['error' => 'Not found']);
-            } else {
-                $stmt = $db->query("SELECT * FROM reports ORDER BY created_at");
-                $reports = $stmt->fetchAll();
-                foreach ($reports as &$report) {
-                    $report['sections'] = getSectionsForReport($db, $report['id']);
-                }
-                echo json_encode($reports);
+            } catch (Exception $e) {
+                error_log("Error in handleReports GET: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to load reports: ' . $e->getMessage()]);
             }
             break;
             
@@ -165,15 +176,25 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
 }
 
 function getSectionsForReport(PDO $db, string $reportId): array {
-    $stmt = $db->prepare("SELECT * FROM sections WHERE report_id = ? ORDER BY sort_order");
-    $stmt->execute([$reportId]);
-    $sections = $stmt->fetchAll();
-    
-    foreach ($sections as &$section) {
-        $section['notes'] = getNotesForSection($db, $section['id']);
+    try {
+        $stmt = $db->prepare("SELECT * FROM sections WHERE report_id = ? ORDER BY sort_order");
+        $stmt->execute([$reportId]);
+        $sections = $stmt->fetchAll();
+        
+        foreach ($sections as &$section) {
+            try {
+                $section['notes'] = getNotesForSection($db, $section['id']);
+            } catch (Exception $e) {
+                error_log("Error loading notes for section {$section['id']}: " . $e->getMessage());
+                $section['notes'] = [];
+            }
+        }
+        
+        return $sections;
+    } catch (Exception $e) {
+        error_log("Error in getSectionsForReport: " . $e->getMessage());
+        return [];
     }
-    
-    return $sections;
 }
 
 // ============================================================
@@ -203,49 +224,86 @@ function handleSections(PDO $db, string $method, ?string $id, ?array $input): vo
 }
 
 function getNotesForSection(PDO $db, string $sectionId): array {
-    $stmt = $db->prepare("SELECT * FROM notes WHERE section_id = ? ORDER BY sort_order");
-    $stmt->execute([$sectionId]);
-    $notes = $stmt->fetchAll();
-    
-    foreach ($notes as &$note) {
-        $note['noteBlocks'] = getNoteBlocksForNote($db, $note['id']);
-        $note['indicators'] = getIndicatorsForNote($db, $note['id']);
-        $note['sources'] = getSourcesForNote($db, $note['id']);
+    try {
+        $stmt = $db->prepare("SELECT * FROM notes WHERE section_id = ? ORDER BY sort_order");
+        $stmt->execute([$sectionId]);
+        $notes = $stmt->fetchAll();
+        
+        foreach ($notes as &$note) {
+            try {
+                $note['noteBlocks'] = getNoteBlocksForNote($db, $note['id']);
+                $note['indicators'] = getIndicatorsForNote($db, $note['id']);
+                $note['sources'] = getSourcesForNote($db, $note['id']);
+            } catch (Exception $e) {
+                error_log("Error loading note data for note {$note['id']}: " . $e->getMessage());
+                $note['noteBlocks'] = [];
+                $note['indicators'] = [];
+                $note['sources'] = [];
+            }
+        }
+        
+        return $notes;
+    } catch (Exception $e) {
+        error_log("Error in getNotesForSection: " . $e->getMessage());
+        return [];
     }
-    
-    return $notes;
 }
 
 function getNoteBlocksForNote(PDO $db, string $noteId): array {
-    $stmt = $db->prepare("SELECT * FROM note_blocks WHERE note_id = ? ORDER BY sort_order");
-    $stmt->execute([$noteId]);
-    $noteBlocks = $stmt->fetchAll();
-    
-    foreach ($noteBlocks as &$noteBlock) {
-        $noteBlock['indicators'] = getIndicatorsForNoteBlock($db, $noteBlock['id']);
+    try {
+        $stmt = $db->prepare("SELECT * FROM note_blocks WHERE note_id = ? ORDER BY sort_order");
+        $stmt->execute([$noteId]);
+        $noteBlocks = $stmt->fetchAll();
+        
+        foreach ($noteBlocks as &$noteBlock) {
+            try {
+                $noteBlock['indicators'] = getIndicatorsForNoteBlock($db, $noteBlock['id']);
+            } catch (Exception $e) {
+                error_log("Error loading indicators for noteBlock {$noteBlock['id']}: " . $e->getMessage());
+                $noteBlock['indicators'] = [];
+            }
+        }
+        
+        return $noteBlocks;
+    } catch (Exception $e) {
+        error_log("Error in getNoteBlocksForNote: " . $e->getMessage());
+        return [];
     }
-    
-    return $noteBlocks;
 }
 
 function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
-    $stmt = $db->prepare("SELECT * FROM indicators WHERE note_block_id = ? ORDER BY sort_order");
-    $stmt->execute([$noteBlockId]);
-    $indicators = $stmt->fetchAll();
-    
-    foreach ($indicators as &$indicator) {
-        $indicator['slices'] = getSlicesForIndicator($db, $indicator['id']);
+    try {
+        $stmt = $db->prepare("SELECT * FROM indicators WHERE note_block_id = ? ORDER BY sort_order");
+        $stmt->execute([$noteBlockId]);
+        $indicators = $stmt->fetchAll();
+        
+        foreach ($indicators as &$indicator) {
+            try {
+                $indicator['slices'] = getSlicesForIndicator($db, $indicator['id']);
+            } catch (Exception $e) {
+                error_log("Error loading slices for indicator {$indicator['id']}: " . $e->getMessage());
+                $indicator['slices'] = [];
+            }
+        }
+        
+        return $indicators;
+    } catch (Exception $e) {
+        error_log("Error in getIndicatorsForNoteBlock: " . $e->getMessage());
+        return [];
     }
-    
-    return $indicators;
 }
 
 
 
 function getSourcesForNote(PDO $db, string $noteId): array {
-    $stmt = $db->prepare("SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order");
-    $stmt->execute([$noteId]);
-    return $stmt->fetchAll();
+    try {
+        $stmt = $db->prepare("SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order");
+        $stmt->execute([$noteId]);
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        error_log("Error in getSourcesForNote: " . $e->getMessage());
+        return [];
+    }
 }
 
 // ============================================================
@@ -327,15 +385,25 @@ function handleNoteBlocks(PDO $db, string $method, ?string $id, ?array $input): 
 }
 
 function getIndicatorsForNote(PDO $db, string $noteId): array {
-    $stmt = $db->prepare("SELECT * FROM indicators WHERE note_id = ? ORDER BY sort_order");
-    $stmt->execute([$noteId]);
-    $indicators = $stmt->fetchAll();
-    
-    foreach ($indicators as &$indicator) {
-        $indicator['slices'] = getSlicesForIndicator($db, $indicator['id']);
+    try {
+        $stmt = $db->prepare("SELECT * FROM indicators WHERE note_id = ? ORDER BY sort_order");
+        $stmt->execute([$noteId]);
+        $indicators = $stmt->fetchAll();
+        
+        foreach ($indicators as &$indicator) {
+            try {
+                $indicator['slices'] = getSlicesForIndicator($db, $indicator['id']);
+            } catch (Exception $e) {
+                error_log("Error loading slices for indicator {$indicator['id']}: " . $e->getMessage());
+                $indicator['slices'] = [];
+            }
+        }
+        
+        return $indicators;
+    } catch (Exception $e) {
+        error_log("Error in getIndicatorsForNote: " . $e->getMessage());
+        return [];
     }
-    
-    return $indicators;
 }
 
 // ============================================================
@@ -365,15 +433,25 @@ function handleIndicators(PDO $db, string $method, ?string $id, ?array $input): 
 }
 
 function getSlicesForIndicator(PDO $db, string $indicatorId): array {
-    $stmt = $db->prepare("SELECT * FROM data_slices WHERE indicator_id = ? ORDER BY sort_order");
-    $stmt->execute([$indicatorId]);
-    $slices = $stmt->fetchAll();
-    
-    foreach ($slices as &$slice) {
-        $slice['sources'] = getSourcesForSlice($db, $slice['id']);
+    try {
+        $stmt = $db->prepare("SELECT * FROM data_slices WHERE indicator_id = ? ORDER BY sort_order");
+        $stmt->execute([$indicatorId]);
+        $slices = $stmt->fetchAll();
+        
+        foreach ($slices as &$slice) {
+            try {
+                $slice['sources'] = getSourcesForSlice($db, $slice['id']);
+            } catch (Exception $e) {
+                error_log("Error loading sources for slice {$slice['id']}: " . $e->getMessage());
+                $slice['sources'] = [];
+            }
+        }
+        
+        return $slices;
+    } catch (Exception $e) {
+        error_log("Error in getSlicesForIndicator: " . $e->getMessage());
+        return [];
     }
-    
-    return $slices;
 }
 
 // ============================================================
@@ -403,20 +481,26 @@ function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void
 }
 
 function getSourcesForSlice(PDO $db, string $sliceId): array {
-    $stmt = $db->prepare("SELECT * FROM data_sources WHERE slice_id = ? ORDER BY sort_order");
-    $stmt->execute([$sliceId]);
-    $sources = $stmt->fetchAll();
-    
-    // Decode source_types JSON
-    foreach ($sources as &$source) {
-        if (isset($source['source_types']) && $source['source_types']) {
-            $source['source_types'] = json_decode($source['source_types'], true);
-        } else {
-            $source['source_types'] = [];
+    try {
+        $stmt = $db->prepare("SELECT * FROM data_sources WHERE slice_id = ? ORDER BY sort_order");
+        $stmt->execute([$sliceId]);
+        $sources = $stmt->fetchAll();
+        
+        // Decode source_types JSON
+        foreach ($sources as &$source) {
+            if (isset($source['source_types']) && $source['source_types']) {
+                $decoded = json_decode($source['source_types'], true);
+                $source['source_types'] = $decoded !== null ? $decoded : [];
+            } else {
+                $source['source_types'] = [];
+            }
         }
+        
+        return $sources;
+    } catch (Exception $e) {
+        error_log("Error in getSourcesForSlice: " . $e->getMessage());
+        return [];
     }
-    
-    return $sources;
 }
 
 // ============================================================
@@ -451,15 +535,19 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
 // Import handler - полная замена всех данных
 // ============================================================
 function handleImport(PDO $db, array $input): void {
+    error_log("=== handleImport called ===");
+    
     if (!isset($input['reports']) || !is_array($input['reports'])) {
+        error_log("Invalid import data: reports not set or not array");
         http_response_code(400);
         echo json_encode(['error' => 'Invalid import data']);
         return;
     }
     
     $reports = $input['reports'];
+    error_log("Importing " . count($reports) . " reports");
     
-    // Логируем первый источник для проверки source_types
+    // Логируем структуру первого источника для проверки source_types
     foreach ($reports as $report) {
         if (isset($report['sections']) && is_array($report['sections'])) {
             foreach ($report['sections'] as $section) {
@@ -499,19 +587,39 @@ function handleImport(PDO $db, array $input): void {
         $db->exec("DELETE FROM reports");
         
         // Импортируем данные
-        foreach ($reports as $report) {
+        foreach ($reports as $reportIndex => $report) {
+            error_log("Importing report $reportIndex: " . ($report['name'] ?? 'NO NAME'));
+            
+            // Валидация обязательных полей
+            if (!isset($report['name']) || empty($report['name'])) {
+                error_log("Warning: Report $reportIndex has no name, skipping");
+                continue;
+            }
+            
             $reportId = $report['id'] ?? generateUUID();
             $stmt = $db->prepare("INSERT INTO reports (id, name, description) VALUES (?, ?, ?)");
             $stmt->execute([$reportId, $report['name'], $report['description'] ?? null]);
             
-            if (isset($report['sections'])) {
-                foreach ($report['sections'] as $section) {
+            if (isset($report['sections']) && is_array($report['sections'])) {
+                foreach ($report['sections'] as $sectionIndex => $section) {
+                    error_log("  Importing section $sectionIndex: " . ($section['name'] ?? 'NO NAME'));
+                    
+                    if (!isset($section['name']) || empty($section['name'])) {
+                        error_log("  Warning: Section $sectionIndex has no name, skipping");
+                        continue;
+                    }
+                    
                     $sectionId = $section['id'] ?? generateUUID();
                     $stmt = $db->prepare("INSERT INTO sections (id, report_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
                     $stmt->execute([$sectionId, $reportId, $section['name'], $section['description'] ?? null, $section['sort_order'] ?? 0]);
                     
-                    if (isset($section['notes'])) {
-                        foreach ($section['notes'] as $note) {
+                    if (isset($section['notes']) && is_array($section['notes'])) {
+                        foreach ($section['notes'] as $noteIndex => $note) {
+                            if (!isset($note['name']) || empty($note['name'])) {
+                                error_log("    Warning: Note $noteIndex has no name, skipping");
+                                continue;
+                            }
+                            
                             $noteId = $note['id'] ?? generateUUID();
                             $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
                             $stmt->execute([$noteId, $sectionId, $note['name'], $note['short_name'] ?? null, $note['description'] ?? null, $note['sort_order'] ?? 0]);
@@ -592,9 +700,12 @@ function handleImport(PDO $db, array $input): void {
         }
         
         $db->commit();
+        error_log("=== Import completed successfully ===");
         echo json_encode(['success' => true, 'imported' => count($reports)]);
     } catch (Exception $e) {
         $db->rollBack();
+        error_log("=== Import failed: " . $e->getMessage() . " ===");
+        error_log("Stack trace: " . $e->getTraceAsString());
         http_response_code(500);
         echo json_encode(['error' => 'Import failed: ' . $e->getMessage()]);
     }
