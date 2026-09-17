@@ -1,5 +1,6 @@
 // API клиент для работы с PHP бэкендом
-const API_BASE_URL = '/DataSources/api';
+// Используем относительный путь от корня сайта
+const API_BASE_URL = window.location.pathname.replace(/\/[^\/]*$/, '') + '/api';
 
 async function apiRequest(endpoint: string, method: string = 'GET', data?: any): Promise<any> {
   const options: RequestInit = {
