@@ -58,8 +58,20 @@ require_once __DIR__ . '/Database.php';
 $method = $_SERVER['REQUEST_METHOD'];
 $uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($uri, PHP_URL_PATH);
-$path = str_replace('/api/', '', $path);
-$segments = explode('/', trim($path, '/'));
+
+// Отладка - временно включите для просмотра реального пути
+echo json_encode(['uri' => $uri, 'path' => $path, 'segments' => $segments, 'resource' => $resource, 'id' => $id]); exit;
+
+// Извлекаем часть после 'api' - ищем 'api' в любом месте пути
+$apiPos = strpos($path, 'api');
+if ($apiPos !== false) {
+    $path = substr($path, $apiPos + 3); // +3 для 'api'
+} else {
+    // Если 'api' не найден, берём весь путь
+    $path = $path;
+}
+
+$segments = array_values(array_filter(explode('/', trim($path, '/'))));
 
 $resource = $segments[0] ?? '';
 $id = $segments[1] ?? null;

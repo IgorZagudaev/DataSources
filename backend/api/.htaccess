@@ -1,0 +1,19 @@
+# Включаем движок перезаписи
+RewriteEngine On
+
+# Устанавливаем базовый путь
+RewriteBase /Datasource/api/
+
+# Устанавливаем index.php как главный файл
+DirectoryIndex index.php
+
+# Если запрос к существующему файлу - отдаём его
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# Если запрос к существующей папке - отдаём её
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Все остальные запросы перенаправляем на index.php
+RewriteRule ^(.*)$ index.php [QSA,L]
