@@ -109,6 +109,17 @@ export async function syncFromAPI(): Promise<void> {
   }
 }
 
+// Синхронизация всех данных на сервер (для API режима)
+async function syncToAPI(): Promise<void> {
+  if (currentMode === 'api') {
+    try {
+      await api.importAllReports(reports);
+    } catch (e) {
+      console.error('Error syncing to API:', e);
+    }
+  }
+}
+
 function saveData(reports: Report[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
@@ -282,6 +293,10 @@ let listeners: Array<() => void> = [];
 function notify() {
   saveData(reports);
   listeners.forEach(l => l());
+  // Синхронизируем с сервером в API режиме
+  if (currentMode === 'api') {
+    syncToAPI();
+  }
 }
 
 export function subscribe(listener: () => void) {

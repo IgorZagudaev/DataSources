@@ -39,6 +39,10 @@ export async function deleteReport(id: string) {
   return apiRequest(`/reports/${id}`, 'DELETE');
 }
 
+export async function moveReport(id: string, direction: 'up' | 'down') {
+  return apiRequest(`/reports/${id}/move`, 'PUT', { direction });
+}
+
 // Sections
 export async function createSection(data: { report_id: string; name: string; description?: string }) {
   return apiRequest('/sections', 'POST', data);
@@ -50,6 +54,10 @@ export async function updateSection(id: string, data: { name: string; descriptio
 
 export async function deleteSection(id: string) {
   return apiRequest(`/sections/${id}`, 'DELETE');
+}
+
+export async function moveSection(id: string, direction: 'up' | 'down') {
+  return apiRequest(`/sections/${id}/move`, 'PUT', { direction });
 }
 
 // Notes
@@ -65,6 +73,27 @@ export async function deleteNote(id: string) {
   return apiRequest(`/notes/${id}`, 'DELETE');
 }
 
+export async function moveNote(id: string, direction: 'up' | 'down') {
+  return apiRequest(`/notes/${id}/move`, 'PUT', { direction });
+}
+
+// Note Sources
+export async function createNoteSource(data: { note_id: string; name: string; description?: string; source_types?: string[] }) {
+  return apiRequest('/noteSources', 'POST', data);
+}
+
+export async function updateNoteSource(id: string, data: { name: string; description?: string; source_types?: string[] }) {
+  return apiRequest(`/noteSources/${id}`, 'PUT', data);
+}
+
+export async function deleteNoteSource(id: string) {
+  return apiRequest(`/noteSources/${id}`, 'DELETE');
+}
+
+export async function moveNoteSource(id: string, direction: 'up' | 'down') {
+  return apiRequest(`/noteSources/${id}/move`, 'PUT', { direction });
+}
+
 // Note Blocks
 export async function createNoteBlock(data: { note_id: string; name: string; description?: string }) {
   return apiRequest('/noteBlocks', 'POST', data);
@@ -76,6 +105,10 @@ export async function updateNoteBlock(id: string, data: { name: string; descript
 
 export async function deleteNoteBlock(id: string) {
   return apiRequest(`/noteBlocks/${id}`, 'DELETE');
+}
+
+export async function moveNoteBlock(id: string, direction: 'up' | 'down') {
+  return apiRequest(`/noteBlocks/${id}/move`, 'PUT', { direction });
 }
 
 // Indicators
@@ -91,6 +124,27 @@ export async function deleteIndicator(id: string) {
   return apiRequest(`/indicators/${id}`, 'DELETE');
 }
 
+export async function moveIndicator(id: string, direction: 'up' | 'down') {
+  return apiRequest(`/indicators/${id}/move`, 'PUT', { direction });
+}
+
+// Note Block Indicators
+export async function createNoteBlockIndicator(data: { note_block_id: string; name: string; description?: string }) {
+  return apiRequest('/noteBlockIndicators', 'POST', data);
+}
+
+export async function updateNoteBlockIndicator(id: string, data: { name: string; description?: string }) {
+  return apiRequest(`/noteBlockIndicators/${id}`, 'PUT', data);
+}
+
+export async function deleteNoteBlockIndicator(id: string) {
+  return apiRequest(`/noteBlockIndicators/${id}`, 'DELETE');
+}
+
+export async function moveNoteBlockIndicator(id: string, direction: 'up' | 'down') {
+  return apiRequest(`/noteBlockIndicators/${id}/move`, 'PUT', { direction });
+}
+
 // Slices
 export async function createSlice(data: { indicator_id: string; name: string; description?: string }) {
   return apiRequest('/slices', 'POST', data);
@@ -104,6 +158,27 @@ export async function deleteSlice(id: string) {
   return apiRequest(`/slices/${id}`, 'DELETE');
 }
 
+export async function moveSlice(id: string, direction: 'up' | 'down') {
+  return apiRequest(`/slices/${id}/move`, 'PUT', { direction });
+}
+
+// Note Block Slices
+export async function createNoteBlockSlice(data: { indicator_id: string; name: string; description?: string }) {
+  return apiRequest('/noteBlockSlices', 'POST', data);
+}
+
+export async function updateNoteBlockSlice(id: string, data: { name: string; description?: string }) {
+  return apiRequest(`/noteBlockSlices/${id}`, 'PUT', data);
+}
+
+export async function deleteNoteBlockSlice(id: string) {
+  return apiRequest(`/noteBlockSlices/${id}`, 'DELETE');
+}
+
+export async function moveNoteBlockSlice(id: string, direction: 'up' | 'down') {
+  return apiRequest(`/noteBlockSlices/${id}/move`, 'PUT', { direction });
+}
+
 // Sources
 export async function createSource(data: { slice_id: string; name: string; description?: string; source_types?: string[] }) {
   return apiRequest('/sources', 'POST', data);
@@ -115,4 +190,30 @@ export async function updateSource(id: string, data: { name: string; description
 
 export async function deleteSource(id: string) {
   return apiRequest(`/sources/${id}`, 'DELETE');
+}
+
+export async function moveSource(id: string, direction: 'up' | 'down') {
+  return apiRequest(`/sources/${id}/move`, 'PUT', { direction });
+}
+
+// Note Block Sources
+export async function createNoteBlockSource(data: { slice_id: string; name: string; description?: string; source_types?: string[] }) {
+  return apiRequest('/noteBlockSources', 'POST', data);
+}
+
+export async function updateNoteBlockSource(id: string, data: { name: string; description?: string; source_types?: string[] }) {
+  return apiRequest(`/noteBlockSources/${id}`, 'PUT', data);
+}
+
+export async function deleteNoteBlockSource(id: string) {
+  return apiRequest(`/noteBlockSources/${id}`, 'DELETE');
+}
+
+export async function moveNoteBlockSource(id: string, direction: 'up' | 'down') {
+  return apiRequest(`/noteBlockSources/${id}/move`, 'PUT', { direction });
+}
+
+// Bulk import
+export async function importAllReports(reports: any[]) {
+  return apiRequest('/import', 'POST', { reports });
 }

@@ -102,6 +102,14 @@ try {
         case 'sources':
             handleSources($db, $method, $id, $input);
             break;
+        case 'import':
+            if ($method === 'POST') {
+                handleImport($db, $input);
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Resource not found']);
@@ -436,6 +444,133 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
             $stmt->execute([$id]);
             echo json_encode(['success' => true]);
             break;
+    }
+}
+
+// ============================================================
+// Import handler - полная замена всех данных
+// ============================================================
+function handleImport(PDO $db, array $input): void {
+    if (!isset($input['reports']) || !is_array($input['reports'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid import data']);
+        return;
+    }
+    
+    $reports = $input['reports'];
+    
+    try {
+        $db->beginTransaction();
+        
+        // Очищаем все таблицы в правильном порядке (от дочерних к родительским)
+        $db->exec("DELETE FROM data_sources");
+        $db->exec("DELETE FROM data_slices");
+        $db->exec("DELETE FROM indicators");
+        $db->exec("DELETE FROM note_sources");
+        $db->exec("DELETE FROM note_blocks");
+        $db->exec("DELETE FROM notes");
+        $db->exec("DELETE FROM sections");
+        $db->exec("DELETE FROM reports");
+        
+        // Импортируем данные
+        foreach ($reports as $report) {
+            $reportId = $report['id'] ?? generateUUID();
+            $stmt = $db->prepare("INSERT INTO reports (id, name, description) VALUES (?, ?, ?)");
+            $stmt->execute([$reportId, $report['name'], $report['description'] ?? null]);
+            
+            if (isset($report['sections'])) {
+                foreach ($report['sections'] as $section) {
+                    $sectionId = $section['id'] ?? generateUUID();
+                    $stmt = $db->prepare("INSERT INTO sections (id, report_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                    $stmt->execute([$sectionId, $reportId, $section['name'], $section['description'] ?? null, $section['sort_order'] ?? 0]);
+                    
+                    if (isset($section['notes'])) {
+                        foreach ($section['notes'] as $note) {
+                            $noteId = $note['id'] ?? generateUUID();
+                            $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                            $stmt->execute([$noteId, $sectionId, $note['name'], $note['short_name'] ?? null, $note['description'] ?? null, $note['sort_order'] ?? 0]);
+                            
+                            // Note sources
+                            if (isset($note['sources'])) {
+                                foreach ($note['sources'] as $source) {
+                                    $sourceId = $source['id'] ?? generateUUID();
+                                    $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                    $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                                    $stmt->execute([$sourceId, $noteId, $source['name'], $source['description'] ?? null, $sourceTypes, $source['sort_order'] ?? 0]);
+                                }
+                            }
+                            
+                            // Note blocks
+                            if (isset($note['noteBlocks'])) {
+                                foreach ($note['noteBlocks'] as $noteBlock) {
+                                    $noteBlockId = $noteBlock['id'] ?? generateUUID();
+                                    $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                    $stmt->execute([$noteBlockId, $noteId, $noteBlock['name'], $noteBlock['description'] ?? null, $noteBlock['sort_order'] ?? 0]);
+                                    
+                                    if (isset($noteBlock['indicators'])) {
+                                        foreach ($noteBlock['indicators'] as $indicator) {
+                                            $indicatorId = $indicator['id'] ?? generateUUID();
+                                            $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                            $stmt->execute([$indicatorId, $noteId, $indicator['name'], $indicator['description'] ?? null, $indicator['sort_order'] ?? 0]);
+                                            
+                                            if (isset($indicator['slices'])) {
+                                                foreach ($indicator['slices'] as $slice) {
+                                                    $sliceId = $slice['id'] ?? generateUUID();
+                                                    $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                                    $stmt->execute([$sliceId, $indicatorId, $slice['name'], $slice['description'] ?? null, $slice['sort_order'] ?? 0]);
+                                                    
+                                                    if (isset($slice['sources'])) {
+                                                        foreach ($slice['sources'] as $source) {
+                                                            $sourceId = $source['id'] ?? generateUUID();
+                                                            $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                                            $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                                                            $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $source['sort_order'] ?? 0]);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Indicators
+                            if (isset($note['indicators'])) {
+                                foreach ($note['indicators'] as $indicator) {
+                                    $indicatorId = $indicator['id'] ?? generateUUID();
+                                    $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                    $stmt->execute([$indicatorId, $noteId, $indicator['name'], $indicator['description'] ?? null, $indicator['sort_order'] ?? 0]);
+                                    
+                                    if (isset($indicator['slices'])) {
+                                        foreach ($indicator['slices'] as $slice) {
+                                            $sliceId = $slice['id'] ?? generateUUID();
+                                            $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                            $stmt->execute([$sliceId, $indicatorId, $slice['name'], $slice['description'] ?? null, $slice['sort_order'] ?? 0]);
+                                            
+                                            if (isset($slice['sources'])) {
+                                                foreach ($slice['sources'] as $source) {
+                                                    $sourceId = $source['id'] ?? generateUUID();
+                                                    $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                                    $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                                                    $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $source['sort_order'] ?? 0]);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        $db->commit();
+        echo json_encode(['success' => true, 'imported' => count($reports)]);
+    } catch (Exception $e) {
+        $db->rollBack();
+        http_response_code(500);
+        echo json_encode(['error' => 'Import failed: ' . $e->getMessage()]);
     }
 }
 
