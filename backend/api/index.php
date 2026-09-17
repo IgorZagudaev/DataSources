@@ -296,7 +296,7 @@ function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
 
 function getSlicesForNoteBlockIndicator(PDO $db, string $indicatorId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM data_slices WHERE indicator_id = ? ORDER BY sort_order");
+        $stmt = $db->prepare("SELECT * FROM note_block_data_slices WHERE indicator_id = ? ORDER BY sort_order");
         $stmt->execute([$indicatorId]);
         $slices = $stmt->fetchAll();
         
@@ -602,7 +602,9 @@ function handleImport(PDO $db, array $input): void {
         // Очищаем все таблицы в правильном порядке (от дочерних к родительским)
         $db->exec("DELETE FROM data_sources");
         $db->exec("DELETE FROM data_slices");
+        $db->exec("DELETE FROM note_block_data_slices");
         $db->exec("DELETE FROM indicators");
+        $db->exec("DELETE FROM note_block_indicators");
         $db->exec("DELETE FROM note_sources");
         $db->exec("DELETE FROM note_blocks");
         $db->exec("DELETE FROM notes");
@@ -673,7 +675,7 @@ function handleImport(PDO $db, array $input): void {
                                             if (isset($indicator['slices'])) {
                                                 foreach ($indicator['slices'] as $slice) {
                                                     $sliceId = $slice['id'] ?? generateUUID();
-                                                    $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                                    $stmt = $db->prepare("INSERT INTO note_block_data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
                                                     $stmt->execute([$sliceId, $indicatorId, $slice['name'], $slice['description'] ?? null, $slice['sort_order'] ?? 0]);
                                                     
                                                     if (isset($slice['sources'])) {
