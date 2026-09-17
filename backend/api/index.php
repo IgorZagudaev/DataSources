@@ -58,7 +58,14 @@ require_once __DIR__ . '/Database.php';
 $method = $_SERVER['REQUEST_METHOD'];
 $uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($uri, PHP_URL_PATH);
-$path = str_replace('/api/', '', $path);
+
+// Извлекаем часть после /api/
+if (preg_match('/\/api\/(.*)$/', $path, $matches)) {
+    $path = $matches[1];
+} else {
+    $path = '';
+}
+
 $segments = explode('/', trim($path, '/'));
 
 $resource = $segments[0] ?? '';
