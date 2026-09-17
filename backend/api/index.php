@@ -59,17 +59,13 @@ $method = $_SERVER['REQUEST_METHOD'];
 $uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($uri, PHP_URL_PATH);
 
-// Извлекаем часть после /api/ - учитываем префикс /DataSources/
-if (preg_match('/\/api\/(.*)$/', $path, $matches)) {
-    $path = $matches[1];
-} else {
-    $path = '';
-}
-
-$segments = array_values(array_filter(explode('/', trim($path, '/'))));
-
-$resource = $segments[0] ?? '';
-$id = $segments[1] ?? null;
+// ВРЕМЕННАЯ ОТЛАДКА - покажет что приходит
+echo json_encode([
+    'uri' => $uri,
+    'path' => $path,
+    'server' => $_SERVER
+]);
+exit;
 
 // Get JSON body
 $input = json_decode(file_get_contents('php://input'), true);
