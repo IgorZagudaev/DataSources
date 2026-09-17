@@ -11,12 +11,21 @@ function getMode(): DataSourceMode {
   return (localStorage.getItem(MODE_KEY) as DataSourceMode) || 'local';
 }
 
-export function setMode(mode: DataSourceMode): void {
+export async function setMode(mode: DataSourceMode): Promise<void> {
+  console.log('setMode called with mode:', mode);
   localStorage.setItem(MODE_KEY, mode);
   currentMode = mode;
-  // Перезагружаем данные при смене режима
-  reports = loadData();
-  notify();
+  
+  if (mode === 'api') {
+    console.log('Switching to API mode, syncing from API...');
+    // Для API режима загружаем данные асинхронно
+    await syncFromAPI();
+  } else {
+    console.log('Switching to local mode, loading from localStorage...');
+    // Для локального режима загружаем из localStorage
+    reports = loadData();
+    notify();
+  }
 }
 
 export function getDataSourceMode(): DataSourceMode {
@@ -31,8 +40,28 @@ function generateId(): string {
 
 async function loadFromAPI(): Promise<Report[]> {
   try {
+    console.log('Loading data from API...');
     const data = await api.fetchReports();
-    return data;
+    console.log('Data received from API:', data);
+    console.log('Number of reports:', data.length);
+    
+    // Проверяем структуру данных
+    if (!Array.isArray(data)) {
+      console.error('API returned non-array data:', data);
+      return [];
+    }
+    
+    // Проверяем, что каждый элемент имеет нужную структуру
+    const validReports = data.filter(report => {
+      const isValid = report && report.id && report.name;
+      if (!isValid) {
+        console.warn('Invalid report structure:', report);
+      }
+      return isValid;
+    });
+    
+    console.log('Valid reports:', validReports.length);
+    return validReports;
   } catch (e) {
     console.error('Error loading from API:', e);
     return [];
@@ -100,12 +129,20 @@ function loadData(): Report[] {
 
 // Асинхронная загрузка данных из API
 export async function syncFromAPI(): Promise<void> {
+  console.log('syncFromAPI called, current mode:', currentMode);
   if (currentMode === 'api') {
+    console.log('Mode is API, loading data...');
     const data = await loadFromAPI();
+    console.log('Loaded data:', data);
     if (data.length > 0) {
+      console.log('Updating reports with', data.length, 'items');
       reports = data;
       notify();
+    } else {
+      console.warn('No data loaded from API');
     }
+  } else {
+    console.log('Mode is not API, skipping sync');
   }
 }
 

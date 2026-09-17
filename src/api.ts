@@ -24,7 +24,10 @@ async function apiRequest(endpoint: string, method: string = 'GET', data?: any):
 
 // Reports
 export async function fetchReports() {
-  return apiRequest('/reports');
+  console.log('Fetching reports from API...');
+  const result = await apiRequest('/reports');
+  console.log('API response:', result);
+  return result;
 }
 
 export async function createReport(data: { name: string; description?: string }) {
