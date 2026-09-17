@@ -273,15 +273,16 @@ function getNoteBlocksForNote(PDO $db, string $noteId): array {
 
 function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM indicators WHERE note_block_id = ? ORDER BY sort_order");
+        // Используем таблицу note_block_indicators, а не indicators
+        $stmt = $db->prepare("SELECT * FROM note_block_indicators WHERE note_block_id = ? ORDER BY sort_order");
         $stmt->execute([$noteBlockId]);
         $indicators = $stmt->fetchAll();
         
         foreach ($indicators as &$indicator) {
             try {
-                $indicator['slices'] = getSlicesForIndicator($db, $indicator['id']);
+                $indicator['slices'] = getSlicesForNoteBlockIndicator($db, $indicator['id']);
             } catch (Exception $e) {
-                error_log("Error loading slices for indicator {$indicator['id']}: " . $e->getMessage());
+                error_log("Error loading slices for noteBlockIndicator {$indicator['id']}: " . $e->getMessage());
                 $indicator['slices'] = [];
             }
         }
@@ -289,6 +290,28 @@ function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
         return $indicators;
     } catch (Exception $e) {
         error_log("Error in getIndicatorsForNoteBlock: " . $e->getMessage());
+        return [];
+    }
+}
+
+function getSlicesForNoteBlockIndicator(PDO $db, string $indicatorId): array {
+    try {
+        $stmt = $db->prepare("SELECT * FROM data_slices WHERE indicator_id = ? ORDER BY sort_order");
+        $stmt->execute([$indicatorId]);
+        $slices = $stmt->fetchAll();
+        
+        foreach ($slices as &$slice) {
+            try {
+                $slice['sources'] = getSourcesForSlice($db, $slice['id']);
+            } catch (Exception $e) {
+                error_log("Error loading sources for slice {$slice['id']}: " . $e->getMessage());
+                $slice['sources'] = [];
+            }
+        }
+        
+        return $slices;
+    } catch (Exception $e) {
+        error_log("Error in getSlicesForNoteBlockIndicator: " . $e->getMessage());
         return [];
     }
 }
@@ -644,8 +667,8 @@ function handleImport(PDO $db, array $input): void {
                                     if (isset($noteBlock['indicators'])) {
                                         foreach ($noteBlock['indicators'] as $indicator) {
                                             $indicatorId = $indicator['id'] ?? generateUUID();
-                                            $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-                                            $stmt->execute([$indicatorId, $noteId, $indicator['name'], $indicator['description'] ?? null, $indicator['sort_order'] ?? 0]);
+                                            $stmt = $db->prepare("INSERT INTO note_block_indicators (id, note_block_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                            $stmt->execute([$indicatorId, $noteBlockId, $indicator['name'], $indicator['description'] ?? null, $indicator['sort_order'] ?? 0]);
                                             
                                             if (isset($indicator['slices'])) {
                                                 foreach ($indicator['slices'] as $slice) {
