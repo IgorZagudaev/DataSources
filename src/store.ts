@@ -1,12 +1,53 @@
 import { Report, Section, Note, NoteBlock, Indicator, DataSlice, DataSource, SourceType } from './types';
+import * as api from './api';
 
 const STORAGE_KEY = 'report_data_sources_reference_v3';
+const MODE_KEY = 'data_source_mode';
+
+// Режим работы: 'local' (localStorage) или 'api' (PostgreSQL)
+export type DataSourceMode = 'local' | 'api';
+
+function getMode(): DataSourceMode {
+  return (localStorage.getItem(MODE_KEY) as DataSourceMode) || 'local';
+}
+
+export function setMode(mode: DataSourceMode): void {
+  localStorage.setItem(MODE_KEY, mode);
+  currentMode = mode;
+  // Перезагружаем данные при смене режима
+  reports = loadData();
+  notify();
+}
+
+export function getDataSourceMode(): DataSourceMode {
+  return currentMode;
+}
+
+let currentMode: DataSourceMode = getMode();
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
+async function loadFromAPI(): Promise<Report[]> {
+  try {
+    const data = await api.fetchReports();
+    return data;
+  } catch (e) {
+    console.error('Error loading from API:', e);
+    return [];
+  }
+}
+
 function loadData(): Report[] {
+  currentMode = getMode();
+  
+  // Если режим API, данные будут загружены асинхронно через syncFromAPI
+  if (currentMode === 'api') {
+    return []; // Временно возвращаем пустой массив, данные загрузятся через syncFromAPI
+  }
+  
+  // Локальный режим - загружаем из localStorage
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
@@ -55,6 +96,17 @@ function loadData(): Report[] {
     console.error('Error loading ', e);
   }
   return getDefaultData();
+}
+
+// Асинхронная загрузка данных из API
+export async function syncFromAPI(): Promise<void> {
+  if (currentMode === 'api') {
+    const data = await loadFromAPI();
+    if (data.length > 0) {
+      reports = data;
+      notify();
+    }
+  }
 }
 
 function saveData(reports: Report[]): void {

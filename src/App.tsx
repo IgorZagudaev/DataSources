@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useReports } from './hooks';
 import { TreeView } from './components/TreeView';
 import { DetailPanel } from './components/DetailPanel';
 import { FormPanel, DeleteConfirmPanel } from './components/FormPanel';
+import { ModeSwitcher } from './components/ModeSwitcher';
 import {
   resetData, exportData, importData,
   deleteReport, deleteSection, deleteNote, deleteNoteBlock,
@@ -19,7 +20,8 @@ import {
   moveNoteBlockSliceUp, moveNoteBlockSliceDown,
   moveSourceUp, moveSourceDown,
   moveNoteSourceUp, moveNoteSourceDown,
-  moveNoteBlockSourceUp, moveNoteBlockSourceDown
+  moveNoteBlockSourceUp, moveNoteBlockSourceDown,
+  syncFromAPI, getDataSourceMode
 } from './store';
 
 interface FormState {
@@ -38,6 +40,13 @@ function App() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Загружаем данные из API при старте, если режим API
+  useEffect(() => {
+    if (getDataSourceMode() === 'api') {
+      syncFromAPI();
+    }
+  }, []);
 
   const handleSelect = (id: string, type: string) => {
     setFormState(null);
@@ -390,6 +399,7 @@ function App() {
 
 
           <div className="flex items-center gap-2">
+            <ModeSwitcher />
             <button
               onClick={handleExport}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
