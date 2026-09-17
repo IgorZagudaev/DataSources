@@ -1,5 +1,6 @@
 // API клиент для работы с PHP бэкендом
-const API_BASE_URL = '/DataSources/api';
+// Используем относительный путь от корня сайта
+const API_BASE_URL = window.location.pathname.replace(/\/[^\/]*$/, '') + '/api';
 
 async function apiRequest(endpoint: string, method: string = 'GET', data?: any): Promise<any> {
   const options: RequestInit = {
@@ -218,5 +219,9 @@ export async function moveNoteBlockSource(id: string, direction: 'up' | 'down') 
 
 // Bulk import
 export async function importAllReports(reports: any[]) {
-  return apiRequest('/import', 'POST', { reports });
+  console.log('importAllReports called with', reports.length, 'reports');
+  console.log('Sending data:', JSON.stringify(reports, null, 2));
+  const result = await apiRequest('/import', 'POST', { reports });
+  console.log('Import result:', result);
+  return result;
 }

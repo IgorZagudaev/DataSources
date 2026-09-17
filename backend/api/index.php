@@ -459,6 +459,32 @@ function handleImport(PDO $db, array $input): void {
     
     $reports = $input['reports'];
     
+    // Логируем первый источник для проверки source_types
+    foreach ($reports as $report) {
+        if (isset($report['sections']) && is_array($report['sections'])) {
+            foreach ($report['sections'] as $section) {
+                if (isset($section['notes']) && is_array($section['notes'])) {
+                    foreach ($section['notes'] as $note) {
+                        if (isset($note['indicators']) && is_array($note['indicators'])) {
+                            foreach ($note['indicators'] as $indicator) {
+                                if (isset($indicator['slices']) && is_array($indicator['slices'])) {
+                                    foreach ($indicator['slices'] as $slice) {
+                                        if (isset($slice['sources']) && is_array($slice['sources']) && count($slice['sources']) > 0) {
+                                            $firstSource = $slice['sources'][0];
+                                            error_log("First source structure: " . json_encode($firstSource));
+                                            error_log("Source types: " . json_encode($firstSource['source_types'] ?? 'NOT SET'));
+                                            break 5;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     try {
         $db->beginTransaction();
         

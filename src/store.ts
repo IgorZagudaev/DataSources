@@ -150,7 +150,30 @@ export async function syncFromAPI(): Promise<void> {
 async function syncToAPI(): Promise<void> {
   if (currentMode === 'api') {
     try {
+      console.log('Syncing data to API...');
+      console.log('Reports to sync:', reports);
+      
+      // Логируем структуру первого источника для проверки
+      if (reports.length > 0 && reports[0].sections?.length > 0) {
+        const firstSection = reports[0].sections[0];
+        if (firstSection.notes?.length > 0) {
+          const firstNote = firstSection.notes[0];
+          if (firstNote.indicators?.length > 0) {
+            const firstIndicator = firstNote.indicators[0];
+            if (firstIndicator.slices?.length > 0) {
+              const firstSlice = firstIndicator.slices[0];
+              if (firstSlice.sources?.length > 0) {
+                const firstSource = firstSlice.sources[0];
+                console.log('First source structure:', firstSource);
+                console.log('Source types:', firstSource.sourceTypes);
+              }
+            }
+          }
+        }
+      }
+      
       await api.importAllReports(reports);
+      console.log('Sync to API completed');
     } catch (e) {
       console.error('Error syncing to API:', e);
     }
