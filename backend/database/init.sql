@@ -78,6 +78,38 @@ CREATE TABLE IF NOT EXISTS note_blocks (
 CREATE INDEX idx_note_blocks_note_id ON note_blocks(note_id);
 
 -- ============================================================
+-- Уровень 5: Таблица показателей в блоках справок
+-- Отношение: N:1 к note_blocks
+-- ============================================================
+CREATE TABLE IF NOT EXISTS note_block_indicators (
+    id VARCHAR(36) PRIMARY KEY,
+    note_block_id VARCHAR(36) NOT NULL REFERENCES note_blocks(id) ON DELETE CASCADE,
+    name VARCHAR(500) NOT NULL,
+    description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_note_block_indicators_note_block_id ON note_block_indicators(note_block_id);
+
+-- ============================================================
+-- Уровень 6: Таблица разрезов данных в блоках справок
+-- Отношение: N:1 к note_block_indicators
+-- ============================================================
+CREATE TABLE IF NOT EXISTS note_block_data_slices (
+    id VARCHAR(36) PRIMARY KEY,
+    indicator_id VARCHAR(36) NOT NULL REFERENCES note_block_indicators(id) ON DELETE CASCADE,
+    name VARCHAR(500) NOT NULL,
+    description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_note_block_data_slices_indicator_id ON note_block_data_slices(indicator_id);
+
+-- ============================================================
 -- Уровень 4 (альтернативный): Таблица источников данных напрямую в справках
 -- Отношение: N:1 к notes
 -- ============================================================
@@ -127,11 +159,12 @@ CREATE INDEX idx_data_slices_indicator_id ON data_slices(indicator_id);
 
 -- ============================================================
 -- Уровень 6: Таблица источников данных
--- Отношение: N:1 к data_slices
+-- Отношение: N:1 к data_slices или note_block_data_slices
+-- Примечание: внешний ключ не используется, чтобы поддерживать обе таблицы разрезов
 -- ============================================================
 CREATE TABLE IF NOT EXISTS data_sources (
     id VARCHAR(36) PRIMARY KEY,
-    slice_id VARCHAR(36) NOT NULL REFERENCES data_slices(id) ON DELETE CASCADE,
+    slice_id VARCHAR(36) NOT NULL,
     name VARCHAR(500) NOT NULL,
     description TEXT,
     source_types TEXT, -- JSON array of source types
