@@ -22,7 +22,7 @@
 -- ============================================================
 CREATE TABLE IF NOT EXISTS reports (
     id VARCHAR(36) PRIMARY KEY,
-    name VARCHAR(500) NOT NULL,
+    name TEXT NOT NULL,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE TABLE IF NOT EXISTS sections (
     id VARCHAR(36) PRIMARY KEY,
     report_id VARCHAR(36) NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
-    name VARCHAR(500) NOT NULL,
+    name TEXT NOT NULL,
     description TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -51,8 +51,8 @@ CREATE INDEX idx_sections_report_id ON sections(report_id);
 CREATE TABLE IF NOT EXISTS notes (
     id VARCHAR(36) PRIMARY KEY,
     section_id VARCHAR(36) NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
-    name VARCHAR(500) NOT NULL,
-    short_name VARCHAR(200),
+    name TEXT NOT NULL,
+    short_name TEXT,
     description TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -68,7 +68,7 @@ CREATE INDEX idx_notes_section_id ON notes(section_id);
 CREATE TABLE IF NOT EXISTS note_blocks (
     id VARCHAR(36) PRIMARY KEY,
     note_id VARCHAR(36) NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
-    name VARCHAR(500) NOT NULL,
+    name TEXT NOT NULL,
     description TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -84,7 +84,7 @@ CREATE INDEX idx_note_blocks_note_id ON note_blocks(note_id);
 CREATE TABLE IF NOT EXISTS note_block_indicators (
     id VARCHAR(36) PRIMARY KEY,
     note_block_id VARCHAR(36) NOT NULL REFERENCES note_blocks(id) ON DELETE CASCADE,
-    name VARCHAR(500) NOT NULL,
+    name TEXT NOT NULL,
     description TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -100,7 +100,7 @@ CREATE INDEX idx_note_block_indicators_note_block_id ON note_block_indicators(no
 CREATE TABLE IF NOT EXISTS note_block_data_slices (
     id VARCHAR(36) PRIMARY KEY,
     indicator_id VARCHAR(36) NOT NULL REFERENCES note_block_indicators(id) ON DELETE CASCADE,
-    name VARCHAR(500) NOT NULL,
+    name TEXT NOT NULL,
     description TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -116,7 +116,7 @@ CREATE INDEX idx_note_block_data_slices_indicator_id ON note_block_data_slices(i
 CREATE TABLE IF NOT EXISTS note_sources (
     id VARCHAR(36) PRIMARY KEY,
     note_id VARCHAR(36) NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
-    name VARCHAR(500) NOT NULL,
+    name TEXT NOT NULL,
     description TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -132,7 +132,7 @@ CREATE INDEX idx_note_sources_note_id ON note_sources(note_id);
 CREATE TABLE IF NOT EXISTS indicators (
     id VARCHAR(36) PRIMARY KEY,
     note_id VARCHAR(36) NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
-    name VARCHAR(500) NOT NULL,
+    name TEXT NOT NULL,
     description TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -148,7 +148,7 @@ CREATE INDEX idx_indicators_note_id ON indicators(note_id);
 CREATE TABLE IF NOT EXISTS data_slices (
     id VARCHAR(36) PRIMARY KEY,
     indicator_id VARCHAR(36) NOT NULL REFERENCES indicators(id) ON DELETE CASCADE,
-    name VARCHAR(500) NOT NULL,
+    name TEXT NOT NULL,
     description TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -165,7 +165,7 @@ CREATE INDEX idx_data_slices_indicator_id ON data_slices(indicator_id);
 CREATE TABLE IF NOT EXISTS data_sources (
     id VARCHAR(36) PRIMARY KEY,
     slice_id VARCHAR(36) NOT NULL,
-    name VARCHAR(500) NOT NULL,
+    name TEXT NOT NULL,
     description TEXT,
     source_types TEXT, -- JSON array of source types
     sort_order INTEGER DEFAULT 0,
