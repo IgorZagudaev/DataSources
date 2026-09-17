@@ -38,6 +38,22 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
+// Преобразование snake_case в camelCase для фронтенда
+function convertToCamelCase(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(convertToCamelCase);
+  } else if (obj && typeof obj === 'object') {
+    const result: any = {};
+    for (const key in obj) {
+      // Преобразуем source_types в sourceTypes
+      const camelKey = key === 'source_types' ? 'sourceTypes' : key;
+      result[camelKey] = convertToCamelCase(obj[key]);
+    }
+    return result;
+  }
+  return obj;
+}
+
 async function loadFromAPI(): Promise<Report[]> {
   try {
     console.log('Loading data from API...');
@@ -51,8 +67,11 @@ async function loadFromAPI(): Promise<Report[]> {
       return [];
     }
     
+    // Преобразуем snake_case в camelCase
+    const convertedData = convertToCamelCase(data);
+    
     // Проверяем, что каждый элемент имеет нужную структуру
-    const validReports = data.filter(report => {
+    const validReports = convertedData.filter((report: any) => {
       const isValid = report && report.id && report.name;
       if (!isValid) {
         console.warn('Invalid report structure:', report);
@@ -146,33 +165,32 @@ export async function syncFromAPI(): Promise<void> {
   }
 }
 
+// Преобразование camelCase в snake_case для API
+function convertToSnakeCase(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(convertToSnakeCase);
+  } else if (obj && typeof obj === 'object') {
+    const result: any = {};
+    for (const key in obj) {
+      // Преобразуем sourceTypes в source_types
+      const snakeKey = key === 'sourceTypes' ? 'source_types' : key;
+      result[snakeKey] = convertToSnakeCase(obj[key]);
+    }
+    return result;
+  }
+  return obj;
+}
+
 // Синхронизация всех данных на сервер (для API режима)
 async function syncToAPI(): Promise<void> {
   if (currentMode === 'api') {
     try {
       console.log('Syncing data to API...');
-      console.log('Reports to sync:', reports);
       
-      // Логируем структуру первого источника для проверки
-      if (reports.length > 0 && reports[0].sections?.length > 0) {
-        const firstSection = reports[0].sections[0];
-        if (firstSection.notes?.length > 0) {
-          const firstNote = firstSection.notes[0];
-          if (firstNote.indicators?.length > 0) {
-            const firstIndicator = firstNote.indicators[0];
-            if (firstIndicator.slices?.length > 0) {
-              const firstSlice = firstIndicator.slices[0];
-              if (firstSlice.sources?.length > 0) {
-                const firstSource = firstSlice.sources[0];
-                console.log('First source structure:', firstSource);
-                console.log('Source types:', firstSource.sourceTypes);
-              }
-            }
-          }
-        }
-      }
+      // Преобразуем данные в snake_case перед отправкой
+      const reportsToSend = convertToSnakeCase(reports);
       
-      await api.importAllReports(reports);
+      await api.importAllReports(reportsToSend);
       console.log('Sync to API completed');
     } catch (e) {
       console.error('Error syncing to API:', e);
