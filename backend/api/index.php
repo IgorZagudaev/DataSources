@@ -59,14 +59,19 @@ $method = $_SERVER['REQUEST_METHOD'];
 $uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($uri, PHP_URL_PATH);
 
-// Извлекаем часть после /api/
-if (preg_match('/\/api\/(.*)$/', $path, $matches)) {
-    $path = $matches[1];
+// Отладка - временно включите для просмотра реального пути
+echo json_encode(['uri' => $uri, 'path' => $path, 'segments' => $segments, 'resource' => $resource, 'id' => $id]); exit;
+
+// Извлекаем часть после 'api' - ищем 'api' в любом месте пути
+$apiPos = strpos($path, 'api');
+if ($apiPos !== false) {
+    $path = substr($path, $apiPos + 3); // +3 для 'api'
 } else {
-    $path = '';
+    // Если 'api' не найден, берём весь путь
+    $path = $path;
 }
 
-$segments = explode('/', trim($path, '/'));
+$segments = array_values(array_filter(explode('/', trim($path, '/'))));
 
 $resource = $segments[0] ?? '';
 $id = $segments[1] ?? null;
