@@ -1,0 +1,9 @@
+RewriteEngine On
+RewriteBase /Datasource/api/
+
+# Если запрос не к существующему файлу или папке
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Перенаправляем все запросы на index.php
+RewriteRule ^(.*)$ index.php [QSA,L]
