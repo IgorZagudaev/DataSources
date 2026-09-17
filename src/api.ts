@@ -219,5 +219,9 @@ export async function moveNoteBlockSource(id: string, direction: 'up' | 'down') 
 
 // Bulk import
 export async function importAllReports(reports: any[]) {
-  return apiRequest('/import', 'POST', { reports });
+  console.log('importAllReports called with', reports.length, 'reports');
+  console.log('Sending data:', JSON.stringify(reports, null, 2));
+  const result = await apiRequest('/import', 'POST', { reports });
+  console.log('Import result:', result);
+  return result;
 }
