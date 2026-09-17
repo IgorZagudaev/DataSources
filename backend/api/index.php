@@ -60,33 +60,16 @@ $uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($uri, PHP_URL_PATH);
 
 // Извлекаем часть после /api/
-$matchResult = preg_match('/\/api\/(.*)$/', $path, $matches);
-
-// ОТЛАДКА - покажет результат regex
-if (!$matchResult) {
-    echo json_encode([
-        'error' => 'Regex не сработал',
-        'path' => $path,
-        'matchResult' => $matchResult,
-        'matches' => $matches
-    ]);
-    exit;
+if (preg_match('/\/api\/(.*)$/', $path, $matches)) {
+    $path = $matches[1];
+} else {
+    $path = '';
 }
 
-$path = $matches[1];
 $segments = array_values(array_filter(explode('/', trim($path, '/'))));
 
 $resource = $segments[0] ?? '';
 $id = $segments[1] ?? null;
-
-// ОТЛАДКА - покажет результат парсинга
-echo json_encode([
-    'path' => $path,
-    'segments' => $segments,
-    'resource' => $resource,
-    'id' => $id
-]);
-exit;
 
 // Get JSON body
 $input = json_decode(file_get_contents('php://input'), true);
