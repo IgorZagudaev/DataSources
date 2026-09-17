@@ -1,5 +1,5 @@
 RewriteEngine On
-RewriteBase /api/
+RewriteBase /DataSources/api/
 
 # Все запросы перенаправляем на index.php
 RewriteCond %{REQUEST_FILENAME} !-f

@@ -1,5 +1,5 @@
 RewriteEngine On
-RewriteBase /
+RewriteBase /DataSources/
 
 # API запросы перенаправляем на api/index.php
 RewriteRule ^api/(.*)$ api/index.php [QSA,L]

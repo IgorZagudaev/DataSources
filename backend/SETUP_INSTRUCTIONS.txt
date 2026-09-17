@@ -7,14 +7,19 @@
 ```apache
 <VirtualHost *:80>
     ServerName kbsh-diskor-23
-    DocumentRoot "C:/web/sites/DataSources"
+    DocumentRoot "C:/web/sites"
+    
+    <Directory "C:/web/sites">
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
     
     <Directory "C:/web/sites/DataSources">
         Options Indexes FollowSymLinks
         AllowOverride All
         Require all granted
         
-        # Обработка PHP
         <FilesMatch \.php$>
             SetHandler application/x-httpd-php
         </FilesMatch>
@@ -24,7 +29,7 @@
 </VirtualHost>
 ```
 
-**Важно:** Убрана директива `Alias` и `FallbackResource`, так как они создают конфликты.
+**Важно:** DocumentRoot теперь указывает на `C:/web/sites`, а не на `C:/web/sites/DataSources`. Это позволяет сайту быть доступным по пути `/DataSources/`.
 
 ## Шаг 2: Обновите .htaccess в корне сайта
 
@@ -32,7 +37,7 @@
 
 ```apache
 RewriteEngine On
-RewriteBase /
+RewriteBase /DataSources/
 
 # API запросы перенаправляем на api/index.php
 RewriteRule ^api/(.*)$ api/index.php [QSA,L]
@@ -46,19 +51,23 @@ RewriteRule ^ - [L]
 RewriteRule ^ index.html [L]
 ```
 
+**Важно:** `RewriteBase /DataSources/` учитывает префикс пути.
+
 ## Шаг 3: Обновите .htaccess в папке api
 
 Замените содержимое файла `C:/web/sites/DataSources/api/.htaccess` на:
 
 ```apache
 RewriteEngine On
-RewriteBase /api/
+RewriteBase /DataSources/api/
 
 # Все запросы перенаправляем на index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]
 ```
+
+**Важно:** `RewriteBase /DataSources/api/` учитывает префикс пути.
 
 ## Шаг 4: Отключите отладку в index.php
 
@@ -86,10 +95,15 @@ httpd -k restart
 
 Откройте в браузере:
 ```
-http://kbsh-diskor-23/api/reports
+http://kbsh-diskor-23/DataSources/api/reports
 ```
 
 Должен вернуться JSON с данными из PostgreSQL.
+
+Если сайт доступен по IP, используйте:
+```
+http://10.64.8.68/DataSources/api/reports
+```
 
 ## Проверка структуры файлов
 
