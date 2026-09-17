@@ -1,0 +1,118 @@
+# Инструкция по настройке Apache для DataSources
+
+## Шаг 1: Обновите VirtualHost
+
+Замените содержимое VirtualHost в файле `httpd-vhosts.conf` на:
+
+```apache
+<VirtualHost *:80>
+    ServerName kbsh-diskor-23
+    DocumentRoot "C:/web/sites/DataSources"
+    
+    <Directory "C:/web/sites/DataSources">
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+        
+        # Обработка PHP
+        <FilesMatch \.php$>
+            SetHandler application/x-httpd-php
+        </FilesMatch>
+        
+        DirectoryIndex index.html index.php
+    </Directory>
+</VirtualHost>
+```
+
+**Важно:** Убрана директива `Alias` и `FallbackResource`, так как они создают конфликты.
+
+## Шаг 2: Обновите .htaccess в корне сайта
+
+Замените содержимое файла `C:/web/sites/DataSources/.htaccess` на:
+
+```apache
+RewriteEngine On
+RewriteBase /
+
+# API запросы перенаправляем на api/index.php
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+# Если запрос к существующему файлу или папке - отдаём его
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Все остальные запросы - на index.html (SPA)
+RewriteRule ^ index.html [L]
+```
+
+## Шаг 3: Обновите .htaccess в папке api
+
+Замените содержимое файла `C:/web/sites/DataSources/api/.htaccess` на:
+
+```apache
+RewriteEngine On
+RewriteBase /api/
+
+# Все запросы перенаправляем на index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
+```
+
+## Шаг 4: Отключите отладку в index.php
+
+В файле `C:/web/sites/DataSources/api/index.php` найдите строку:
+
+```php
+echo json_encode(['uri' => $uri, 'path' => $path, 'segments' => $segments, 'resource' => $resource, 'id' => $id]); exit;
+```
+
+Закомментируйте её:
+
+```php
+// echo json_encode(['uri' => $uri, 'path' => $path, 'segments' => $segments, 'resource' => $resource, 'id' => $id]); exit;
+```
+
+## Шаг 5: Перезапустите Apache
+
+```bash
+httpd -k restart
+```
+
+Или через Services → Apache2.4 → Restart
+
+## Шаг 6: Проверьте
+
+Откройте в браузере:
+```
+http://kbsh-diskor-23/api/reports
+```
+
+Должен вернуться JSON с данными из PostgreSQL.
+
+## Проверка структуры файлов
+
+Убедитесь, что структура такая:
+
+```
+C:/web/sites/DataSources/
+├── index.html              (из dist/)
+├── assets/                 (из dist/)
+├── .htaccess              (корневой)
+└── api/
+    ├── index.php
+    ├── config.php
+    ├── Database.php
+    └── .htaccess          (для api)
+```
+
+## Если всё ещё не работает
+
+1. Проверьте логи Apache: `C:/web/Apache24/logs/error.log`
+2. Убедитесь, что модуль `mod_rewrite` включен в `httpd.conf`:
+   ```apache
+   LoadModule rewrite_module modules/mod_rewrite.so
+   ```
+3. Проверьте, что файл `C:/web/sites/DataSources/api/index.php` существует и доступен для чтения
+4. Проверьте права доступа к папкам и файлам

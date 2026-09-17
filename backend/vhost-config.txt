@@ -1,0 +1,17 @@
+<VirtualHost *:80>
+    ServerName kbsh-diskor-23
+    DocumentRoot "C:/web/sites/DataSources"
+    
+    <Directory "C:/web/sites/DataSources">
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+        
+        # Обработка PHP
+        <FilesMatch \.php$>
+            SetHandler application/x-httpd-php
+        </FilesMatch>
+        
+        DirectoryIndex index.html index.php
+    </Directory>
+</VirtualHost>
