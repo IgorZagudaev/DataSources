@@ -523,7 +523,7 @@ function App() {
       {/* Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowImportModal(false)} />
+          <div className="absolute inset-0 bg-gray-100" onClick={() => setShowImportModal(false)} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Импорт данных</h3>
             <div className="space-y-4">
@@ -630,7 +630,7 @@ function App() {
       {/* Export Modal */}
       {showExportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowExportModal(false)} />
+          <div className="absolute inset-0 bg-gray-100" onClick={() => setShowExportModal(false)} />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Экспорт данных</h3>
             <div className="space-y-4">
