@@ -39,6 +39,7 @@ function App() {
   const [panelKey, setPanelKey] = useState(0);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
+  const [mergeDuplicates, setMergeDuplicates] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Загружаем данные из API при старте, если режим API
@@ -235,6 +236,7 @@ function App() {
     console.log('=== НАЧАЛО handleImport ===');
     console.log('Текущий importText:', importText);
     console.log('Длина importText:', importText.length);
+    console.log('mergeDuplicates:', mergeDuplicates);
     
     // Получаем актуальное значение из textarea
     const currentText = importText.trim();
@@ -244,7 +246,7 @@ function App() {
     if (currentText) {
       console.log('Вызов importData с текстом длиной:', currentText.length);
       try {
-        const success = importData(currentText);
+        const success = importData(currentText, mergeDuplicates);
         console.log('Результат importData:', success);
         if (success) {
           console.log('Импорт успешен!');
@@ -559,6 +561,18 @@ function App() {
                 rows={6}
                 placeholder='[{"id":"...","name":"...","sections":[...]}]'
               />
+              <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="mergeDuplicates"
+                  checked={mergeDuplicates}
+                  onChange={(e) => setMergeDuplicates(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="mergeDuplicates" className="text-sm text-gray-700 cursor-pointer">
+                  Объединять доклады с одинаковыми названиями
+                </label>
+              </div>
               <button
                 onClick={() => {
                   console.log('Кнопка тестовых данных нажата');
