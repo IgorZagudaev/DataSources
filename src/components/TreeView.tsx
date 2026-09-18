@@ -4,6 +4,7 @@ import { Report } from '../types';
 interface TreeViewProps {
   reports: Report[];
   selectedId: string | null;
+  editingId?: string | null;
   onSelect: (id: string, type: string) => void;
   onAdd: (type: string, parentIds: string[]) => void;
   onEdit: (type: string, parentIds: string[], data: any) => void;
@@ -12,7 +13,7 @@ interface TreeViewProps {
   onMoveDown: (type: string, id: string, parentIds: string[]) => void;
 }
 
-export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete, onMoveUp, onMoveDown }: TreeViewProps) {
+export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEdit, onDelete, onMoveUp, onMoveDown }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
   const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('');
   const [isAllExpanded, setIsAllExpanded] = useState<boolean>(false);
@@ -33,6 +34,22 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
       }
     }, 100);
   }, [selectedId]);
+
+  // Автоматическое центрирование редактируемой строки
+  useEffect(() => {
+    if (!editingId || !treeContainerRef.current) return;
+
+    // Небольшая задержка для завершения рендеринга
+    setTimeout(() => {
+      const editingElement = treeContainerRef.current?.querySelector(`[data-node-id="${editingId}"]`);
+      if (editingElement) {
+        editingElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }
+    }, 100);
+  }, [editingId]);
 
   // Автоматическое раскрытие узлов при выборе типа источника
   useEffect(() => {

@@ -435,6 +435,7 @@ function App() {
           <TreeView
             reports={reports}
             selectedId={selectedId}
+            editingId={formState?.editData?.id || null}
             onSelect={handleSelect}
             onAdd={handleAdd}
             onEdit={handleEdit}
