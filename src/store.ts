@@ -1650,10 +1650,11 @@ export function exportData(): string {
   return JSON.stringify(exportableReports, null, 2);
 }
 
-export function importData(json: string): boolean {
+export function importData(json: string, mergeDuplicates: boolean = false): boolean {
   try {
     console.log('=== НАЧАЛО importData ===');
     console.log('Начало импорта, JSON длина:', json.length);
+    console.log('mergeDuplicates:', mergeDuplicates);
     const data = JSON.parse(json);
     console.log('JSON распарсен:', data);
     let reportsToImport: any[];
@@ -1671,6 +1672,199 @@ export function importData(json: string): boolean {
     }
     
     console.log('Импортируется отчетов:', reportsToImport.length);
+    
+    // Если включено объединение дубликатов
+    if (mergeDuplicates) {
+      console.log('Режим объединения дубликатов включен');
+      
+      reportsToImport.forEach(importedReport => {
+        // Ищем существующий доклад с таким же названием
+        const existingReport = reports.find(r => r.name === importedReport.name);
+        
+        if (existingReport) {
+          console.log(`Найден существующий доклад "${importedReport.name}", добавляем разделы`);
+          
+          // Добавляем новые разделы в существующий доклад
+          const newSections = (importedReport.sections || []).map((section: any) => {
+            const newSectionId = generateId();
+            
+            return {
+              ...section,
+              id: newSectionId,
+              reportId: existingReport.id,
+              notes: (section.notes || []).map((note: any) => {
+                const newNoteId = generateId();
+                
+                return {
+                  ...note,
+                  id: newNoteId,
+                  sectionId: newSectionId,
+                  noteBlocks: (note.noteBlocks || []).map((noteBlock: any) => {
+                    const newNoteBlockId = generateId();
+                    
+                    return {
+                      ...noteBlock,
+                      id: newNoteBlockId,
+                      noteId: newNoteId,
+                      indicators: (noteBlock.indicators || []).map((indicator: any) => {
+                        const newIndicatorId = generateId();
+                        
+                        return {
+                          ...indicator,
+                          id: newIndicatorId,
+                          noteId: newNoteId,
+                          slices: (indicator.slices || []).map((slice: any) => {
+                            const newSliceId = generateId();
+                            
+                            return {
+                              ...slice,
+                              id: newSliceId,
+                              indicatorId: newIndicatorId,
+                              sources: (slice.sources || []).map((source: any) => ({
+                                ...source,
+                                id: generateId(),
+                                sliceId: newSliceId
+                              }))
+                            };
+                          })
+                        };
+                      })
+                    };
+                  }),
+                  indicators: (note.indicators || []).map((indicator: any) => {
+                    const newIndicatorId = generateId();
+                    
+                    return {
+                      ...indicator,
+                      id: newIndicatorId,
+                      noteId: newNoteId,
+                      slices: (indicator.slices || []).map((slice: any) => {
+                        const newSliceId = generateId();
+                        
+                        return {
+                          ...slice,
+                          id: newSliceId,
+                          indicatorId: newIndicatorId,
+                          sources: (slice.sources || []).map((source: any) => ({
+                            ...source,
+                            id: generateId(),
+                            sliceId: newSliceId
+                          }))
+                        };
+                      })
+                    };
+                  }),
+                  sources: (note.sources || []).map((source: any) => ({
+                    ...source,
+                    id: generateId(),
+                    sliceId: newNoteId
+                  }))
+                };
+              })
+            };
+          });
+          
+          // Добавляем новые разделы к существующему докладу
+          existingReport.sections = [...existingReport.sections, ...newSections];
+        } else {
+          console.log(`Доклад "${importedReport.name}" не найден, создаем новый`);
+          
+          // Создаем новый доклад как обычно
+          const newReportId = generateId();
+          const newReport = {
+            ...importedReport,
+            id: newReportId,
+            sections: (importedReport.sections || []).map((section: any) => {
+              const newSectionId = generateId();
+              
+              return {
+                ...section,
+                id: newSectionId,
+                reportId: newReportId,
+                notes: (section.notes || []).map((note: any) => {
+                  const newNoteId = generateId();
+                  
+                  return {
+                    ...note,
+                    id: newNoteId,
+                    sectionId: newSectionId,
+                    noteBlocks: (note.noteBlocks || []).map((noteBlock: any) => {
+                      const newNoteBlockId = generateId();
+                      
+                      return {
+                        ...noteBlock,
+                        id: newNoteBlockId,
+                        noteId: newNoteId,
+                        indicators: (noteBlock.indicators || []).map((indicator: any) => {
+                          const newIndicatorId = generateId();
+                          
+                          return {
+                            ...indicator,
+                            id: newIndicatorId,
+                            noteId: newNoteId,
+                            slices: (indicator.slices || []).map((slice: any) => {
+                              const newSliceId = generateId();
+                              
+                              return {
+                                ...slice,
+                                id: newSliceId,
+                                indicatorId: newIndicatorId,
+                                sources: (slice.sources || []).map((source: any) => ({
+                                  ...source,
+                                  id: generateId(),
+                                  sliceId: newSliceId
+                                }))
+                              };
+                            })
+                          };
+                        })
+                      };
+                    }),
+                    indicators: (note.indicators || []).map((indicator: any) => {
+                      const newIndicatorId = generateId();
+                      
+                      return {
+                        ...indicator,
+                        id: newIndicatorId,
+                        noteId: newNoteId,
+                        slices: (indicator.slices || []).map((slice: any) => {
+                          const newSliceId = generateId();
+                          
+                          return {
+                            ...slice,
+                            id: newSliceId,
+                            indicatorId: newIndicatorId,
+                            sources: (slice.sources || []).map((source: any) => ({
+                              ...source,
+                              id: generateId(),
+                              sliceId: newSliceId
+                            }))
+                          };
+                        })
+                      };
+                    }),
+                    sources: (note.sources || []).map((source: any) => ({
+                      ...source,
+                      id: generateId(),
+                      sliceId: newNoteId
+                    }))
+                  };
+                })
+              };
+            })
+          };
+          
+          reports.push(newReport);
+        }
+      });
+      
+      console.log('Объединение дубликатов завершено');
+      notify();
+      return true;
+    }
+    
+    // Обычный режим - создаем новые доклады
+    console.log('Обычный режим импорта');
     
     // Генерируем новые ID для всех элементов
     const importedReports = reportsToImport.map(report => {

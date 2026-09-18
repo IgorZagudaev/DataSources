@@ -39,6 +39,7 @@ function App() {
   const [panelKey, setPanelKey] = useState(0);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
+  const [mergeDuplicates, setMergeDuplicates] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Загружаем данные из API при старте, если режим API
@@ -235,6 +236,7 @@ function App() {
     console.log('=== НАЧАЛО handleImport ===');
     console.log('Текущий importText:', importText);
     console.log('Длина importText:', importText.length);
+    console.log('mergeDuplicates:', mergeDuplicates);
     
     // Получаем актуальное значение из textarea
     const currentText = importText.trim();
@@ -244,7 +246,7 @@ function App() {
     if (currentText) {
       console.log('Вызов importData с текстом длиной:', currentText.length);
       try {
-        const success = importData(currentText);
+        const success = importData(currentText, mergeDuplicates);
         console.log('Результат importData:', success);
         if (success) {
           console.log('Импорт успешен!');
@@ -435,6 +437,7 @@ function App() {
           <TreeView
             reports={reports}
             selectedId={selectedId}
+            editingId={formState?.editData?.id || null}
             onSelect={handleSelect}
             onAdd={handleAdd}
             onEdit={handleEdit}
@@ -519,8 +522,15 @@ function App() {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowImportModal(false)} />
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center" 
+          style={{ backgroundColor: '#dbeafe' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowImportModal(false);
+            }
+          }}
+        >
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Импорт данных</h3>
             <div className="space-y-4">
@@ -558,6 +568,18 @@ function App() {
                 rows={6}
                 placeholder='[{"id":"...","name":"...","sections":[...]}]'
               />
+              <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="mergeDuplicates"
+                  checked={mergeDuplicates}
+                  onChange={(e) => setMergeDuplicates(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="mergeDuplicates" className="text-sm text-gray-700 cursor-pointer">
+                  Объединять доклады с одинаковыми названиями
+                </label>
+              </div>
               <button
                 onClick={() => {
                   console.log('Кнопка тестовых данных нажата');
@@ -614,8 +636,15 @@ function App() {
 
       {/* Export Modal */}
       {showExportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowExportModal(false)} />
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center" 
+          style={{ backgroundColor: '#d1fae5' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowExportModal(false);
+            }
+          }}
+        >
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Экспорт данных</h3>
             <div className="space-y-4">

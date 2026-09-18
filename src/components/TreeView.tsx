@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Report } from '../types';
 
 interface TreeViewProps {
   reports: Report[];
   selectedId: string | null;
+  editingId?: string | null;
   onSelect: (id: string, type: string) => void;
   onAdd: (type: string, parentIds: string[]) => void;
   onEdit: (type: string, parentIds: string[], data: any) => void;
@@ -12,10 +13,43 @@ interface TreeViewProps {
   onMoveDown: (type: string, id: string, parentIds: string[]) => void;
 }
 
-export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelete, onMoveUp, onMoveDown }: TreeViewProps) {
+export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEdit, onDelete, onMoveUp, onMoveDown }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
   const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('');
   const [isAllExpanded, setIsAllExpanded] = useState<boolean>(false);
+  const treeContainerRef = useRef<HTMLDivElement>(null);
+
+  // Автоматическое центрирование выбранной строки
+  useEffect(() => {
+    if (!selectedId || !treeContainerRef.current) return;
+
+    // Небольшая задержка для завершения рендеринга
+    setTimeout(() => {
+      const selectedElement = treeContainerRef.current?.querySelector(`[data-node-id="${selectedId}"]`);
+      if (selectedElement) {
+        selectedElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }
+    }, 100);
+  }, [selectedId]);
+
+  // Автоматическое центрирование редактируемой строки
+  useEffect(() => {
+    if (!editingId || !treeContainerRef.current) return;
+
+    // Небольшая задержка для завершения рендеринга
+    setTimeout(() => {
+      const editingElement = treeContainerRef.current?.querySelector(`[data-node-id="${editingId}"]`);
+      if (editingElement) {
+        editingElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }
+    }, 100);
+  }, [editingId]);
 
   // Автоматическое раскрытие узлов при выборе типа источника
   useEffect(() => {
@@ -183,7 +217,7 @@ export function TreeView({ reports, selectedId, onSelect, onAdd, onEdit, onDelet
   };
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div ref={treeContainerRef} className="h-full overflow-y-auto">
       {/* Source Type Filter */}
       <div className="px-6 pt-6 pb-4 bg-gray-50">
         <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -505,7 +539,7 @@ interface TreeNodeItemProps {
 }
 
 function TreeNodeItem({
-  name, type, level, icon, isExpanded, isSelected, index = 0,
+  id, name, type, level, icon, isExpanded, isSelected, index = 0,
   onToggle, onSelect, onAddChild, onEdit, onDelete, onMoveUp, onMoveDown,
   children, childLabel, childLabels, isHighlighted = false
 }: TreeNodeItemProps) {
@@ -564,7 +598,7 @@ function TreeNodeItem({
   const borderColor = getBorderColor(type);
 
   return (
-    <div className={`select-none ${type === 'report' ? 'my-6' : ''}`}>
+    <div className={`select-none ${type === 'report' ? 'my-6' : ''}`} data-node-id={id}>
       <div
         className="flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all border-l-4 hover:opacity-80"
         style={{ 
