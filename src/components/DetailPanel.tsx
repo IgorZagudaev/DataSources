@@ -60,7 +60,7 @@ export function DetailPanel({ reports, selectedId, selectedType, onClose }: Deta
         </div>
 
         {/* Source Types */}
-        {entity.sourceTypes && entity.sourceTypes.length > 0 && (
+        {entity.sourceTypes && Array.isArray(entity.sourceTypes) && entity.sourceTypes.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Типы источника</h3>
             <p className="text-sm text-gray-700">
@@ -144,7 +144,8 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
         // Прямые источники справки
         for (const source of note.sources) {
           if (source.id === id && type === 'noteSource') {
-            return { id: source.id, name: source.name, description: source.description, sourceTypes: source.sourceTypes };
+            const sourceTypes = Array.isArray(source.sourceTypes) ? source.sourceTypes : [];
+            return { id: source.id, name: source.name, description: source.description, sourceTypes };
           }
         }
         // Блоки справки
@@ -166,7 +167,8 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
               // Источники в разрезах блока справки
               for (const source of slice.sources || []) {
                 if (source.id === id && type === 'noteBlockSliceSource') {
-                  return { id: source.id, name: source.name, description: source.description, sourceTypes: source.sourceTypes };
+                  const sourceTypes = Array.isArray(source.sourceTypes) ? source.sourceTypes : [];
+                  return { id: source.id, name: source.name, description: source.description, sourceTypes };
                 }
               }
             }
@@ -182,7 +184,8 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
             }
             for (const source of slice.sources) {
               if (source.id === id && type === 'source') {
-                return { id: source.id, name: source.name, description: source.description, sourceTypes: source.sourceTypes };
+                const sourceTypes = Array.isArray(source.sourceTypes) ? source.sourceTypes : [];
+                return { id: source.id, name: source.name, description: source.description, sourceTypes };
               }
             }
           }
