@@ -52,6 +52,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+// Функция логирования SQL запросов
+function logSQL($sql, $params = [], $result = null, $error = null) {
+    $logFile = __DIR__ . '/sql.log';
+    $timestamp = date('Y-m-d H:i:s');
+    $logEntry = "[$timestamp] SQL: $sql\n";
+    
+    if (!empty($params)) {
+        $logEntry .= "  Params: " . json_encode($params, JSON_UNESCAPED_UNICODE) . "\n";
+    }
+    
+    if ($error) {
+        $logEntry .= "  ERROR: $error\n";
+    } elseif ($result !== null) {
+        if (is_array($result)) {
+            $logEntry .= "  Result: " . count($result) . " rows\n";
+        } else {
+            $logEntry .= "  Result: " . json_encode($result, JSON_UNESCAPED_UNICODE) . "\n";
+        }
+    }
+    
+    $logEntry .= str_repeat('-', 80) . "\n";
+    
+    file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+}
+
 require_once __DIR__ . '/Database.php';
 
 // Parse request
@@ -127,16 +152,22 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
         case 'GET':
             try {
                 if ($id) {
-                    $stmt = $db->prepare("SELECT * FROM reports WHERE id = ?");
+                    $sql = "SELECT * FROM reports WHERE id = ?";
+                    logSQL($sql, [$id]);
+                    $stmt = $db->prepare($sql);
                     $stmt->execute([$id]);
                     $report = $stmt->fetch();
+                    logSQL($sql, [$id], $report);
                     if ($report) {
                         $report['sections'] = getSectionsForReport($db, $id);
                     }
                     echo json_encode($report ?: ['error' => 'Not found']);
                 } else {
-                    $stmt = $db->query("SELECT * FROM reports ORDER BY created_at");
+                    $sql = "SELECT * FROM reports ORDER BY created_at";
+                    logSQL($sql);
+                    $stmt = $db->query($sql);
                     $reports = $stmt->fetchAll();
+                    logSQL($sql, [], $reports);
                     foreach ($reports as &$report) {
                         try {
                             $report['sections'] = getSectionsForReport($db, $report['id']);
@@ -149,6 +180,7 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
                 }
             } catch (Exception $e) {
                 error_log("Error in handleReports GET: " . $e->getMessage());
+                logSQL("SELECT * FROM reports", [], null, $e->getMessage());
                 http_response_code(500);
                 echo json_encode(['error' => 'Failed to load reports: ' . $e->getMessage()]);
             }
@@ -156,20 +188,31 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
             
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO reports (id, name, description) VALUES (?, ?, ?)");
-            $stmt->execute([$newId, $input['name'], $input['description'] ?? null]);
+            $sql = "INSERT INTO reports (id, name, description) VALUES (?, ?, ?)";
+            $params = [$newId, $input['name'], $input['description'] ?? null];
+            logSQL($sql, $params);
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            logSQL($sql, $params, ['success' => true]);
             echo json_encode(['id' => $newId, 'name' => $input['name']]);
             break;
             
         case 'PUT':
-            $stmt = $db->prepare("UPDATE reports SET name = ?, description = ? WHERE id = ?");
-            $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            $sql = "UPDATE reports SET name = ?, description = ? WHERE id = ?";
+            $params = [$input['name'], $input['description'] ?? null, $id];
+            logSQL($sql, $params);
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            logSQL($sql, $params, ['success' => true]);
             echo json_encode(['success' => true]);
             break;
             
         case 'DELETE':
-            $stmt = $db->prepare("DELETE FROM reports WHERE id = ?");
+            $sql = "DELETE FROM reports WHERE id = ?";
+            logSQL($sql, [$id]);
+            $stmt = $db->prepare($sql);
             $stmt->execute([$id]);
+            logSQL($sql, [$id], ['success' => true]);
             echo json_encode(['success' => true]);
             break;
     }
@@ -177,9 +220,12 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
 
 function getSectionsForReport(PDO $db, string $reportId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM sections WHERE report_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM sections WHERE report_id = ? ORDER BY sort_order";
+        logSQL($sql, [$reportId]);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$reportId]);
         $sections = $stmt->fetchAll();
+        logSQL($sql, [$reportId], $sections);
         
         foreach ($sections as &$section) {
             try {
@@ -193,6 +239,7 @@ function getSectionsForReport(PDO $db, string $reportId): array {
         return $sections;
     } catch (Exception $e) {
         error_log("Error in getSectionsForReport: " . $e->getMessage());
+        logSQL("SELECT * FROM sections WHERE report_id = ?", [$reportId], null, $e->getMessage());
         return [];
     }
 }
@@ -225,9 +272,12 @@ function handleSections(PDO $db, string $method, ?string $id, ?array $input): vo
 
 function getNotesForSection(PDO $db, string $sectionId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM notes WHERE section_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM notes WHERE section_id = ? ORDER BY sort_order";
+        logSQL($sql, [$sectionId]);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$sectionId]);
         $notes = $stmt->fetchAll();
+        logSQL($sql, [$sectionId], $notes);
         
         foreach ($notes as &$note) {
             try {
@@ -246,6 +296,7 @@ function getNotesForSection(PDO $db, string $sectionId): array {
         return $notes;
     } catch (Exception $e) {
         error_log("Error in getNotesForSection: " . $e->getMessage());
+        logSQL("SELECT * FROM notes WHERE section_id = ?", [$sectionId], null, $e->getMessage());
         return [];
     }
 }
@@ -423,9 +474,12 @@ function handleNoteBlocks(PDO $db, string $method, ?string $id, ?array $input): 
 
 function getIndicatorsForNote(PDO $db, string $noteId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM indicators WHERE note_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM indicators WHERE note_id = ? ORDER BY sort_order";
+        logSQL($sql, [$noteId]);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$noteId]);
         $indicators = $stmt->fetchAll();
+        logSQL($sql, [$noteId], $indicators);
         
         foreach ($indicators as &$indicator) {
             try {
@@ -439,6 +493,7 @@ function getIndicatorsForNote(PDO $db, string $noteId): array {
         return $indicators;
     } catch (Exception $e) {
         error_log("Error in getIndicatorsForNote: " . $e->getMessage());
+        logSQL("SELECT * FROM indicators WHERE note_id = ?", [$noteId], null, $e->getMessage());
         return [];
     }
 }
@@ -471,9 +526,12 @@ function handleIndicators(PDO $db, string $method, ?string $id, ?array $input): 
 
 function getSlicesForIndicator(PDO $db, string $indicatorId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM data_slices WHERE indicator_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM data_slices WHERE indicator_id = ? ORDER BY sort_order";
+        logSQL($sql, [$indicatorId]);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$indicatorId]);
         $slices = $stmt->fetchAll();
+        logSQL($sql, [$indicatorId], $slices);
         
         foreach ($slices as &$slice) {
             try {
@@ -487,6 +545,7 @@ function getSlicesForIndicator(PDO $db, string $indicatorId): array {
         return $slices;
     } catch (Exception $e) {
         error_log("Error in getSlicesForIndicator: " . $e->getMessage());
+        logSQL("SELECT * FROM data_slices WHERE indicator_id = ?", [$indicatorId], null, $e->getMessage());
         return [];
     }
 }
@@ -519,9 +578,12 @@ function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void
 
 function getSourcesForSlice(PDO $db, string $sliceId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM data_sources WHERE slice_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM data_sources WHERE slice_id = ? ORDER BY sort_order";
+        logSQL($sql, [$sliceId]);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$sliceId]);
         $sources = $stmt->fetchAll();
+        logSQL($sql, [$sliceId], $sources);
         
         // Decode source_types JSON
         foreach ($sources as &$source) {
@@ -536,6 +598,7 @@ function getSourcesForSlice(PDO $db, string $sliceId): array {
         return $sources;
     } catch (Exception $e) {
         error_log("Error in getSourcesForSlice: " . $e->getMessage());
+        logSQL("SELECT * FROM data_sources WHERE slice_id = ?", [$sliceId], null, $e->getMessage());
         return [];
     }
 }
@@ -548,8 +611,12 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
         case 'POST':
             $newId = generateUUID();
             $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
-            $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['slice_id'], $input['name'], $input['description'] ?? null, $sourceTypes]);
+            $sql = "INSERT INTO data_sources (id, slice_id, name, description, source_types) VALUES (?, ?, ?, ?, ?)";
+            $params = [$newId, $input['slice_id'], $input['name'], $input['description'] ?? null, $sourceTypes];
+            logSQL($sql, $params);
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            logSQL($sql, $params, ['id' => $newId]);
             echo json_encode(['id' => $newId]);
             break;
             
@@ -569,14 +636,21 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
             $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
             error_log("Source types to save: " . $sourceTypes);
             
-            $stmt = $db->prepare("UPDATE data_sources SET name = ?, description = ?, source_types = ? WHERE id = ?");
-            $stmt->execute([$input['name'], $input['description'] ?? null, $sourceTypes, $id]);
+            $sql = "UPDATE data_sources SET name = ?, description = ?, source_types = ? WHERE id = ?";
+            $params = [$input['name'], $input['description'] ?? null, $sourceTypes, $id];
+            logSQL($sql, $params);
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            logSQL($sql, $params, ['success' => true]);
             echo json_encode(['success' => true]);
             break;
             
         case 'DELETE':
-            $stmt = $db->prepare("DELETE FROM data_sources WHERE id = ?");
+            $sql = "DELETE FROM data_sources WHERE id = ?";
+            logSQL($sql, [$id]);
+            $stmt = $db->prepare($sql);
             $stmt->execute([$id]);
+            logSQL($sql, [$id], ['success' => true]);
             echo json_encode(['success' => true]);
             break;
     }
@@ -628,16 +702,24 @@ function handleImport(PDO $db, array $input): void {
         $db->beginTransaction();
         
         // Очищаем все таблицы в правильном порядке (от дочерних к родительским)
-        $db->exec("DELETE FROM data_sources");
-        $db->exec("DELETE FROM data_slices");
-        $db->exec("DELETE FROM note_block_data_slices");
-        $db->exec("DELETE FROM indicators");
-        $db->exec("DELETE FROM note_block_indicators");
-        $db->exec("DELETE FROM note_sources");
-        $db->exec("DELETE FROM note_blocks");
-        $db->exec("DELETE FROM notes");
-        $db->exec("DELETE FROM sections");
-        $db->exec("DELETE FROM reports");
+        $deleteQueries = [
+            "DELETE FROM data_sources",
+            "DELETE FROM data_slices",
+            "DELETE FROM note_block_data_slices",
+            "DELETE FROM indicators",
+            "DELETE FROM note_block_indicators",
+            "DELETE FROM note_sources",
+            "DELETE FROM note_blocks",
+            "DELETE FROM notes",
+            "DELETE FROM sections",
+            "DELETE FROM reports"
+        ];
+        
+        foreach ($deleteQueries as $sql) {
+            logSQL($sql);
+            $db->exec($sql);
+            logSQL($sql, [], ['success' => true]);
+        }
         
         // Импортируем данные
         foreach ($reports as $reportIndex => $report) {
@@ -650,8 +732,12 @@ function handleImport(PDO $db, array $input): void {
             }
             
             $reportId = $report['id'] ?? generateUUID();
-            $stmt = $db->prepare("INSERT INTO reports (id, name, description) VALUES (?, ?, ?)");
-            $stmt->execute([$reportId, $report['name'], $report['description'] ?? null]);
+            $sql = "INSERT INTO reports (id, name, description) VALUES (?, ?, ?)";
+            $params = [$reportId, $report['name'], $report['description'] ?? null];
+            logSQL($sql, $params);
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            logSQL($sql, $params, ['success' => true]);
             
             if (isset($report['sections']) && is_array($report['sections'])) {
                 foreach ($report['sections'] as $sectionIndex => $section) {
@@ -663,8 +749,12 @@ function handleImport(PDO $db, array $input): void {
                     }
                     
                     $sectionId = $section['id'] ?? generateUUID();
-                    $stmt = $db->prepare("INSERT INTO sections (id, report_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-                    $stmt->execute([$sectionId, $reportId, $section['name'], $section['description'] ?? null, $section['sort_order'] ?? 0]);
+                    $sql = "INSERT INTO sections (id, report_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)";
+                    $params = [$sectionId, $reportId, $section['name'], $section['description'] ?? null, $section['sort_order'] ?? 0];
+                    logSQL($sql, $params);
+                    $stmt = $db->prepare($sql);
+                    $stmt->execute($params);
+                    logSQL($sql, $params, ['success' => true]);
                     
                     if (isset($section['notes']) && is_array($section['notes'])) {
                         foreach ($section['notes'] as $noteIndex => $note) {
@@ -674,16 +764,24 @@ function handleImport(PDO $db, array $input): void {
                             }
                             
                             $noteId = $note['id'] ?? generateUUID();
-                            $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
-                            $stmt->execute([$noteId, $sectionId, $note['name'], $note['short_name'] ?? null, $note['description'] ?? null, $note['sort_order'] ?? 0]);
+                            $sql = "INSERT INTO notes (id, section_id, name, short_name, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
+                            $params = [$noteId, $sectionId, $note['name'], $note['short_name'] ?? null, $note['description'] ?? null, $note['sort_order'] ?? 0];
+                            logSQL($sql, $params);
+                            $stmt = $db->prepare($sql);
+                            $stmt->execute($params);
+                            logSQL($sql, $params, ['success' => true]);
                             
                             // Note sources
                             if (isset($note['sources'])) {
-                                foreach ($note['sources'] as $source) {
+                                foreach ($note['sources'] as $sourceIndex => $source) {
                                     $sourceId = $source['id'] ?? generateUUID();
                                     $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
-                                    $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
-                                    $stmt->execute([$sourceId, $noteId, $source['name'], $source['description'] ?? null, $sourceTypes, $source['sort_order'] ?? 0]);
+                                    $sql = "INSERT INTO note_sources (id, note_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
+                                    $params = [$sourceId, $noteId, $source['name'], $source['description'] ?? null, $sourceTypes, $source['sort_order'] ?? 0];
+                                    logSQL($sql, $params);
+                                    $stmt = $db->prepare($sql);
+                                    $stmt->execute($params);
+                                    logSQL($sql, $params, ['success' => true]);
                                 }
                             }
                             
@@ -712,8 +810,12 @@ function handleImport(PDO $db, array $input): void {
                                                             $sourceId = $source['id'] ?? generateUUID();
                                                             $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
                                                             error_log("Importing source: " . $source['name'] . ", source_types: " . $sourceTypes);
-                                                            $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
-                                                            $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $source['sort_order'] ?? 0]);
+                                                            $sql = "INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
+                                                            $params = [$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $source['sort_order'] ?? 0];
+                                                            logSQL($sql, $params);
+                                                            $stmt = $db->prepare($sql);
+                                                            $stmt->execute($params);
+                                                            logSQL($sql, $params, ['success' => true]);
                                                         }
                                                     }
                                                 }
@@ -741,8 +843,12 @@ function handleImport(PDO $db, array $input): void {
                                                     $sourceId = $source['id'] ?? generateUUID();
                                                     $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
                                                     error_log("Importing source: " . $source['name'] . ", source_types: " . $sourceTypes);
-                                                    $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
-                                                    $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $source['sort_order'] ?? 0]);
+                                                    $sql = "INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
+                                                    $params = [$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $source['sort_order'] ?? 0];
+                                                    logSQL($sql, $params);
+                                                    $stmt = $db->prepare($sql);
+                                                    $stmt->execute($params);
+                                                    logSQL($sql, $params, ['success' => true]);
                                                 }
                                             }
                                         }
