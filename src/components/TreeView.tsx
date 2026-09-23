@@ -240,14 +240,21 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
         </select>
       </div>
 
-      {/* Tree Control Button */}
-      <div className="px-6 pb-4 bg-gray-50">
+      {/* Tree Control Buttons */}
+      <div className="px-6 pb-4 bg-gray-50 flex gap-2">
         <button
-          onClick={isAllExpanded ? collapseAll : expandAll}
-          className="w-full px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
-          title={isAllExpanded ? "Свернуть всю иерархию" : "Развернуть всю иерархию"}
+          onClick={expandAll}
+          className="flex-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Развернуть всю иерархию"
         >
-          {isAllExpanded ? '▶ Свернуть всё' : '▼ Развернуть всё'}
+          ▼ Развернуть всё
+        </button>
+        <button
+          onClick={collapseAll}
+          className="flex-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Свернуть всю иерархию"
+        >
+          ▶ Свернуть всё
         </button>
       </div>
 
