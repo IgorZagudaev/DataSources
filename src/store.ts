@@ -192,12 +192,15 @@ function convertToSnakeCase(obj: any): any {
 
 // Синхронизация всех данных на сервер (для API режима)
 async function syncToAPI(): Promise<void> {
+  console.log('syncToAPI called, currentMode:', currentMode);
   if (currentMode === 'api') {
     try {
       console.log('Syncing data to API...');
       
       // Преобразуем данные в snake_case перед отправкой
       const reportsToSend = convertToSnakeCase(reports);
+      
+      console.log('Reports to send:', reportsToSend.length);
       
       // Логируем первый источник для проверки source_types
       if (reportsToSend.length > 0 && reportsToSend[0].sections?.length > 0) {
@@ -212,10 +215,20 @@ async function syncToAPI(): Promise<void> {
                 const firstSource = firstSlice.sources[0];
                 console.log('First source to send:', firstSource);
                 console.log('source_types:', firstSource.source_types);
+              } else {
+                console.log('No sources in first slice');
               }
+            } else {
+              console.log('No slices in first indicator');
             }
+          } else {
+            console.log('No indicators in first note');
           }
+        } else {
+          console.log('No notes in first section');
         }
+      } else {
+        console.log('No reports or sections');
       }
       
       await api.importAllReports(reportsToSend);
@@ -223,6 +236,8 @@ async function syncToAPI(): Promise<void> {
     } catch (e) {
       console.error('Error syncing to API:', e);
     }
+  } else {
+    console.log('Not in API mode, skipping sync');
   }
 }
 
