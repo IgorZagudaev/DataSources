@@ -39,14 +39,19 @@ function generateId(): string {
 }
 
 // Преобразование snake_case в camelCase для фронтенда
+// Преобразование snake_case в camelCase
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
+}
+
 function convertToCamelCase(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(convertToCamelCase);
   } else if (obj && typeof obj === 'object') {
     const result: any = {};
     for (const key in obj) {
-      // Преобразуем source_types в sourceTypes
-      const camelKey = key === 'source_types' ? 'sourceTypes' : key;
+      // Преобразуем все snake_case ключи в camelCase
+      const camelKey = snakeToCamel(key);
       result[camelKey] = convertToCamelCase(obj[key]);
     }
     return result;
@@ -166,14 +171,18 @@ export async function syncFromAPI(): Promise<void> {
 }
 
 // Преобразование camelCase в snake_case для API
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
 function convertToSnakeCase(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(convertToSnakeCase);
   } else if (obj && typeof obj === 'object') {
     const result: any = {};
     for (const key in obj) {
-      // Преобразуем sourceTypes в source_types
-      const snakeKey = key === 'sourceTypes' ? 'source_types' : key;
+      // Преобразуем все camelCase ключи в snake_case
+      const snakeKey = camelToSnake(key);
       result[snakeKey] = convertToSnakeCase(obj[key]);
     }
     return result;
