@@ -231,12 +231,13 @@ function getNotesForSection(PDO $db, string $sectionId): array {
         
         foreach ($notes as &$note) {
             try {
-                $note['noteBlocks'] = getNoteBlocksForNote($db, $note['id']);
+                // Используем snake_case для совместимости с фронтендом
+                $note['note_blocks'] = getNoteBlocksForNote($db, $note['id']);
                 $note['indicators'] = getIndicatorsForNote($db, $note['id']);
                 $note['sources'] = getSourcesForNote($db, $note['id']);
             } catch (Exception $e) {
                 error_log("Error loading note data for note {$note['id']}: " . $e->getMessage());
-                $note['noteBlocks'] = [];
+                $note['note_blocks'] = [];
                 $note['indicators'] = [];
                 $note['sources'] = [];
             }
@@ -257,6 +258,7 @@ function getNoteBlocksForNote(PDO $db, string $noteId): array {
         
         foreach ($noteBlocks as &$noteBlock) {
             try {
+                // Используем snake_case для совместимости с фронтендом
                 $noteBlock['indicators'] = getIndicatorsForNoteBlock($db, $noteBlock['id']);
             } catch (Exception $e) {
                 error_log("Error loading indicators for noteBlock {$noteBlock['id']}: " . $e->getMessage());
@@ -659,9 +661,10 @@ function handleImport(PDO $db, array $input): void {
                                 }
                             }
                             
-                            // Note blocks
-                            if (isset($note['noteBlocks'])) {
-                                foreach ($note['noteBlocks'] as $noteBlock) {
+                            // Note blocks (поддержка обоих форматов: noteBlocks и note_blocks)
+                            $noteBlocks = $note['noteBlocks'] ?? $note['note_blocks'] ?? [];
+                            if (is_array($noteBlocks) && !empty($noteBlocks)) {
+                                foreach ($noteBlocks as $noteBlock) {
                                     $noteBlockId = $noteBlock['id'] ?? generateUUID();
                                     $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
                                     $stmt->execute([$noteBlockId, $noteId, $noteBlock['name'], $noteBlock['description'] ?? null, $noteBlock['sort_order'] ?? 0]);
