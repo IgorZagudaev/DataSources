@@ -324,7 +324,19 @@ function getSourcesForNote(PDO $db, string $noteId): array {
     try {
         $stmt = $db->prepare("SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order");
         $stmt->execute([$noteId]);
-        return $stmt->fetchAll();
+        $sources = $stmt->fetchAll();
+        
+        // Decode source_types JSON
+        foreach ($sources as &$source) {
+            if (isset($source['source_types']) && $source['source_types']) {
+                $decoded = json_decode($source['source_types'], true);
+                $source['source_types'] = $decoded !== null ? $decoded : [];
+            } else {
+                $source['source_types'] = [];
+            }
+        }
+        
+        return $sources;
     } catch (Exception $e) {
         error_log("Error in getSourcesForNote: " . $e->getMessage());
         return [];
