@@ -542,7 +542,21 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
             break;
             
         case 'PUT':
+            // Логирование входных данных для отладки
+            error_log("Updating source ID: $id");
+            error_log("Input data: " . json_encode($input));
+            
+            // Валидация обязательных полей
+            if (!isset($input['name']) || empty($input['name'])) {
+                error_log("Error updating source: name is required");
+                http_response_code(400);
+                echo json_encode(['error' => 'Name is required']);
+                return;
+            }
+            
             $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
+            error_log("Source types to save: " . $sourceTypes);
+            
             $stmt = $db->prepare("UPDATE data_sources SET name = ?, description = ?, source_types = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['description'] ?? null, $sourceTypes, $id]);
             echo json_encode(['success' => true]);
@@ -685,6 +699,7 @@ function handleImport(PDO $db, array $input): void {
                                                         foreach ($slice['sources'] as $source) {
                                                             $sourceId = $source['id'] ?? generateUUID();
                                                             $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                                            error_log("Importing source: " . $source['name'] . ", source_types: " . $sourceTypes);
                                                             $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
                                                             $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $source['sort_order'] ?? 0]);
                                                         }
@@ -713,6 +728,7 @@ function handleImport(PDO $db, array $input): void {
                                                 foreach ($slice['sources'] as $source) {
                                                     $sourceId = $source['id'] ?? generateUUID();
                                                     $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                                    error_log("Importing source: " . $source['name'] . ", source_types: " . $sourceTypes);
                                                     $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
                                                     $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $source['sort_order'] ?? 0]);
                                                 }
