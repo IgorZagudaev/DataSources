@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Очистка localStorage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .info {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Очистка localStorage</h1>
+    
+    <div class="info">
+        <strong>Текущий размер localStorage:</strong>
+        <div id="size"></div>
+    </div>
+    
+    <button onclick="clearLocalStorage()">Очистить localStorage</button>
+    <button onclick="clearSpecificKey()">Очистить только данные приложения</button>
+    <button onclick="checkSize()">Проверить размер</button>
+    
+    <div id="result"></div>
+    
+    <script>
+        const STORAGE_KEY = 'report_data_sources_reference_v3';
+        
+        function clearLocalStorage() {
+            if (confirm('Вы уверены, что хотите очистить весь localStorage? Это удалит все данные приложения.')) {
+                localStorage.clear();
+                document.getElementById('result').innerHTML = '<p class="success">localStorage очищен полностью!</p>';
+                checkSize();
+            }
+        }
+        
+        function clearSpecificKey() {
+            if (confirm('Очистить только данные справочника источников?')) {
+                localStorage.removeItem(STORAGE_KEY);
+                document.getElementById('result').innerHTML = '<p class="success">Данные справочника удалены!</p>';
+                checkSize();
+            }
+        }
+        
+        function checkSize() {
+            let totalSize = 0;
+            for (let key in localStorage) {
+                if (localStorage.hasOwnProperty(key)) {
+                    totalSize += localStorage[key].length + key.length;
+                }
+            }
+            const sizeInKB = (totalSize / 1024).toFixed(2);
+            const sizeInMB = (totalSize / 1024 / 1024).toFixed(2);
+            
+            let html = `<p>Общий размер: ${sizeInKB} KB (${sizeInMB} MB)</p>`;
+            
+            if (localStorage.getItem(STORAGE_KEY)) {
+                const dataSize = localStorage.getItem(STORAGE_KEY).length;
+                const dataSizeKB = (dataSize / 1024).toFixed(2);
+                html += `<p>Размер данных справочника: ${dataSizeKB} KB</p>`;
+            } else {
+                html += `<p>Данные справочника не найдены</p>`;
+            }
+            
+            document.getElementById('size').innerHTML = html;
+        }
+        
+        // Проверить размер при загрузке
+        checkSize();
+    </script>
+</body>
+</html>

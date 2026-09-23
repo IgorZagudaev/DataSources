@@ -199,6 +199,25 @@ async function syncToAPI(): Promise<void> {
       // Преобразуем данные в snake_case перед отправкой
       const reportsToSend = convertToSnakeCase(reports);
       
+      // Логируем первый источник для проверки source_types
+      if (reportsToSend.length > 0 && reportsToSend[0].sections?.length > 0) {
+        const firstSection = reportsToSend[0].sections[0];
+        if (firstSection.notes?.length > 0) {
+          const firstNote = firstSection.notes[0];
+          if (firstNote.indicators?.length > 0) {
+            const firstIndicator = firstNote.indicators[0];
+            if (firstIndicator.slices?.length > 0) {
+              const firstSlice = firstIndicator.slices[0];
+              if (firstSlice.sources?.length > 0) {
+                const firstSource = firstSlice.sources[0];
+                console.log('First source to send:', firstSource);
+                console.log('source_types:', firstSource.source_types);
+              }
+            }
+          }
+        }
+      }
+      
       await api.importAllReports(reportsToSend);
       console.log('Sync to API completed');
     } catch (e) {
@@ -209,6 +228,11 @@ async function syncToAPI(): Promise<void> {
 
 function saveData(reports: Report[]): void {
   try {
+    // В режиме API не сохраняем в localStorage, чтобы избежать переполнения
+    if (currentMode === 'api') {
+      console.log('API mode: skipping localStorage save');
+      return;
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
   } catch (e) {
     console.error('Error saving ', e);
