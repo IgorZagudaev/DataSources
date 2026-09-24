@@ -125,7 +125,60 @@ Params: [..., "[\"Робот\",\"ПО\"]", ...]
 Проверьте права на запись в папку `C:/web/sites/DataSources/api/`
 
 ### Лог растет слишком быстро
-Настройте автоматическую очистку или отключите логирование
+Настройте автоматическую очистку или отключите логирование в `config.php`:
+```php
+'sql_logging' => false,
+```
 
 ### Ошибки в логе
 Проверьте структуру БД и параметры запросов
+
+## Включение/выключение логирования
+
+### Способ 1: Через конфигурацию (рекомендуется)
+
+Откройте файл `C:/web/sites/DataSources/api/config.php` и измените параметр:
+
+```php
+'app' => [
+    'debug' => false,
+    'cors_origins' => ['*'],
+    'sql_logging' => true,  // true = включить, false = выключить
+]
+```
+
+После изменения перезапустите Apache:
+```bash
+httpd -k restart
+```
+
+**Быстрые команды:**
+
+Включить:
+```powershell
+(Get-Content "C:\web\sites\DataSources\api\config.php") -replace "'sql_logging'\s*=>\s*false", "'sql_logging' => true" | Set-Content "C:\web\sites\DataSources\api\config.php"; httpd -k restart
+```
+
+Выключить:
+```powershell
+(Get-Content "C:\web\sites\DataSources\api\config.php") -replace "'sql_logging'\s*=>\s*true", "'sql_logging' => false" | Set-Content "C:\web\sites\DataSources\api\config.php"; httpd -k restart
+```
+
+### Способ 2: Через переменные окружения
+
+Установите переменную окружения `SQL_LOGGING`:
+```powershell
+$env:SQL_LOGGING = "true"   # включить
+$env:SQL_LOGGING = "false"  # выключить
+```
+
+Перезапустите Apache:
+```bash
+httpd -k restart
+```
+
+### Проверка статуса
+
+```powershell
+Select-String -Path "C:\web\sites\DataSources\api\config.php" -Pattern "sql_logging"
+```

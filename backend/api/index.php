@@ -54,6 +54,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // Функция логирования SQL запросов
 function logSQL($sql, $params = [], $result = null, $error = null) {
+    // Проверяем, включено ли логирование в конфигурации
+    $config = require __DIR__ . '/config.php';
+    if (!isset($config['app']['sql_logging']) || !$config['app']['sql_logging']) {
+        return; // Логирование отключено
+    }
+    
     $logFile = __DIR__ . '/sql.log';
     $timestamp = date('Y-m-d H:i:s');
     $logEntry = "[$timestamp] SQL: $sql\n";

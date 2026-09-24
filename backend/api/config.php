@@ -16,5 +16,6 @@ return [
     'app' => [
         'debug' => false,
         'cors_origins' => ['*'],
+        'sql_logging' => true, // Включить/выключить логирование SQL запросов
     ]
 ];

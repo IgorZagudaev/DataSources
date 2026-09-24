@@ -283,9 +283,46 @@ Get-Content "C:\web\sites\DataSources\api\sql.log" |
    - Архивируйте старые логи
    - Удаляйте логи старше 30 дней
 
-## Отключение логирования
+## Управление логированием
 
-Если нужно отключить логирование (например, для продакшена):
+### Через конфигурацию (рекомендуется)
+
+Откройте файл `backend/api/config.php` и измените параметр `sql_logging`:
+
+```php
+return [
+    'database' => [
+        // ... настройки БД
+    ],
+    'app' => [
+        'debug' => false,
+        'cors_origins' => ['*'],
+        'sql_logging' => true, // ← true = включить, false = выключить
+    ]
+];
+```
+
+**Преимущества:**
+- ✅ Не нужно изменять код
+- ✅ Легко переключать между режимами
+- ✅ Можно использовать разные настройки для dev/prod
+- ✅ Мгновенное применение после перезапуска Apache
+
+**Быстрое переключение:**
+
+Включить:
+```powershell
+(Get-Content "C:\web\sites\DataSources\api\config.php") -replace "'sql_logging'\s*=>\s*false", "'sql_logging' => true" | Set-Content "C:\web\sites\DataSources\api\config.php"
+httpd -k restart
+```
+
+Выключить:
+```powershell
+(Get-Content "C:\web\sites\DataSources\api\config.php") -replace "'sql_logging'\s*=>\s*true", "'sql_logging' => false" | Set-Content "C:\web\sites\DataSources\api\config.php"
+httpd -k restart
+```
+
+### Через код (альтернатива)
 
 Закомментируйте вызовы `logSQL()` в `index.php`:
 ```php
