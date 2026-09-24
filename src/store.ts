@@ -453,7 +453,8 @@ export function moveReportUp(id: string) {
   if (index > 0) {
     const newReports = [...reports];
     [newReports[index - 1], newReports[index]] = [newReports[index], newReports[index - 1]];
-    reports = newReports;
+    // Обновляем sortOrder для всех докладов
+    reports = newReports.map((report, idx) => ({ ...report, sortOrder: idx }));
     notify();
   }
 }
@@ -463,7 +464,8 @@ export function moveReportDown(id: string) {
   if (index < reports.length - 1) {
     const newReports = [...reports];
     [newReports[index], newReports[index + 1]] = [newReports[index + 1], newReports[index]];
-    reports = newReports;
+    // Обновляем sortOrder для всех докладов
+    reports = newReports.map((report, idx) => ({ ...report, sortOrder: idx }));
     notify();
   }
 }
@@ -509,7 +511,12 @@ export function moveSectionUp(reportId: string, sectionId: string) {
       if (index > 0) {
         const newSections = [...r.sections];
         [newSections[index - 1], newSections[index]] = [newSections[index], newSections[index - 1]];
-        return { ...r, sections: newSections };
+        // Обновляем sort_order для всех разделов
+        const sectionsWithOrder = newSections.map((section, idx) => ({
+          ...section,
+          sortOrder: idx
+        }));
+        return { ...r, sections: sectionsWithOrder };
       }
     }
     return r;
@@ -524,7 +531,12 @@ export function moveSectionDown(reportId: string, sectionId: string) {
       if (index < r.sections.length - 1) {
         const newSections = [...r.sections];
         [newSections[index], newSections[index + 1]] = [newSections[index + 1], newSections[index]];
-        return { ...r, sections: newSections };
+        // Обновляем sort_order для всех разделов
+        const sectionsWithOrder = newSections.map((section, idx) => ({
+          ...section,
+          sortOrder: idx
+        }));
+        return { ...r, sections: sectionsWithOrder };
       }
     }
     return r;
@@ -576,7 +588,9 @@ export function moveNoteUp(reportId: string, sectionId: string, noteId: string) 
             if (index > 0) {
               const newNotes = [...s.notes];
               [newNotes[index - 1], newNotes[index]] = [newNotes[index], newNotes[index - 1]];
-              return { ...s, notes: newNotes };
+              // Обновляем sortOrder для всех справок
+              const notesWithOrder = newNotes.map((note, idx) => ({ ...note, sortOrder: idx }));
+              return { ...s, notes: notesWithOrder };
             }
           }
           return s;
@@ -599,7 +613,9 @@ export function moveNoteDown(reportId: string, sectionId: string, noteId: string
             if (index < s.notes.length - 1) {
               const newNotes = [...s.notes];
               [newNotes[index], newNotes[index + 1]] = [newNotes[index + 1], newNotes[index]];
-              return { ...s, notes: newNotes };
+              // Обновляем sortOrder для всех справок
+              const notesWithOrder = newNotes.map((note, idx) => ({ ...note, sortOrder: idx }));
+              return { ...s, notes: notesWithOrder };
             }
           }
           return s;
@@ -668,7 +684,9 @@ export function moveNoteBlockUp(reportId: string, sectionId: string, noteId: str
                   if (index > 0) {
                     const newBlocks = [...n.noteBlocks];
                     [newBlocks[index - 1], newBlocks[index]] = [newBlocks[index], newBlocks[index - 1]];
-                    return { ...n, noteBlocks: newBlocks };
+                    // Обновляем sortOrder для всех блоков
+                    const blocksWithOrder = newBlocks.map((block, idx) => ({ ...block, sortOrder: idx }));
+                    return { ...n, noteBlocks: blocksWithOrder };
                   }
                 }
                 return n;
@@ -699,7 +717,9 @@ export function moveNoteBlockDown(reportId: string, sectionId: string, noteId: s
                   if (index < n.noteBlocks.length - 1) {
                     const newBlocks = [...n.noteBlocks];
                     [newBlocks[index], newBlocks[index + 1]] = [newBlocks[index + 1], newBlocks[index]];
-                    return { ...n, noteBlocks: newBlocks };
+                    // Обновляем sortOrder для всех блоков
+                    const blocksWithOrder = newBlocks.map((block, idx) => ({ ...block, sortOrder: idx }));
+                    return { ...n, noteBlocks: blocksWithOrder };
                   }
                 }
                 return n;
