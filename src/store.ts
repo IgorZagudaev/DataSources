@@ -33,6 +33,7 @@ export function getDataSourceMode(): DataSourceMode {
 }
 
 let currentMode: DataSourceMode = getMode();
+let isLoadingFromAPI = false; // Флаг для предотвращения обратной синхронизации при загрузке
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -156,14 +157,19 @@ export async function syncFromAPI(): Promise<void> {
   console.log('syncFromAPI called, current mode:', currentMode);
   if (currentMode === 'api') {
     console.log('Mode is API, loading data...');
-    const data = await loadFromAPI();
-    console.log('Loaded data:', data);
-    if (data.length > 0) {
-      console.log('Updating reports with', data.length, 'items');
-      reports = data;
-      notify();
-    } else {
-      console.warn('No data loaded from API');
+    isLoadingFromAPI = true; // Устанавливаем флаг перед загрузкой
+    try {
+      const data = await loadFromAPI();
+      console.log('Loaded data:', data);
+      if (data.length > 0) {
+        console.log('Updating reports with', data.length, 'items');
+        reports = data;
+        notify();
+      } else {
+        console.warn('No data loaded from API');
+      }
+    } finally {
+      isLoadingFromAPI = false; // Сбрасываем флаг после загрузки
     }
   } else {
     console.log('Mode is not API, skipping sync');
@@ -419,8 +425,8 @@ let listeners: Array<() => void> = [];
 function notify() {
   saveData(reports);
   listeners.forEach(l => l());
-  // Синхронизируем с сервером в API режиме
-  if (currentMode === 'api') {
+  // Синхронизируем с сервером в API режиме, но только если это не загрузка данных
+  if (currentMode === 'api' && !isLoadingFromAPI) {
     syncToAPI();
   }
 }
