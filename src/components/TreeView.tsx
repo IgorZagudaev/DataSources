@@ -570,6 +570,20 @@ interface TreeNodeItemProps {
   isHighlighted?: boolean;
 }
 
+// Функция для получения названия типа элемента
+function getTypeLabel(type: string): string {
+  const typeLabels: Record<string, string> = {
+    report: 'Доклад',
+    section: 'Раздел доклада',
+    note: 'Справка',
+    noteBlock: 'Блок справки',
+    indicator: 'Показатель',
+    slice: 'Разрез данных',
+    source: 'Источник данных',
+  };
+  return typeLabels[type] || type;
+}
+
 function TreeNodeItem({
   id, name, type, level, icon, isExpanded, isSelected, isEditing = false, isAction = false, index = 0,
   onToggle, onSelect, onAddChild, onEdit, onDelete, onMoveUp, onMoveDown,
@@ -650,7 +664,12 @@ function TreeNodeItem({
         </button>
 
         {/* Icon */}
-        <span className="text-sm flex-shrink-0">{icon}</span>
+        <span 
+          className="text-sm flex-shrink-0"
+          title={getTypeLabel(type)}
+        >
+          {icon}
+        </span>
 
         {/* Name */}
         <span
