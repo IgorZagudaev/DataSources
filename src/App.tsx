@@ -41,12 +41,24 @@ function App() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
   const [mergeDuplicates, setMergeDuplicates] = useState(false);
+  const [userIP, setUserIP] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Загружаем данные из API при старте, если режим API
   useEffect(() => {
     if (getDataSourceMode() === 'api') {
       syncFromAPI();
+      
+      // Получаем IP пользователя
+      fetch('/DataSources/api/user-info.php')
+        .then(response => response.json())
+        .then(data => {
+          setUserIP(data.ip || 'unknown');
+        })
+        .catch(error => {
+          console.error('Error fetching user IP:', error);
+          setUserIP('error');
+        });
     }
   }, []);
 
@@ -706,7 +718,14 @@ function App() {
       <footer className="bg-white border-t border-gray-200 px-4 py-2 flex-shrink-0">
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span>Apache + PHP 8 + PostgreSQL | Справочник источников данных показателей</span>
-          <span>Докладов: {reports.length} | Разделов: {reports.reduce((sum, r) => sum + r.sections.length, 0)}</span>
+          <div className="flex items-center gap-4">
+            {userIP && (
+              <span className="text-gray-600">
+                IP: <span className="font-mono font-semibold">{userIP}</span>
+              </span>
+            )}
+            <span>Докладов: {reports.length} | Разделов: {reports.reduce((sum, r) => sum + r.sections.length, 0)}</span>
+          </div>
         </div>
       </footer>
     </div>

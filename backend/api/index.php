@@ -47,6 +47,9 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
+// Подключаем систему логирования
+require_once __DIR__ . '/action_logger.php';
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
@@ -200,6 +203,7 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
             logSQL($sql, $params, ['success' => true]);
+            logAction('add', 'report', $newId, $input['name']);
             echo json_encode(['id' => $newId, 'name' => $input['name']]);
             break;
             
@@ -210,15 +214,23 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
             logSQL($sql, $params, ['success' => true]);
+            logAction('edit', 'report', $id, $input['name']);
             echo json_encode(['success' => true]);
             break;
             
         case 'DELETE':
+            // Получаем имя доклада перед удалением для логирования
+            $stmt = $db->prepare("SELECT name FROM reports WHERE id = ?");
+            $stmt->execute([$id]);
+            $report = $stmt->fetch();
+            $reportName = $report ? $report['name'] : 'unknown';
+            
             $sql = "DELETE FROM reports WHERE id = ?";
             logSQL($sql, [$id]);
             $stmt = $db->prepare($sql);
             $stmt->execute([$id]);
             logSQL($sql, [$id], ['success' => true]);
+            logAction('delete', 'report', $id, $reportName);
             echo json_encode(['success' => true]);
             break;
     }
@@ -259,18 +271,26 @@ function handleSections(PDO $db, string $method, ?string $id, ?array $input): vo
             $newId = generateUUID();
             $stmt = $db->prepare("INSERT INTO sections (id, report_id, name, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$newId, $input['report_id'], $input['name'], $input['description'] ?? null]);
+            logAction('add', 'section', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE sections SET name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            logAction('edit', 'section', $id, $input['name']);
             echo json_encode(['success' => true]);
             break;
             
         case 'DELETE':
+            $stmt = $db->prepare("SELECT name FROM sections WHERE id = ?");
+            $stmt->execute([$id]);
+            $section = $stmt->fetch();
+            $sectionName = $section ? $section['name'] : 'unknown';
+            
             $stmt = $db->prepare("DELETE FROM sections WHERE id = ?");
             $stmt->execute([$id]);
+            logAction('delete', 'section', $id, $sectionName);
             echo json_encode(['success' => true]);
             break;
     }
@@ -409,18 +429,26 @@ function handleNotes(PDO $db, string $method, ?string $id, ?array $input): void 
             $newId = generateUUID();
             $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$newId, $input['section_id'], $input['name'], $input['short_name'] ?? null, $input['description'] ?? null]);
+            logAction('add', 'note', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE notes SET name = ?, short_name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['short_name'] ?? null, $input['description'] ?? null, $id]);
+            logAction('edit', 'note', $id, $input['name']);
             echo json_encode(['success' => true]);
             break;
             
         case 'DELETE':
+            $stmt = $db->prepare("SELECT name FROM notes WHERE id = ?");
+            $stmt->execute([$id]);
+            $note = $stmt->fetch();
+            $noteName = $note ? $note['name'] : 'unknown';
+            
             $stmt = $db->prepare("DELETE FROM notes WHERE id = ?");
             $stmt->execute([$id]);
+            logAction('delete', 'note', $id, $noteName);
             echo json_encode(['success' => true]);
             break;
     }
@@ -435,18 +463,26 @@ function handleNoteSources(PDO $db, string $method, ?string $id, ?array $input):
             $newId = generateUUID();
             $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
+            logAction('add', 'noteSource', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE note_sources SET name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            logAction('edit', 'noteSource', $id, $input['name']);
             echo json_encode(['success' => true]);
             break;
             
         case 'DELETE':
+            $stmt = $db->prepare("SELECT name FROM note_sources WHERE id = ?");
+            $stmt->execute([$id]);
+            $source = $stmt->fetch();
+            $sourceName = $source ? $source['name'] : 'unknown';
+            
             $stmt = $db->prepare("DELETE FROM note_sources WHERE id = ?");
             $stmt->execute([$id]);
+            logAction('delete', 'noteSource', $id, $sourceName);
             echo json_encode(['success' => true]);
             break;
     }
@@ -461,18 +497,26 @@ function handleNoteBlocks(PDO $db, string $method, ?string $id, ?array $input): 
             $newId = generateUUID();
             $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
+            logAction('add', 'noteBlock', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE note_blocks SET name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            logAction('edit', 'noteBlock', $id, $input['name']);
             echo json_encode(['success' => true]);
             break;
             
         case 'DELETE':
+            $stmt = $db->prepare("SELECT name FROM note_blocks WHERE id = ?");
+            $stmt->execute([$id]);
+            $block = $stmt->fetch();
+            $blockName = $block ? $block['name'] : 'unknown';
+            
             $stmt = $db->prepare("DELETE FROM note_blocks WHERE id = ?");
             $stmt->execute([$id]);
+            logAction('delete', 'noteBlock', $id, $blockName);
             echo json_encode(['success' => true]);
             break;
     }
@@ -513,18 +557,26 @@ function handleIndicators(PDO $db, string $method, ?string $id, ?array $input): 
             $newId = generateUUID();
             $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
+            logAction('add', 'indicator', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE indicators SET name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            logAction('edit', 'indicator', $id, $input['name']);
             echo json_encode(['success' => true]);
             break;
             
         case 'DELETE':
+            $stmt = $db->prepare("SELECT name FROM indicators WHERE id = ?");
+            $stmt->execute([$id]);
+            $indicator = $stmt->fetch();
+            $indicatorName = $indicator ? $indicator['name'] : 'unknown';
+            
             $stmt = $db->prepare("DELETE FROM indicators WHERE id = ?");
             $stmt->execute([$id]);
+            logAction('delete', 'indicator', $id, $indicatorName);
             echo json_encode(['success' => true]);
             break;
     }
@@ -565,18 +617,26 @@ function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void
             $newId = generateUUID();
             $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$newId, $input['indicator_id'], $input['name'], $input['description'] ?? null]);
+            logAction('add', 'slice', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE data_slices SET name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            logAction('edit', 'slice', $id, $input['name']);
             echo json_encode(['success' => true]);
             break;
             
         case 'DELETE':
+            $stmt = $db->prepare("SELECT name FROM data_slices WHERE id = ?");
+            $stmt->execute([$id]);
+            $slice = $stmt->fetch();
+            $sliceName = $slice ? $slice['name'] : 'unknown';
+            
             $stmt = $db->prepare("DELETE FROM data_slices WHERE id = ?");
             $stmt->execute([$id]);
+            logAction('delete', 'slice', $id, $sliceName);
             echo json_encode(['success' => true]);
             break;
     }
@@ -623,6 +683,7 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
             logSQL($sql, $params, ['id' => $newId]);
+            logAction('add', 'source', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
             
@@ -648,15 +709,22 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
             logSQL($sql, $params, ['success' => true]);
+            logAction('edit', 'source', $id, $input['name']);
             echo json_encode(['success' => true]);
             break;
             
         case 'DELETE':
+            $stmt = $db->prepare("SELECT name FROM data_sources WHERE id = ?");
+            $stmt->execute([$id]);
+            $source = $stmt->fetch();
+            $sourceName = $source ? $source['name'] : 'unknown';
+            
             $sql = "DELETE FROM data_sources WHERE id = ?";
             logSQL($sql, [$id]);
             $stmt = $db->prepare($sql);
             $stmt->execute([$id]);
             logSQL($sql, [$id], ['success' => true]);
+            logAction('delete', 'source', $id, $sourceName);
             echo json_encode(['success' => true]);
             break;
     }
