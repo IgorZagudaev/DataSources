@@ -607,7 +607,7 @@ function TreeNodeItem({
   return (
     <div className={`select-none ${type === 'report' ? 'my-6' : ''}`} data-node-id={id}>
       <div
-        className="flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all border-l-4 hover:opacity-80"
+        className={`flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all border-l-4 hover:opacity-80 ${isSelected ? 'ring-2 ring-black ring-offset-1' : ''}`}
         style={{ 
           paddingLeft: `${level * 16 + 8}px`,
           backgroundColor: bgColor,
