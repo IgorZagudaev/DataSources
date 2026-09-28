@@ -282,6 +282,7 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
             index={reportIndex}
             isExpanded={expandedNodes.has(report.id)}
             isSelected={selectedId === report.id}
+            isEditing={editingId === report.id}
             onToggle={() => toggleExpand(report.id)}
             onSelect={() => handleSelect(report.id, 'report')}
             onAddChild={() => handleAdd('section', [report.id])}
@@ -302,6 +303,7 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
                 index={sectionIndex}
                 isExpanded={expandedNodes.has(section.id)}
                 isSelected={selectedId === section.id}
+                isEditing={editingId === section.id}
                 onToggle={() => toggleExpand(section.id)}
                 onSelect={() => handleSelect(section.id, 'section')}
                 onAddChild={() => handleAdd('note', [report.id, section.id])}
@@ -322,6 +324,7 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
                     index={noteIndex}
                     isExpanded={expandedNodes.has(note.id)}
                     isSelected={selectedId === note.id}
+                    isEditing={editingId === note.id}
                     onToggle={() => toggleExpand(note.id)}
                     onSelect={() => handleSelect(note.id, 'note')}
                     onAddChild={() => {}}
@@ -347,6 +350,7 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
                         index={noteBlockIndex}
                         isExpanded={expandedNodes.has(noteBlock.id)}
                         isSelected={selectedId === noteBlock.id}
+                        isEditing={editingId === noteBlock.id}
                         onToggle={() => toggleExpand(noteBlock.id)}
                         onSelect={() => handleSelect(noteBlock.id, 'noteBlock')}
                         onEdit={() => handleEdit('noteBlock', [report.id, section.id, note.id], noteBlock)}
@@ -368,6 +372,7 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
                             index={indicatorIndex}
                             isExpanded={expandedNodes.has(indicator.id)}
                             isSelected={selectedId === indicator.id}
+                            isEditing={editingId === indicator.id}
                             onToggle={() => toggleExpand(indicator.id)}
                             onSelect={() => handleSelect(indicator.id, 'noteBlockIndicator')}
                             onAddChild={() => handleAdd('noteBlockSlice', [report.id, section.id, note.id, noteBlock.id, indicator.id])}
@@ -388,6 +393,7 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
                                 index={sliceIndex}
                                 isExpanded={expandedNodes.has(slice.id)}
                                 isSelected={selectedId === slice.id}
+                                isEditing={editingId === slice.id}
                                 onToggle={() => toggleExpand(slice.id)}
                                 onSelect={() => handleSelect(slice.id, 'noteBlockSlice')}
                                 onAddChild={() => handleAdd('noteBlockSliceSource', [report.id, section.id, note.id, noteBlock.id, indicator.id, slice.id])}
@@ -408,6 +414,7 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
                                     index={sourceIndex}
                                     isExpanded={false}
                                     isSelected={selectedId === source.id}
+                                    isEditing={editingId === source.id}
                                     isHighlighted={hasSourceType(source)}
                                     onToggle={() => {}}
                                     onSelect={() => handleSelect(source.id, 'noteBlockSliceSource')}
@@ -436,6 +443,7 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
                         index={indicatorIndex}
                         isExpanded={expandedNodes.has(indicator.id)}
                         isSelected={selectedId === indicator.id}
+                        isEditing={editingId === indicator.id}
                         onToggle={() => toggleExpand(indicator.id)}
                         onSelect={() => handleSelect(indicator.id, 'indicator')}
                         onAddChild={() => handleAdd('slice', [report.id, section.id, note.id, indicator.id])}
@@ -456,6 +464,7 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
                             index={sliceIndex}
                             isExpanded={expandedNodes.has(slice.id)}
                             isSelected={selectedId === slice.id}
+                            isEditing={editingId === slice.id}
                             onToggle={() => toggleExpand(slice.id)}
                             onSelect={() => handleSelect(slice.id, 'slice')}
                             onAddChild={() => handleAdd('source', [report.id, section.id, note.id, indicator.id, slice.id])}
@@ -476,6 +485,7 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
                                 index={sourceIndex}
                                 isExpanded={false}
                                 isSelected={selectedId === source.id}
+                                isEditing={editingId === source.id}
                                 isHighlighted={hasSourceType(source)}
                                 onToggle={() => {}}
                                 onSelect={() => handleSelect(source.id, 'source')}
@@ -502,6 +512,7 @@ export function TreeView({ reports, selectedId, editingId, onSelect, onAdd, onEd
                         index={sourceIndex}
                         isExpanded={false}
                         isSelected={selectedId === source.id}
+                        isEditing={editingId === source.id}
                         isHighlighted={hasSourceType(source)}
                         onToggle={() => {}}
                         onSelect={() => handleSelect(source.id, 'noteSource')}
@@ -531,6 +542,7 @@ interface TreeNodeItemProps {
   icon: string;
   isExpanded: boolean;
   isSelected: boolean;
+  isEditing?: boolean;
   onToggle: () => void;
   onSelect: () => void;
   onAddChild: () => void;
@@ -546,7 +558,7 @@ interface TreeNodeItemProps {
 }
 
 function TreeNodeItem({
-  id, name, type, level, icon, isExpanded, isSelected, index = 0,
+  id, name, type, level, icon, isExpanded, isSelected, isEditing = false, index = 0,
   onToggle, onSelect, onAddChild, onEdit, onDelete, onMoveUp, onMoveDown,
   children, childLabel, childLabels, isHighlighted = false
 }: TreeNodeItemProps) {
@@ -607,7 +619,7 @@ function TreeNodeItem({
   return (
     <div className={`select-none ${type === 'report' ? 'my-6' : ''}`} data-node-id={id}>
       <div
-        className={`flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all border-l-4 hover:opacity-80 ${isSelected ? 'ring-2 ring-black ring-offset-1' : ''}`}
+        className={`flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-all border-l-4 hover:opacity-80 ${isSelected || isEditing ? 'ring-2 ring-black ring-offset-1' : ''}`}
         style={{ 
           paddingLeft: `${level * 16 + 8}px`,
           backgroundColor: bgColor,
