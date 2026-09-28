@@ -36,6 +36,7 @@ function App() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [formState, setFormState] = useState<FormState | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: string; parentIds: string[] } | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null); // ID элемента для подсветки при добавлении/удалении
   const [panelKey, setPanelKey] = useState(0);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
@@ -52,6 +53,7 @@ function App() {
   const handleSelect = (id: string, type: string) => {
     setFormState(null);
     setDeleteConfirm(null);
+    setActionId(null);
     setSelectedId(null);
     setSelectedType(null);
     setTimeout(() => {
@@ -66,6 +68,7 @@ function App() {
     setSelectedType(null);
     setFormState(null);
     setDeleteConfirm(null);
+    setActionId(null);
   };
 
   const handleAdd = (type: string, parentIds: string[]) => {
@@ -73,6 +76,9 @@ function App() {
     setSelectedType(null);
     setDeleteConfirm(null);
     setFormState(null);
+    // Подсвечиваем родительский элемент, к которому добавляется дочерний
+    const parentId = parentIds.length > 0 ? parentIds[parentIds.length - 1] : null;
+    setActionId(parentId);
     setTimeout(() => {
       setFormState({ type, parentIds });
       setPanelKey(prev => prev + 1);
@@ -84,6 +90,7 @@ function App() {
     setSelectedType(null);
     setDeleteConfirm(null);
     setFormState(null);
+    setActionId(null);
     setTimeout(() => {
       setFormState({ type, parentIds, editData: data });
       setPanelKey(prev => prev + 1);
@@ -95,6 +102,8 @@ function App() {
     setSelectedType(null);
     setFormState(null);
     setDeleteConfirm(null);
+    // Подсвечиваем удаляемый элемент
+    setActionId(id);
     setTimeout(() => {
       setDeleteConfirm({ id, type, parentIds });
       setPanelKey(prev => prev + 1);
@@ -438,6 +447,7 @@ function App() {
             reports={reports}
             selectedId={selectedId}
             editingId={formState?.editData?.id || null}
+            actionId={actionId}
             onSelect={handleSelect}
             onAdd={handleAdd}
             onEdit={handleEdit}
