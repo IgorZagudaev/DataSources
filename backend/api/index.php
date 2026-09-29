@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Функция логирования SQL запросов
-function logSQL($sql, $params = [], $result = null, $error = null, $executionTime = null) {
+function logSQL($sql, $params = [], $result = null, $error = null) {
     // Проверяем, включено ли логирование в конфигурации
     $config = require __DIR__ . '/config.php';
     if (!isset($config['app']['sql_logging']) || !$config['app']['sql_logging']) {
@@ -69,10 +69,6 @@ function logSQL($sql, $params = [], $result = null, $error = null, $executionTim
     
     if (!empty($params)) {
         $logEntry .= "  Params: " . json_encode($params, JSON_UNESCAPED_UNICODE) . "\n";
-    }
-    
-    if ($executionTime !== null) {
-        $logEntry .= "  Execution time: " . number_format($executionTime * 1000, 2) . " ms\n";
     }
     
     if ($error) {
@@ -88,23 +84,6 @@ function logSQL($sql, $params = [], $result = null, $error = null, $executionTim
     $logEntry .= str_repeat('-', 80) . "\n";
     
     file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
-}
-
-// Обёртка для выполнения SQL запросов с замером времени
-function executeSQL(PDO $db, string $sql, array $params = [], bool $fetchAll = false) {
-    $startTime = microtime(true);
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    $executionTime = microtime(true) - $startTime;
-    
-    if ($fetchAll) {
-        $result = $stmt->fetchAll();
-        logSQL($sql, $params, $result, null, $executionTime);
-        return $result;
-    } else {
-        logSQL($sql, $params, ['success' => true], null, $executionTime);
-        return $stmt;
-    }
 }
 
 require_once __DIR__ . '/Database.php';
@@ -125,7 +104,6 @@ $segments = array_values(array_filter(explode('/', trim($path, '/'))));
 
 $resource = $segments[0] ?? '';
 $id = $segments[1] ?? null;
-$action = $segments[2] ?? null; // Для обработки /move и других действий
 
 // Get JSON body
 $input = json_decode(file_get_contents('php://input'), true);
@@ -133,61 +111,42 @@ $input = json_decode(file_get_contents('php://input'), true);
 $db = Database::getConnection();
 
 try {
-    // Обработка move операций
-    if ($action === 'move' && $method === 'PUT') {
-        $direction = $input['direction'] ?? 'up';
-        handleMove($db, $resource, $id, $direction);
-    }
-    // Обработка hierarchy операций (загрузка ветки иерархии)
-    elseif ($action === 'hierarchy' && $method === 'GET') {
-        handleGetHierarchy($db, $resource, $id);
-    } else {
-        switch ($resource) {
-            case 'reports':
-                handleReports($db, $method, $id, $input);
-                break;
-            case 'sections':
-                handleSections($db, $method, $id, $input);
-                break;
-            case 'notes':
-                handleNotes($db, $method, $id, $input);
-                break;
-            case 'noteSources':
-                handleNoteSources($db, $method, $id, $input);
-                break;
-            case 'noteBlocks':
-                handleNoteBlocks($db, $method, $id, $input);
-                break;
-            case 'indicators':
-                handleIndicators($db, $method, $id, $input);
-                break;
-            case 'slices':
-                handleSlices($db, $method, $id, $input);
-                break;
-            case 'sources':
-                handleSources($db, $method, $id, $input);
-                break;
-            case 'noteBlockIndicators':
-                handleNoteBlockIndicators($db, $method, $id, $input);
-                break;
-            case 'noteBlockSlices':
-                handleNoteBlockSlices($db, $method, $id, $input);
-                break;
-            case 'noteBlockSources':
-                handleNoteBlockSources($db, $method, $id, $input);
-                break;
-            case 'import':
-                if ($method === 'POST') {
-                    handleImport($db, $input);
-                } else {
-                    http_response_code(405);
-                    echo json_encode(['error' => 'Method not allowed']);
-                }
-                break;
-            default:
-                http_response_code(404);
-                echo json_encode(['error' => 'Resource not found']);
-        }
+    switch ($resource) {
+        case 'reports':
+            handleReports($db, $method, $id, $input);
+            break;
+        case 'sections':
+            handleSections($db, $method, $id, $input);
+            break;
+        case 'notes':
+            handleNotes($db, $method, $id, $input);
+            break;
+        case 'noteSources':
+            handleNoteSources($db, $method, $id, $input);
+            break;
+        case 'noteBlocks':
+            handleNoteBlocks($db, $method, $id, $input);
+            break;
+        case 'indicators':
+            handleIndicators($db, $method, $id, $input);
+            break;
+        case 'slices':
+            handleSlices($db, $method, $id, $input);
+            break;
+        case 'sources':
+            handleSources($db, $method, $id, $input);
+            break;
+        case 'import':
+            if ($method === 'POST') {
+                handleImport($db, $input);
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+        default:
+            http_response_code(404);
+            echo json_encode(['error' => 'Resource not found']);
     }
 } catch (Exception $e) {
     http_response_code(500);
@@ -203,23 +162,21 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
             try {
                 if ($id) {
                     $sql = "SELECT * FROM reports WHERE id = ?";
-                    $startTime = microtime(true);
+                    logSQL($sql, [$id]);
                     $stmt = $db->prepare($sql);
                     $stmt->execute([$id]);
                     $report = $stmt->fetch();
-                    $executionTime = microtime(true) - $startTime;
-                    logSQL($sql, [$id], $report, null, $executionTime);
+                    logSQL($sql, [$id], $report);
                     if ($report) {
                         $report['sections'] = getSectionsForReport($db, $id);
                     }
                     echo json_encode($report ?: ['error' => 'Not found']);
                 } else {
                     $sql = "SELECT * FROM reports ORDER BY created_at";
-                    $startTime = microtime(true);
+                    logSQL($sql);
                     $stmt = $db->query($sql);
                     $reports = $stmt->fetchAll();
-                    $executionTime = microtime(true) - $startTime;
-                    logSQL($sql, [], $reports, null, $executionTime);
+                    logSQL($sql, [], $reports);
                     foreach ($reports as &$report) {
                         try {
                             $report['sections'] = getSectionsForReport($db, $report['id']);
@@ -240,9 +197,8 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
             
         case 'POST':
             $newId = generateUUID();
-            $nextOrder = (int)$db->query("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM reports")->fetchColumn();
-            $sql = "INSERT INTO reports (id, name, description, sort_order) VALUES (?, ?, ?, ?)";
-            $params = [$newId, $input['name'], $input['description'] ?? null, $nextOrder];
+            $sql = "INSERT INTO reports (id, name, description) VALUES (?, ?, ?)";
+            $params = [$newId, $input['name'], $input['description'] ?? null];
             logSQL($sql, $params);
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
@@ -283,12 +239,11 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
 function getSectionsForReport(PDO $db, string $reportId): array {
     try {
         $sql = "SELECT * FROM sections WHERE report_id = ? ORDER BY sort_order";
-        $startTime = microtime(true);
+        logSQL($sql, [$reportId]);
         $stmt = $db->prepare($sql);
         $stmt->execute([$reportId]);
         $sections = $stmt->fetchAll();
-        $executionTime = microtime(true) - $startTime;
-        logSQL($sql, [$reportId], $sections, null, $executionTime);
+        logSQL($sql, [$reportId], $sections);
         
         foreach ($sections as &$section) {
             try {
@@ -302,7 +257,7 @@ function getSectionsForReport(PDO $db, string $reportId): array {
         return $sections;
     } catch (Exception $e) {
         error_log("Error in getSectionsForReport: " . $e->getMessage());
-        logSQL("SELECT * FROM sections WHERE report_id = ?", [$reportId], null, $e->getMessage(), 0);
+        logSQL("SELECT * FROM sections WHERE report_id = ?", [$reportId], null, $e->getMessage());
         return [];
     }
 }
@@ -314,9 +269,8 @@ function handleSections(PDO $db, string $method, ?string $id, ?array $input): vo
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $nextOrder = getNextSortOrder($db, 'sections', 'report_id', $input['report_id']);
-            $stmt = $db->prepare("INSERT INTO sections (id, report_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['report_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
+            $stmt = $db->prepare("INSERT INTO sections (id, report_id, name, description) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['report_id'], $input['name'], $input['description'] ?? null]);
             logAction('add', 'section', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -345,12 +299,11 @@ function handleSections(PDO $db, string $method, ?string $id, ?array $input): vo
 function getNotesForSection(PDO $db, string $sectionId): array {
     try {
         $sql = "SELECT * FROM notes WHERE section_id = ? ORDER BY sort_order";
-        $startTime = microtime(true);
+        logSQL($sql, [$sectionId]);
         $stmt = $db->prepare($sql);
         $stmt->execute([$sectionId]);
         $notes = $stmt->fetchAll();
-        $executionTime = microtime(true) - $startTime;
-        logSQL($sql, [$sectionId], $notes, null, $executionTime);
+        logSQL($sql, [$sectionId], $notes);
         
         foreach ($notes as &$note) {
             try {
@@ -369,20 +322,16 @@ function getNotesForSection(PDO $db, string $sectionId): array {
         return $notes;
     } catch (Exception $e) {
         error_log("Error in getNotesForSection: " . $e->getMessage());
-        logSQL("SELECT * FROM notes WHERE section_id = ?", [$sectionId], null, $e->getMessage(), 0);
+        logSQL("SELECT * FROM notes WHERE section_id = ?", [$sectionId], null, $e->getMessage());
         return [];
     }
 }
 
 function getNoteBlocksForNote(PDO $db, string $noteId): array {
     try {
-        $sql = "SELECT * FROM note_blocks WHERE note_id = ? ORDER BY sort_order";
-        $startTime = microtime(true);
-        $stmt = $db->prepare($sql);
+        $stmt = $db->prepare("SELECT * FROM note_blocks WHERE note_id = ? ORDER BY sort_order");
         $stmt->execute([$noteId]);
         $noteBlocks = $stmt->fetchAll();
-        $executionTime = microtime(true) - $startTime;
-        logSQL($sql, [$noteId], $noteBlocks, null, $executionTime);
         
         foreach ($noteBlocks as &$noteBlock) {
             try {
@@ -397,7 +346,6 @@ function getNoteBlocksForNote(PDO $db, string $noteId): array {
         return $noteBlocks;
     } catch (Exception $e) {
         error_log("Error in getNoteBlocksForNote: " . $e->getMessage());
-        logSQL("SELECT * FROM note_blocks WHERE note_id = ?", [$noteId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -405,13 +353,9 @@ function getNoteBlocksForNote(PDO $db, string $noteId): array {
 function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
     try {
         // Используем таблицу note_block_indicators, а не indicators
-        $sql = "SELECT * FROM note_block_indicators WHERE note_block_id = ? ORDER BY sort_order";
-        $startTime = microtime(true);
-        $stmt = $db->prepare($sql);
+        $stmt = $db->prepare("SELECT * FROM note_block_indicators WHERE note_block_id = ? ORDER BY sort_order");
         $stmt->execute([$noteBlockId]);
         $indicators = $stmt->fetchAll();
-        $executionTime = microtime(true) - $startTime;
-        logSQL($sql, [$noteBlockId], $indicators, null, $executionTime);
         
         foreach ($indicators as &$indicator) {
             try {
@@ -425,20 +369,15 @@ function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
         return $indicators;
     } catch (Exception $e) {
         error_log("Error in getIndicatorsForNoteBlock: " . $e->getMessage());
-        logSQL("SELECT * FROM note_block_indicators WHERE note_block_id = ?", [$noteBlockId], null, $e->getMessage(), 0);
         return [];
     }
 }
 
 function getSlicesForNoteBlockIndicator(PDO $db, string $indicatorId): array {
     try {
-        $sql = "SELECT * FROM note_block_data_slices WHERE indicator_id = ? ORDER BY sort_order";
-        $startTime = microtime(true);
-        $stmt = $db->prepare($sql);
+        $stmt = $db->prepare("SELECT * FROM note_block_data_slices WHERE indicator_id = ? ORDER BY sort_order");
         $stmt->execute([$indicatorId]);
         $slices = $stmt->fetchAll();
-        $executionTime = microtime(true) - $startTime;
-        logSQL($sql, [$indicatorId], $slices, null, $executionTime);
         
         foreach ($slices as &$slice) {
             try {
@@ -452,7 +391,6 @@ function getSlicesForNoteBlockIndicator(PDO $db, string $indicatorId): array {
         return $slices;
     } catch (Exception $e) {
         error_log("Error in getSlicesForNoteBlockIndicator: " . $e->getMessage());
-        logSQL("SELECT * FROM note_block_data_slices WHERE indicator_id = ?", [$indicatorId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -461,13 +399,9 @@ function getSlicesForNoteBlockIndicator(PDO $db, string $indicatorId): array {
 
 function getSourcesForNote(PDO $db, string $noteId): array {
     try {
-        $sql = "SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order";
-        $startTime = microtime(true);
-        $stmt = $db->prepare($sql);
+        $stmt = $db->prepare("SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order");
         $stmt->execute([$noteId]);
         $sources = $stmt->fetchAll();
-        $executionTime = microtime(true) - $startTime;
-        logSQL($sql, [$noteId], $sources, null, $executionTime);
         
         // Decode source_types JSON
         foreach ($sources as &$source) {
@@ -482,7 +416,6 @@ function getSourcesForNote(PDO $db, string $noteId): array {
         return $sources;
     } catch (Exception $e) {
         error_log("Error in getSourcesForNote: " . $e->getMessage());
-        logSQL("SELECT * FROM note_sources WHERE note_id = ?", [$noteId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -494,9 +427,8 @@ function handleNotes(PDO $db, string $method, ?string $id, ?array $input): void 
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $nextOrder = getNextSortOrder($db, 'notes', 'section_id', $input['section_id']);
-            $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['section_id'], $input['name'], $input['short_name'] ?? null, $input['description'] ?? null, $nextOrder]);
+            $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['section_id'], $input['name'], $input['short_name'] ?? null, $input['description'] ?? null]);
             logAction('add', 'note', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -529,9 +461,8 @@ function handleNoteSources(PDO $db, string $method, ?string $id, ?array $input):
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $nextOrder = getNextSortOrder($db, 'note_sources', 'note_id', $input['note_id']);
-            $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
+            $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
             logAction('add', 'noteSource', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -564,9 +495,8 @@ function handleNoteBlocks(PDO $db, string $method, ?string $id, ?array $input): 
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $nextOrder = getNextSortOrder($db, 'note_blocks', 'note_id', $input['note_id']);
-            $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
+            $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
             logAction('add', 'noteBlock', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -595,12 +525,11 @@ function handleNoteBlocks(PDO $db, string $method, ?string $id, ?array $input): 
 function getIndicatorsForNote(PDO $db, string $noteId): array {
     try {
         $sql = "SELECT * FROM indicators WHERE note_id = ? ORDER BY sort_order";
-        $startTime = microtime(true);
+        logSQL($sql, [$noteId]);
         $stmt = $db->prepare($sql);
         $stmt->execute([$noteId]);
         $indicators = $stmt->fetchAll();
-        $executionTime = microtime(true) - $startTime;
-        logSQL($sql, [$noteId], $indicators, null, $executionTime);
+        logSQL($sql, [$noteId], $indicators);
         
         foreach ($indicators as &$indicator) {
             try {
@@ -614,7 +543,7 @@ function getIndicatorsForNote(PDO $db, string $noteId): array {
         return $indicators;
     } catch (Exception $e) {
         error_log("Error in getIndicatorsForNote: " . $e->getMessage());
-        logSQL("SELECT * FROM indicators WHERE note_id = ?", [$noteId], null, $e->getMessage(), 0);
+        logSQL("SELECT * FROM indicators WHERE note_id = ?", [$noteId], null, $e->getMessage());
         return [];
     }
 }
@@ -626,9 +555,8 @@ function handleIndicators(PDO $db, string $method, ?string $id, ?array $input): 
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $nextOrder = getNextSortOrder($db, 'indicators', 'note_id', $input['note_id']);
-            $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
+            $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
             logAction('add', 'indicator', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -657,12 +585,11 @@ function handleIndicators(PDO $db, string $method, ?string $id, ?array $input): 
 function getSlicesForIndicator(PDO $db, string $indicatorId): array {
     try {
         $sql = "SELECT * FROM data_slices WHERE indicator_id = ? ORDER BY sort_order";
-        $startTime = microtime(true);
+        logSQL($sql, [$indicatorId]);
         $stmt = $db->prepare($sql);
         $stmt->execute([$indicatorId]);
         $slices = $stmt->fetchAll();
-        $executionTime = microtime(true) - $startTime;
-        logSQL($sql, [$indicatorId], $slices, null, $executionTime);
+        logSQL($sql, [$indicatorId], $slices);
         
         foreach ($slices as &$slice) {
             try {
@@ -676,7 +603,7 @@ function getSlicesForIndicator(PDO $db, string $indicatorId): array {
         return $slices;
     } catch (Exception $e) {
         error_log("Error in getSlicesForIndicator: " . $e->getMessage());
-        logSQL("SELECT * FROM data_slices WHERE indicator_id = ?", [$indicatorId], null, $e->getMessage(), 0);
+        logSQL("SELECT * FROM data_slices WHERE indicator_id = ?", [$indicatorId], null, $e->getMessage());
         return [];
     }
 }
@@ -688,9 +615,8 @@ function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $nextOrder = getNextSortOrder($db, 'data_slices', 'indicator_id', $input['indicator_id']);
-            $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['indicator_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
+            $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['indicator_id'], $input['name'], $input['description'] ?? null]);
             logAction('add', 'slice', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -719,12 +645,11 @@ function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void
 function getSourcesForSlice(PDO $db, string $sliceId): array {
     try {
         $sql = "SELECT * FROM data_sources WHERE slice_id = ? ORDER BY sort_order";
-        $startTime = microtime(true);
+        logSQL($sql, [$sliceId]);
         $stmt = $db->prepare($sql);
         $stmt->execute([$sliceId]);
         $sources = $stmt->fetchAll();
-        $executionTime = microtime(true) - $startTime;
-        logSQL($sql, [$sliceId], $sources, null, $executionTime);
+        logSQL($sql, [$sliceId], $sources);
         
         // Decode source_types JSON
         foreach ($sources as &$source) {
@@ -739,7 +664,7 @@ function getSourcesForSlice(PDO $db, string $sliceId): array {
         return $sources;
     } catch (Exception $e) {
         error_log("Error in getSourcesForSlice: " . $e->getMessage());
-        logSQL("SELECT * FROM data_sources WHERE slice_id = ?", [$sliceId], null, $e->getMessage(), 0);
+        logSQL("SELECT * FROM data_sources WHERE slice_id = ?", [$sliceId], null, $e->getMessage());
         return [];
     }
 }
@@ -751,10 +676,9 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $nextOrder = getNextSortOrder($db, 'data_sources', 'slice_id', $input['slice_id']);
             $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
-            $sql = "INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
-            $params = [$newId, $input['slice_id'], $input['name'], $input['description'] ?? null, $sourceTypes, $nextOrder];
+            $sql = "INSERT INTO data_sources (id, slice_id, name, description, source_types) VALUES (?, ?, ?, ?, ?)";
+            $params = [$newId, $input['slice_id'], $input['name'], $input['description'] ?? null, $sourceTypes];
             logSQL($sql, $params);
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
@@ -1024,493 +948,8 @@ function handleImport(PDO $db, array $input): void {
 }
 
 // ============================================================
-// Hierarchy handler - загрузка ветки иерархии для элемента
-// ============================================================
-function handleGetHierarchy(PDO $db, string $resource, ?string $id): void {
-    if (!$id) {
-        http_response_code(400);
-        echo json_encode(['error' => 'ID is required']);
-        return;
-    }
-    
-    try {
-        $hierarchy = [];
-        
-        switch ($resource) {
-            case 'reports':
-                $report = getReportWithChildren($db, $id);
-                echo json_encode($report);
-                return;
-                
-            case 'sections':
-                $section = getSectionWithChildren($db, $id);
-                $report = getReport($db, $section['report_id']);
-                $report['sections'] = [$section];
-                echo json_encode($report);
-                return;
-                
-            case 'notes':
-                $note = getNoteWithChildren($db, $id);
-                $section = getSectionWithChildren($db, $note['section_id']);
-                $report = getReportWithChildren($db, $section['report_id']);
-                echo json_encode($report);
-                return;
-                
-            case 'noteBlocks':
-                $noteBlock = getNoteBlockWithChildren($db, $id);
-                $note = getNoteWithChildren($db, $noteBlock['note_id']);
-                $section = getSectionWithChildren($db, $note['section_id']);
-                $report = getReportWithChildren($db, $section['report_id']);
-                echo json_encode($report);
-                return;
-                
-            case 'indicators':
-                $indicator = getIndicatorWithChildren($db, $id);
-                $note = getNoteWithChildren($db, $indicator['note_id']);
-                $section = getSectionWithChildren($db, $note['section_id']);
-                $report = getReportWithChildren($db, $section['report_id']);
-                echo json_encode($report);
-                return;
-                
-            case 'noteBlockIndicators':
-                $indicator = getNoteBlockIndicatorWithChildren($db, $id);
-                $noteBlock = getNoteBlockWithChildren($db, $indicator['note_block_id']);
-                $note = getNoteWithChildren($db, $noteBlock['note_id']);
-                $section = getSectionWithChildren($db, $note['section_id']);
-                $report = getReportWithChildren($db, $section['report_id']);
-                echo json_encode($report);
-                return;
-                
-            case 'slices':
-                $slice = getSliceWithChildren($db, $id);
-                $indicator = getIndicatorWithChildren($db, $slice['indicator_id']);
-                $note = getNoteWithChildren($db, $indicator['note_id']);
-                $section = getSectionWithChildren($db, $note['section_id']);
-                $report = getReportWithChildren($db, $section['report_id']);
-                echo json_encode($report);
-                return;
-                
-            case 'noteBlockSlices':
-                $slice = getNoteBlockSliceWithChildren($db, $id);
-                $indicator = getNoteBlockIndicatorWithChildren($db, $slice['indicator_id']);
-                $noteBlock = getNoteBlockWithChildren($db, $indicator['note_block_id']);
-                $note = getNoteWithChildren($db, $noteBlock['note_id']);
-                $section = getSectionWithChildren($db, $note['section_id']);
-                $report = getReportWithChildren($db, $section['report_id']);
-                echo json_encode($report);
-                return;
-                
-            case 'sources':
-                $source = getSource($db, $id);
-                $slice = getSliceWithChildren($db, $source['slice_id']);
-                $indicator = getIndicatorWithChildren($db, $slice['indicator_id']);
-                $note = getNoteWithChildren($db, $indicator['note_id']);
-                $section = getSectionWithChildren($db, $note['section_id']);
-                $report = getReportWithChildren($db, $section['report_id']);
-                echo json_encode($report);
-                return;
-                
-            case 'noteSources':
-                $source = getNoteSource($db, $id);
-                $note = getNoteWithChildren($db, $source['note_id']);
-                $section = getSectionWithChildren($db, $note['section_id']);
-                $report = getReportWithChildren($db, $section['report_id']);
-                echo json_encode($report);
-                return;
-                
-            case 'noteBlockSources':
-                $source = getSource($db, $id);
-                $slice = getNoteBlockSliceWithChildren($db, $source['slice_id']);
-                $indicator = getNoteBlockIndicatorWithChildren($db, $slice['indicator_id']);
-                $noteBlock = getNoteBlockWithChildren($db, $indicator['note_block_id']);
-                $note = getNoteWithChildren($db, $noteBlock['note_id']);
-                $section = getSectionWithChildren($db, $note['section_id']);
-                $report = getReportWithChildren($db, $section['report_id']);
-                echo json_encode($report);
-                return;
-                
-            default:
-                http_response_code(404);
-                echo json_encode(['error' => 'Resource not found']);
-                return;
-        }
-    } catch (Exception $e) {
-        error_log("Error in handleGetHierarchy: " . $e->getMessage());
-        http_response_code(500);
-        echo json_encode(['error' => 'Failed to load hierarchy: ' . $e->getMessage()]);
-    }
-}
-
-// Helper функции для загрузки отдельных элементов
-function getReport(PDO $db, string $id): array {
-    $stmt = $db->prepare("SELECT * FROM reports WHERE id = ?");
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: [];
-}
-
-function getReportWithChildren(PDO $db, string $id): array {
-    $report = getReport($db, $id);
-    if ($report) {
-        $report['sections'] = getSectionsForReport($db, $id);
-    }
-    return $report;
-}
-
-function getSection(PDO $db, string $id): array {
-    $stmt = $db->prepare("SELECT * FROM sections WHERE id = ?");
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: [];
-}
-
-function getSectionWithChildren(PDO $db, string $id): array {
-    $section = getSection($db, $id);
-    if ($section) {
-        $section['notes'] = getNotesForSection($db, $id);
-    }
-    return $section;
-}
-
-function getNote(PDO $db, string $id): array {
-    $stmt = $db->prepare("SELECT * FROM notes WHERE id = ?");
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: [];
-}
-
-function getNoteWithChildren(PDO $db, string $id): array {
-    $note = getNote($db, $id);
-    if ($note) {
-        $note['note_blocks'] = getNoteBlocksForNote($db, $id);
-        $note['indicators'] = getIndicatorsForNote($db, $id);
-        $note['sources'] = getSourcesForNote($db, $id);
-    }
-    return $note;
-}
-
-function getNoteBlock(PDO $db, string $id): array {
-    $stmt = $db->prepare("SELECT * FROM note_blocks WHERE id = ?");
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: [];
-}
-
-function getNoteBlockWithChildren(PDO $db, string $id): array {
-    $noteBlock = getNoteBlock($db, $id);
-    if ($noteBlock) {
-        $noteBlock['indicators'] = getIndicatorsForNoteBlock($db, $id);
-    }
-    return $noteBlock;
-}
-
-function getIndicator(PDO $db, string $id): array {
-    $stmt = $db->prepare("SELECT * FROM indicators WHERE id = ?");
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: [];
-}
-
-function getIndicatorWithChildren(PDO $db, string $id): array {
-    $indicator = getIndicator($db, $id);
-    if ($indicator) {
-        $indicator['slices'] = getSlicesForIndicator($db, $id);
-    }
-    return $indicator;
-}
-
-function getNoteBlockIndicator(PDO $db, string $id): array {
-    $stmt = $db->prepare("SELECT * FROM note_block_indicators WHERE id = ?");
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: [];
-}
-
-function getNoteBlockIndicatorWithChildren(PDO $db, string $id): array {
-    $indicator = getNoteBlockIndicator($db, $id);
-    if ($indicator) {
-        $indicator['slices'] = getSlicesForNoteBlockIndicator($db, $id);
-    }
-    return $indicator;
-}
-
-function getSlice(PDO $db, string $id): array {
-    $stmt = $db->prepare("SELECT * FROM data_slices WHERE id = ?");
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: [];
-}
-
-function getSliceWithChildren(PDO $db, string $id): array {
-    $slice = getSlice($db, $id);
-    if ($slice) {
-        $slice['sources'] = getSourcesForSlice($db, $id);
-    }
-    return $slice;
-}
-
-function getNoteBlockSlice(PDO $db, string $id): array {
-    $stmt = $db->prepare("SELECT * FROM note_block_data_slices WHERE id = ?");
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: [];
-}
-
-function getNoteBlockSliceWithChildren(PDO $db, string $id): array {
-    $slice = getNoteBlockSlice($db, $id);
-    if ($slice) {
-        $slice['sources'] = getSourcesForSlice($db, $id);
-    }
-    return $slice;
-}
-
-function getSource(PDO $db, string $id): array {
-    $stmt = $db->prepare("SELECT * FROM data_sources WHERE id = ?");
-    $stmt->execute([$id]);
-    $source = $stmt->fetch() ?: [];
-    if ($source && isset($source['source_types'])) {
-        $decoded = json_decode($source['source_types'], true);
-        $source['source_types'] = $decoded !== null ? $decoded : [];
-    }
-    return $source;
-}
-
-function getNoteSource(PDO $db, string $id): array {
-    $stmt = $db->prepare("SELECT * FROM note_sources WHERE id = ?");
-    $stmt->execute([$id]);
-    $source = $stmt->fetch() ?: [];
-    if ($source && isset($source['source_types'])) {
-        $decoded = json_decode($source['source_types'], true);
-        $source['source_types'] = $decoded !== null ? $decoded : [];
-    }
-    return $source;
-}
-
-// ============================================================
-// Move handler - перемещение элементов
-// ============================================================
-function handleMove(PDO $db, string $resource, ?string $id, string $direction): void {
-    if (!$id) {
-        http_response_code(400);
-        echo json_encode(['error' => 'ID is required']);
-        return;
-    }
-    
-    // Определяем таблицу и родительское поле по ресурсу
-    $tableMap = [
-        'reports' => ['table' => 'reports', 'parent_field' => null],
-        'sections' => ['table' => 'sections', 'parent_field' => 'report_id'],
-        'notes' => ['table' => 'notes', 'parent_field' => 'section_id'],
-        'noteBlocks' => ['table' => 'note_blocks', 'parent_field' => 'note_id'],
-        'indicators' => ['table' => 'indicators', 'parent_field' => 'note_id'],
-        'noteBlockIndicators' => ['table' => 'note_block_indicators', 'parent_field' => 'note_block_id'],
-        'slices' => ['table' => 'data_slices', 'parent_field' => 'indicator_id'],
-        'noteBlockSlices' => ['table' => 'note_block_data_slices', 'parent_field' => 'indicator_id'],
-        'sources' => ['table' => 'data_sources', 'parent_field' => 'slice_id'],
-        'noteSources' => ['table' => 'note_sources', 'parent_field' => 'note_id'],
-        'noteBlockSources' => ['table' => 'note_sources', 'parent_field' => 'note_block_id'],
-    ];
-    
-    if (!isset($tableMap[$resource])) {
-        http_response_code(404);
-        echo json_encode(['error' => 'Resource not found']);
-        return;
-    }
-    
-    $table = $tableMap[$resource]['table'];
-    $parentField = $tableMap[$resource]['parent_field'];
-    
-    try {
-        // Получаем текущий элемент
-        $stmt = $db->prepare("SELECT * FROM $table WHERE id = ?");
-        $stmt->execute([$id]);
-        $item = $stmt->fetch();
-        
-        if (!$item) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Item not found']);
-            return;
-        }
-        
-        $currentOrder = $item['sort_order'];
-        
-        // Получаем все элементы того же уровня
-        if ($parentField) {
-            $parentId = $item[$parentField];
-            $stmt = $db->prepare("SELECT id, sort_order FROM $table WHERE $parentField = ? ORDER BY sort_order");
-            $stmt->execute([$parentId]);
-        } else {
-            $stmt = $db->query("SELECT id, sort_order FROM $table ORDER BY sort_order");
-        }
-        
-        $items = $stmt->fetchAll();
-        
-        // Находим индекс текущего элемента
-        $currentIndex = -1;
-        foreach ($items as $index => $it) {
-            if ($it['id'] === $id) {
-                $currentIndex = $index;
-                break;
-            }
-        }
-        
-        if ($currentIndex === -1) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Item not found in list']);
-            return;
-        }
-        
-        // Определяем новый индекс
-        $newIndex = $currentIndex;
-        if ($direction === 'up' && $currentIndex > 0) {
-            $newIndex = $currentIndex - 1;
-        } elseif ($direction === 'down' && $currentIndex < count($items) - 1) {
-            $newIndex = $currentIndex + 1;
-        }
-        
-        // Если индекс не изменился, ничего не делаем
-        if ($newIndex === $currentIndex) {
-            echo json_encode(['success' => true, 'moved' => false]);
-            return;
-        }
-        
-        // Меняем местами элементы
-        $db->beginTransaction();
-        
-        $itemId1 = $items[$currentIndex]['id'];
-        $itemId2 = $items[$newIndex]['id'];
-        $order1 = $items[$currentIndex]['sort_order'];
-        $order2 = $items[$newIndex]['sort_order'];
-        
-        $stmt = $db->prepare("UPDATE $table SET sort_order = ? WHERE id = ?");
-        $stmt->execute([$order2, $itemId1]);
-        $stmt->execute([$order1, $itemId2]);
-        
-        $db->commit();
-        
-        logAction('move', $resource, $id, $item['name'] ?? 'unknown', "direction: $direction");
-        
-        echo json_encode(['success' => true, 'moved' => true]);
-    } catch (Exception $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
-        error_log("Error in handleMove: " . $e->getMessage());
-        http_response_code(500);
-        echo json_encode(['error' => 'Move failed: ' . $e->getMessage()]);
-    }
-}
-
-// ============================================================
-// Note Block Indicators handlers
-// ============================================================
-function handleNoteBlockIndicators(PDO $db, string $method, ?string $id, ?array $input): void {
-    switch ($method) {
-        case 'POST':
-            $newId = generateUUID();
-            $nextOrder = getNextSortOrder($db, 'note_block_indicators', 'note_block_id', $input['note_block_id']);
-            $stmt = $db->prepare("INSERT INTO note_block_indicators (id, note_block_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['note_block_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
-            logAction('add', 'noteBlockIndicator', $newId, $input['name']);
-            echo json_encode(['id' => $newId]);
-            break;
-            
-        case 'PUT':
-            $stmt = $db->prepare("UPDATE note_block_indicators SET name = ?, description = ? WHERE id = ?");
-            $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
-            logAction('edit', 'noteBlockIndicator', $id, $input['name']);
-            echo json_encode(['success' => true]);
-            break;
-            
-        case 'DELETE':
-            $stmt = $db->prepare("SELECT name FROM note_block_indicators WHERE id = ?");
-            $stmt->execute([$id]);
-            $indicator = $stmt->fetch();
-            $indicatorName = $indicator ? $indicator['name'] : 'unknown';
-            
-            $stmt = $db->prepare("DELETE FROM note_block_indicators WHERE id = ?");
-            $stmt->execute([$id]);
-            logAction('delete', 'noteBlockIndicator', $id, $indicatorName);
-            echo json_encode(['success' => true]);
-            break;
-    }
-}
-
-// ============================================================
-// Note Block Slices handlers
-// ============================================================
-function handleNoteBlockSlices(PDO $db, string $method, ?string $id, ?array $input): void {
-    switch ($method) {
-        case 'POST':
-            $newId = generateUUID();
-            $nextOrder = getNextSortOrder($db, 'note_block_data_slices', 'indicator_id', $input['indicator_id']);
-            $stmt = $db->prepare("INSERT INTO note_block_data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['indicator_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
-            logAction('add', 'noteBlockSlice', $newId, $input['name']);
-            echo json_encode(['id' => $newId]);
-            break;
-            
-        case 'PUT':
-            $stmt = $db->prepare("UPDATE note_block_data_slices SET name = ?, description = ? WHERE id = ?");
-            $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
-            logAction('edit', 'noteBlockSlice', $id, $input['name']);
-            echo json_encode(['success' => true]);
-            break;
-            
-        case 'DELETE':
-            $stmt = $db->prepare("SELECT name FROM note_block_data_slices WHERE id = ?");
-            $stmt->execute([$id]);
-            $slice = $stmt->fetch();
-            $sliceName = $slice ? $slice['name'] : 'unknown';
-            
-            $stmt = $db->prepare("DELETE FROM note_block_data_slices WHERE id = ?");
-            $stmt->execute([$id]);
-            logAction('delete', 'noteBlockSlice', $id, $sliceName);
-            echo json_encode(['success' => true]);
-            break;
-    }
-}
-
-// ============================================================
-// Note Block Sources handlers
-// ============================================================
-function handleNoteBlockSources(PDO $db, string $method, ?string $id, ?array $input): void {
-    switch ($method) {
-        case 'POST':
-            $newId = generateUUID();
-            $nextOrder = getNextSortOrder($db, 'data_sources', 'slice_id', $input['slice_id']);
-            $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
-            $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['slice_id'], $input['name'], $input['description'] ?? null, $sourceTypes, $nextOrder]);
-            logAction('add', 'noteBlockSource', $newId, $input['name']);
-            echo json_encode(['id' => $newId]);
-            break;
-            
-        case 'PUT':
-            $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
-            $stmt = $db->prepare("UPDATE data_sources SET name = ?, description = ?, source_types = ? WHERE id = ?");
-            $stmt->execute([$input['name'], $input['description'] ?? null, $sourceTypes, $id]);
-            logAction('edit', 'noteBlockSource', $id, $input['name']);
-            echo json_encode(['success' => true]);
-            break;
-            
-        case 'DELETE':
-            $stmt = $db->prepare("SELECT name FROM data_sources WHERE id = ?");
-            $stmt->execute([$id]);
-            $source = $stmt->fetch();
-            $sourceName = $source ? $source['name'] : 'unknown';
-            
-            $stmt = $db->prepare("DELETE FROM data_sources WHERE id = ?");
-            $stmt->execute([$id]);
-            logAction('delete', 'noteBlockSource', $id, $sourceName);
-            echo json_encode(['success' => true]);
-            break;
-    }
-}
-
-// ============================================================
 // Helper functions
 // ============================================================
-
-// Получение следующего sort_order для элемента
-function getNextSortOrder(PDO $db, string $table, string $parentField, string $parentId): int {
-    $stmt = $db->prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 as next_order FROM $table WHERE $parentField = ?");
-    $stmt->execute([$parentId]);
-    return (int)$stmt->fetchColumn();
-}
-
 function generateUUID(): string {
     return sprintf(
         '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',

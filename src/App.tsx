@@ -3,8 +3,9 @@ import { useReports } from './hooks';
 import { TreeView } from './components/TreeView';
 import { DetailPanel } from './components/DetailPanel';
 import { FormPanel, DeleteConfirmPanel } from './components/FormPanel';
+import { ModeSwitcher } from './components/ModeSwitcher';
 import {
-  resetData, exportData, importData, loadReports,
+  resetData, exportData, importData,
   deleteReport, deleteSection, deleteNote, deleteNoteBlock,
   deleteIndicator, deleteNoteBlockIndicator,
   deleteSlice, deleteNoteBlockSlice,
@@ -19,7 +20,8 @@ import {
   moveNoteBlockSliceUp, moveNoteBlockSliceDown,
   moveSourceUp, moveSourceDown,
   moveNoteSourceUp, moveNoteSourceDown,
-  moveNoteBlockSourceUp, moveNoteBlockSourceDown
+  moveNoteBlockSourceUp, moveNoteBlockSourceDown,
+  syncFromAPI, getDataSourceMode
 } from './store';
 
 interface FormState {
@@ -34,32 +36,30 @@ function App() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [formState, setFormState] = useState<FormState | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: string; parentIds: string[] } | null>(null);
-  const [actionId, setActionId] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null); // ID элемента для подсветки при добавлении/удалении
   const [panelKey, setPanelKey] = useState(0);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
   const [mergeDuplicates, setMergeDuplicates] = useState(false);
   const [userIP, setUserIP] = useState<string>('');
-  const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Загружаем данные из API при старте
+  // Загружаем данные из API при старте, если режим API
   useEffect(() => {
-    loadReports().catch(err => {
-      console.error('Failed to load reports:', err);
-      alert('Ошибка загрузки данных. Проверьте подключение к серверу.');
-    });
-    
-    // Получаем IP пользователя
-    fetch('/DataSources/api/user-info.php')
-      .then(response => response.json())
-      .then(data => {
-        setUserIP(data.ip || 'unknown');
-      })
-      .catch(error => {
-        console.error('Error fetching user IP:', error);
-        setUserIP('error');
-      });
+    if (getDataSourceMode() === 'api') {
+      syncFromAPI();
+      
+      // Получаем IP пользователя
+      fetch('/DataSources/api/user-info.php')
+        .then(response => response.json())
+        .then(data => {
+          setUserIP(data.ip || 'unknown');
+        })
+        .catch(error => {
+          console.error('Error fetching user IP:', error);
+          setUserIP('error');
+        });
+    }
   }, []);
 
   const handleSelect = (id: string, type: string) => {
@@ -88,6 +88,7 @@ function App() {
     setSelectedType(null);
     setDeleteConfirm(null);
     setFormState(null);
+    // Подсвечиваем родительский элемент, к которому добавляется дочерний
     const parentId = parentIds.length > 0 ? parentIds[parentIds.length - 1] : null;
     setActionId(parentId);
     setTimeout(() => {
@@ -113,6 +114,7 @@ function App() {
     setSelectedType(null);
     setFormState(null);
     setDeleteConfirm(null);
+    // Подсвечиваем удаляемый элемент
     setActionId(id);
     setTimeout(() => {
       setDeleteConfirm({ id, type, parentIds });
@@ -120,95 +122,79 @@ function App() {
     }, 10);
   };
 
-  const handleMoveUp = async (type: string, id: string, parentIds: string[]) => {
-    setLoading(true);
-    try {
-      switch (type) {
-        case 'report':
-          await moveReportUp(id);
-          break;
-        case 'section':
-          await moveSectionUp(parentIds[0], id);
-          break;
-        case 'note':
-          await moveNoteUp(parentIds[0], parentIds[1], id);
-          break;
-        case 'noteBlock':
-          await moveNoteBlockUp(parentIds[0], parentIds[1], parentIds[2], id);
-          break;
-        case 'indicator':
-          await moveIndicatorUp(parentIds[0], parentIds[1], parentIds[2], id);
-          break;
-        case 'noteBlockIndicator':
-          await moveNoteBlockIndicatorUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
-          break;
-        case 'slice':
-          await moveSliceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
-          break;
-        case 'noteBlockSlice':
-          await moveNoteBlockSliceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
-          break;
-        case 'source':
-          await moveSourceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
-          break;
-        case 'noteSource':
-          await moveNoteSourceUp(parentIds[0], parentIds[1], parentIds[2], id);
-          break;
-        case 'noteBlockSource':
-          await moveNoteBlockSourceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
-          break;
-      }
-    } catch (error) {
-      console.error('Error moving up:', error);
-      alert('Ошибка перемещения элемента');
-    } finally {
-      setLoading(false);
+  const handleMoveUp = (type: string, id: string, parentIds: string[]) => {
+    switch (type) {
+      case 'report':
+        moveReportUp(id);
+        break;
+      case 'section':
+        moveSectionUp(parentIds[0], id);
+        break;
+      case 'note':
+        moveNoteUp(parentIds[0], parentIds[1], id);
+        break;
+      case 'noteBlock':
+        moveNoteBlockUp(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'indicator':
+        moveIndicatorUp(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'noteBlockIndicator':
+        moveNoteBlockIndicatorUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+        break;
+      case 'slice':
+        moveSliceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+        break;
+      case 'noteBlockSlice':
+        moveNoteBlockSliceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+        break;
+      case 'source':
+        moveSourceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+        break;
+      case 'noteSource':
+        moveNoteSourceUp(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'noteBlockSource':
+        moveNoteBlockSourceUp(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
+        break;
     }
   };
 
-  const handleMoveDown = async (type: string, id: string, parentIds: string[]) => {
-    setLoading(true);
-    try {
-      switch (type) {
-        case 'report':
-          await moveReportDown(id);
-          break;
-        case 'section':
-          await moveSectionDown(parentIds[0], id);
-          break;
-        case 'note':
-          await moveNoteDown(parentIds[0], parentIds[1], id);
-          break;
-        case 'noteBlock':
-          await moveNoteBlockDown(parentIds[0], parentIds[1], parentIds[2], id);
-          break;
-        case 'indicator':
-          await moveIndicatorDown(parentIds[0], parentIds[1], parentIds[2], id);
-          break;
-        case 'noteBlockIndicator':
-          await moveNoteBlockIndicatorDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
-          break;
-        case 'slice':
-          await moveSliceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
-          break;
-        case 'noteBlockSlice':
-          await moveNoteBlockSliceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
-          break;
-        case 'source':
-          await moveSourceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
-          break;
-        case 'noteSource':
-          await moveNoteSourceDown(parentIds[0], parentIds[1], parentIds[2], id);
-          break;
-        case 'noteBlockSource':
-          await moveNoteBlockSourceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
-          break;
-      }
-    } catch (error) {
-      console.error('Error moving down:', error);
-      alert('Ошибка перемещения элемента');
-    } finally {
-      setLoading(false);
+  const handleMoveDown = (type: string, id: string, parentIds: string[]) => {
+    switch (type) {
+      case 'report':
+        moveReportDown(id);
+        break;
+      case 'section':
+        moveSectionDown(parentIds[0], id);
+        break;
+      case 'note':
+        moveNoteDown(parentIds[0], parentIds[1], id);
+        break;
+      case 'noteBlock':
+        moveNoteBlockDown(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'indicator':
+        moveIndicatorDown(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'noteBlockIndicator':
+        moveNoteBlockIndicatorDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+        break;
+      case 'slice':
+        moveSliceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+        break;
+      case 'noteBlockSlice':
+        moveNoteBlockSliceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+        break;
+      case 'source':
+        moveSourceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+        break;
+      case 'noteSource':
+        moveNoteSourceDown(parentIds[0], parentIds[1], parentIds[2], id);
+        break;
+      case 'noteBlockSource':
+        moveNoteBlockSourceDown(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
+        break;
     }
   };
 
@@ -220,9 +206,14 @@ function App() {
     setFormState(null);
   };
 
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportText, setExportText] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
+
   const handleExport = () => {
     const data = exportData();
     
+    // Пытаемся скачать файл
     try {
       const blob = new Blob([data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -234,74 +225,179 @@ function App() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
+      // Если скачивание не работает (например, в iframe), показываем модальное окно
       console.log('Download failed, showing modal instead');
+    }
+    
+    // Показываем данные в модальном окне в любом случае
+    setExportText(data);
+    setShowExportModal(true);
+    setCopySuccess(false);
+  };
+
+  const handleCopyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(exportText);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (e) {
+      // Fallback для старых браузеров
+      const textArea = document.createElement('textarea');
+      textArea.value = exportText;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
     }
   };
 
-  const handleImport = async () => {
-    if (importText.trim()) {
-      setLoading(true);
+  const handleImport = () => {
+    console.log('=== НАЧАЛО handleImport ===');
+    console.log('Текущий importText:', importText);
+    console.log('Длина importText:', importText.length);
+    console.log('mergeDuplicates:', mergeDuplicates);
+    
+    // Получаем актуальное значение из textarea
+    const currentText = importText.trim();
+    console.log('После trim:', currentText);
+    console.log('Длина после trim:', currentText.length);
+    
+    if (currentText) {
+      console.log('Вызов importData с текстом длиной:', currentText.length);
       try {
-        const success = await importData(importText);
+        const success = importData(currentText, mergeDuplicates);
+        console.log('Результат importData:', success);
         if (success) {
+          console.log('Импорт успешен!');
           setShowImportModal(false);
           setImportText('');
           setSelectedId(null);
           setSelectedType(null);
-          alert('Импорт выполнен успешно!');
+          setTimeout(() => {
+            alert('Импорт выполнен успешно! Данные загружены.');
+          }, 100);
         } else {
-          alert('Ошибка: неверный формат данных');
+          console.error('Импорт не удался');
+          setTimeout(() => {
+            alert('Ошибка: неверный формат данных');
+          }, 100);
         }
       } catch (error) {
-        console.error('Import error:', error);
-        alert('Ошибка при импорте: ' + error);
-      } finally {
-        setLoading(false);
+        console.error('Исключение при импорте:', error);
+        setTimeout(() => {
+          alert('Ошибка при импорте: ' + error);
+        }, 100);
       }
+    } else {
+      console.log('Текст пустой после trim');
+      setTimeout(() => {
+        alert('Пожалуйста, вставьте JSON данные для импорта');
+      }, 100);
+    }
+    console.log('=== КОНЕЦ handleImport ===');
+  };
+
+  // Функция для тестирования импорта
+  const testImport = () => {
+    const testJson = JSON.stringify({
+      reports: [
+        {
+          name: "Тестовый доклад",
+          description: "Описание",
+          sections: [
+            {
+              name: "Тестовый раздел",
+              description: "Описание раздела",
+              notes: [
+                {
+                  name: "Тестовая справка",
+                  shortName: "Тест",
+                  description: "Описание справки",
+                  noteBlocks: [],
+                  indicators: [],
+                  sources: []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+    
+    console.log('Тестовый JSON:', testJson);
+    setImportText(testJson);
+    console.log('Тестовый JSON установлен в importText');
+  };
+
+  // Функция для прямой загрузки тестовых данных
+  const directTestImport = () => {
+    console.log('=== ПРЯМАЯ ЗАГРУЗКА ТЕСТОВЫХ ДАННЫХ ===');
+    const testJson = JSON.stringify({
+      reports: [
+        {
+          name: "Тестовый доклад",
+          description: "Описание",
+          sections: [
+            {
+              name: "Тестовый раздел",
+              description: "Описание раздела",
+              notes: [
+                {
+                  name: "Тестовая справка",
+                  shortName: "Тест",
+                  description: "Описание справки",
+                  noteBlocks: [],
+                  indicators: [],
+                  sources: []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+    
+    console.log('Вызов importData напрямую...');
+    const success = importData(testJson);
+    console.log('Результат:', success);
+    
+    if (success) {
+      console.log('Успех! Закрываем модальное окно и очищаем поля');
+      setShowImportModal(false);
+      setImportText('');
+      setSelectedId(null);
+      setSelectedType(null);
+      alert('Тестовые данные загружены напрямую!');
+    } else {
+      alert('Ошибка при прямой загрузке тестовых данных');
     }
   };
 
-  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setLoading(true);
-      try {
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-          const content = event.target?.result as string;
-          const success = await importData(content);
-          if (success) {
-            setSelectedId(null);
-            setSelectedType(null);
-            alert('Импорт выполнен успешно!');
-          } else {
-            alert('Ошибка: неверный формат файла');
-          }
-          setLoading(false);
-        };
-        reader.readAsText(file);
-      } catch (error) {
-        console.error('File import error:', error);
-        alert('Ошибка при импорте файла');
-        setLoading(false);
-      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target?.result as string;
+        const success = importData(content);
+        if (success) {
+          setSelectedId(null);
+          setSelectedType(null);
+        } else {
+          alert('Ошибка: неверный формат файла');
+        }
+      };
+      reader.readAsText(file);
     }
   };
 
-  const handleReset = async () => {
-    if (confirm('Сбросить все данные? Это действие нельзя отменить.')) {
-      setLoading(true);
-      try {
-        await resetData();
-        setSelectedId(null);
-        setSelectedType(null);
-        alert('Данные сброшены');
-      } catch (error) {
-        console.error('Reset error:', error);
-        alert('Ошибка при сбросе данных');
-      } finally {
-        setLoading(false);
-      }
+  const handleReset = () => {
+    if (confirm('Сбросить все данные к начальному состоянию?')) {
+      resetData();
+      setSelectedId(null);
+      setSelectedType(null);
     }
   };
 
@@ -311,6 +407,7 @@ function App() {
       <header className="bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
+
             <div className="flex items-center gap-2">
               <span className="text-xl">📖</span>
               <h1 className="text-lg font-bold text-gray-800 hidden sm:block">
@@ -322,7 +419,10 @@ function App() {
             </div>
           </div>
 
+
+
           <div className="flex items-center gap-2">
+            <ModeSwitcher />
             <button
               onClick={handleExport}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
@@ -354,7 +454,7 @@ function App() {
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Tree Panel */}
-        <section className="bg-white border-b border-gray-200 flex-1 overflow-hidden transition-all duration-300 ease-in-out">
+        <section className="bg-white border-b border-gray-200 overflow-hidden" style={{ flex: '1 1 50%' }}>
           <TreeView
             reports={reports}
             selectedId={selectedId}
@@ -372,11 +472,9 @@ function App() {
         {/* Bottom Panel - shows Detail, Form, or Delete Confirmation */}
         {(selectedId && selectedType) || formState || deleteConfirm ? (
           <section 
-            key={formState ? `form-${formState.type}` : deleteConfirm ? 'delete' : `detail-${selectedId}`}
-            className="flex-1 bg-white overflow-hidden flex-shrink-0 border-t border-gray-200"
-            style={{
-              animation: 'slide-up 0.3s ease-out'
-            }}
+            key={`panel-${panelKey}`}
+            className="bg-white overflow-hidden flex-shrink-0 border-t border-gray-200 animate-slide-up"
+            style={{ flex: '1 1 50%' }}
           >
             {formState ? (
               <FormPanel
@@ -388,52 +486,48 @@ function App() {
               <DeleteConfirmPanel
                 deleteConfirm={deleteConfirm}
                 onClose={() => setDeleteConfirm(null)}
-                onConfirm={async () => {
-                  setLoading(true);
-                  try {
-                    const { id, type, parentIds } = deleteConfirm;
-                    switch (type) {
-                      case 'report':
-                        await deleteReport(id);
-                        break;
-                      case 'section':
-                        await deleteSection(parentIds[0], id);
-                        break;
-                      case 'note':
-                        await deleteNote(parentIds[0], parentIds[1], id);
-                        break;
-                      case 'noteBlock':
-                        await deleteNoteBlock(parentIds[0], parentIds[1], parentIds[2], id);
-                        break;
-                      case 'indicator':
-                        await deleteIndicator(parentIds[0], parentIds[1], parentIds[2], id);
-                        break;
-                      case 'noteBlockIndicator':
-                        await deleteNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
-                        break;
-                      case 'slice':
-                        await deleteSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
-                        break;
-                      case 'noteBlockSlice':
-                        await deleteNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
-                        break;
-                      case 'source':
-                        await deleteSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
-                        break;
-                      case 'noteSource':
-                        await deleteNoteSource(parentIds[0], parentIds[1], parentIds[2], id);
-                        break;
-                      case 'noteBlockSource':
-                        await deleteNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
-                        break;
-                    }
-                    setDeleteConfirm(null);
-                  } catch (error) {
-                    console.error('Delete error:', error);
-                    alert('Ошибка при удалении');
-                  } finally {
-                    setLoading(false);
+                onConfirm={() => {
+                  // Выполнить удаление
+                  const { id, type, parentIds } = deleteConfirm;
+                  switch (type) {
+                    case 'report':
+                      deleteReport(id);
+                      break;
+                    case 'section':
+                      deleteSection(parentIds[0], id);
+                      break;
+                    case 'note':
+                      deleteNote(parentIds[0], parentIds[1], id);
+                      break;
+                    case 'noteBlock':
+                      deleteNoteBlock(parentIds[0], parentIds[1], parentIds[2], id);
+                      break;
+                    case 'indicator':
+                      deleteIndicator(parentIds[0], parentIds[1], parentIds[2], id);
+                      break;
+                    case 'noteBlockIndicator':
+                      deleteNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+                      break;
+                    case 'slice':
+                      deleteSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], id);
+                      break;
+                    case 'noteBlockSlice':
+                      deleteNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+                      break;
+                    case 'source':
+                      deleteSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], id);
+                      break;
+                    case 'noteSource':
+                      deleteNoteSource(parentIds[0], parentIds[1], parentIds[2], id);
+                      break;
+                    case 'noteBlockSource':
+                      deleteNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
+                      break;
+                    case 'noteBlockSliceSource':
+                      deleteNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], id);
+                      break;
                   }
+                  setDeleteConfirm(null);
                 }}
               />
             ) : (
@@ -450,7 +544,15 @@ function App() {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: '#dbeafe' }}>
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center" 
+          style={{ backgroundColor: '#dbeafe' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowImportModal(false);
+            }
+          }}
+        >
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Импорт данных</h3>
             <div className="space-y-4">
@@ -476,7 +578,14 @@ function App() {
               </div>
               <textarea
                 value={importText}
-                onChange={(e) => setImportText(e.target.value)}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  console.log('Textarea onChange вызван');
+                  console.log('Новое значение (первые 100 символов):', newValue.substring(0, 100));
+                  console.log('Длина нового значения:', newValue.length);
+                  setImportText(newValue);
+                  console.log('setImportText вызван с длиной:', newValue.length);
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none font-mono text-xs"
                 rows={6}
                 placeholder='[{"id":"...","name":"...","sections":[...]}]'
@@ -493,6 +602,33 @@ function App() {
                   Объединять доклады с одинаковыми названиями
                 </label>
               </div>
+              <button
+                onClick={() => {
+                  console.log('Кнопка тестовых данных нажата');
+                  testImport();
+                }}
+                className="w-full px-3 py-2 text-sm text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors mb-2"
+              >
+                Загрузить тестовые данные в поле
+              </button>
+              <button
+                onClick={() => {
+                  console.log('Кнопка прямой загрузки нажата');
+                  directTestImport();
+                }}
+                className="w-full px-3 py-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors mb-2"
+              >
+                Прямая загрузка тестовых данных
+              </button>
+              <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
+                <p><strong>Инструкция по отладке:</strong></p>
+                <p>1. Откройте консоль браузера (F12)</p>
+                <p>2. Нажмите "Прямая загрузка тестовых данных"</p>
+                <p>3. Проверьте логи в консоли</p>
+                <p>4. Если видите "=== ПРЯМАЯ ЗАГРУЗКА ТЕСТОВЫХ ДАННЫХ ===" и "Результат: true", но данные не появились - проблема в обновлении UI</p>
+                <p>5. Попробуйте обновить страницу (F5) после импорта</p>
+                <p>6. Если после обновления данные появились - проблема в реактивности</p>
+              </div>
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setShowImportModal(false)}
@@ -501,11 +637,18 @@ function App() {
                   Отмена
                 </button>
                 <button
-                  onClick={handleImport}
-                  disabled={!importText.trim() || loading}
+                  onClick={() => {
+                    console.log('=== КНОПКА ИМПОРТИРОВАТЬ НАЖАТА ===');
+                    console.log('importText перед вызовом handleImport:', importText);
+                    console.log('Длина importText:', importText.length);
+                    console.log('Первые 100 символов:', importText.substring(0, 100));
+                    console.log('Вызов handleImport...');
+                    handleImport();
+                  }}
+                  disabled={!importText.trim()}
                   className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 rounded-lg transition-colors"
                 >
-                  {loading ? 'Импорт...' : 'Импортировать'}
+                  Импортировать
                 </button>
               </div>
             </div>
@@ -514,21 +657,58 @@ function App() {
       )}
 
       {/* Export Modal */}
-      {false && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: '#d1fae5' }}>
+      {showExportModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center" 
+          style={{ backgroundColor: '#d1fae5' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowExportModal(false);
+            }
+          }}
+        >
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6">
-            {/* Export modal content - disabled for now */}
-          </div>
-        </div>
-      )}
-
-      {/* Loading Indicator */}
-      {loading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg p-6 shadow-xl">
-            <div className="flex items-center gap-3">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="text-gray-700">Загрузка...</span>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Экспорт данных</h3>
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+                <span className="mr-2">ℹ</span>
+                Скопируйте данные ниже и сохраните в файл с расширением .json
+              </div>
+              <textarea
+                value={exportText}
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-xs resize-none"
+                rows={10}
+                onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Закрыть
+                </button>
+                <button
+                  onClick={handleCopyToClipboard}
+                  className={`px-4 py-2 text-white rounded-lg transition-colors ${
+                    copySuccess 
+                      ? 'bg-green-600 hover:bg-green-700' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {copySuccess ? (
+                    <>
+                      <span className="mr-2">✓</span>
+                      Скопировано!
+                    </>
+                  ) : (
+                    <>
+                      <span className="mr-2">⎘</span>
+                      Копировать
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -544,7 +724,7 @@ function App() {
                 IP: <span className="font-mono font-semibold">{userIP}</span>
               </span>
             )}
-            <span>Докладов: {reports.length} | Разделов: {reports.reduce((sum: number, r: any) => sum + r.sections.length, 0)}</span>
+            <span>Докладов: {reports.length} | Разделов: {reports.reduce((sum, r) => sum + r.sections.length, 0)}</span>
           </div>
         </div>
       </footer>

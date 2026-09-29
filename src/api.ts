@@ -225,11 +225,3 @@ export async function importAllReports(reports: any[]) {
   console.log('Import result:', result);
   return result;
 }
-
-// Hierarchy loading (partial data loading)
-export async function fetchHierarchy(level: string, id: string) {
-  console.log(`Fetching hierarchy for ${level}/${id}`);
-  const result = await apiRequest(`/${level}/${id}/hierarchy`);
-  console.log(`Hierarchy loaded for ${level}/${id}`);
-  return result;
-}
