@@ -459,11 +459,11 @@ function App() {
 
       {/* Loading Indicator */}
       {isLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 shadow-xl flex flex-col items-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mb-4"></div>
-            <p className="text-lg font-semibold text-gray-700">Загрузка данных...</p>
-            <p className="text-sm text-gray-500 mt-2">Пожалуйста, подождите</p>
+        <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 9999 }}>
+          <div className="bg-white rounded-xl p-10 shadow-2xl flex flex-col items-center max-w-md mx-4">
+            <div className="animate-spin rounded-full h-20 w-20 border-b-4 border-blue-600 mb-6"></div>
+            <p className="text-2xl font-bold text-gray-800 mb-3">Загрузка данных</p>
+            <p className="text-base text-gray-600 text-center">Пожалуйста, подождите пока данные загружаются из базы данных...</p>
           </div>
         </div>
       )}

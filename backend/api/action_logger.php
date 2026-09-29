@@ -51,15 +51,22 @@ function logAction($action, $entityType, $entityId, $entityName, $details = '') 
         $logEntry .= "\n";
         
         // Записываем в файл (создаст файл автоматически, если его нет)
-        $result = @file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+        // Убираем @ чтобы видеть ошибки
+        $result = file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
         
         if ($result === false) {
-            error_log("Не удалось записать в actions.log: " . error_get_last()['message']);
+            $error = error_get_last();
+            error_log("Не удалось записать в actions.log: " . ($error['message'] ?? 'неизвестная ошибка'));
+            error_log("Путь к файлу: $logFile");
+            error_log("Директория существует: " . (is_dir(__DIR__) ? 'да' : 'нет'));
+            error_log("Директория доступна для записи: " . (is_writable(__DIR__) ? 'да' : 'нет'));
+            return false;
         }
         
-        return $result !== false;
+        return true;
     } catch (Exception $e) {
         error_log("Исключение в logAction: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
         return false;
     }
 }
