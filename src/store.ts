@@ -34,6 +34,7 @@ export function getDataSourceMode(): DataSourceMode {
 
 let currentMode: DataSourceMode = getMode();
 let isLoadingFromAPI = false; // Флаг для предотвращения обратной синхронизации при загрузке
+let syncTimeout: ReturnType<typeof setTimeout> | null = null; // Таймер для debounce синхронизации
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -426,8 +427,15 @@ function notify() {
   saveData(reports);
   listeners.forEach(l => l());
   // Синхронизируем с сервером в API режиме, но только если это не загрузка данных
+  // Используем debounce - задержка 5 секунд перед синхронизацией
   if (currentMode === 'api' && !isLoadingFromAPI) {
-    syncToAPI();
+    if (syncTimeout) {
+      clearTimeout(syncTimeout);
+    }
+    syncTimeout = setTimeout(() => {
+      syncToAPI();
+      syncTimeout = null;
+    }, 5000); // Синхронизация через 5 секунд после последнего изменения
   }
 }
 
