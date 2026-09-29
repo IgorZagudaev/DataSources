@@ -65,70 +65,127 @@ function updateLocalState(currentReports: any[], hierarchy: any): any[] {
     return currentReports;
   }
   
-  // Находим и обновляем только изменённый доклад
-  return currentReports.map(report => {
-    if (report.id === hierarchy.id) {
-      return mergeHierarchy(report, hierarchy);
+  // Находим индекс изменённого доклада
+  const reportIndex = currentReports.findIndex(r => r.id === hierarchy.id);
+  
+  if (reportIndex === -1) {
+    // Если доклад не найден, добавляем его
+    return [...currentReports, hierarchy];
+  }
+  
+  // Создаём новую копию массива
+  const newReports = [...currentReports];
+  
+  // Обновляем только изменённый доклад
+  newReports[reportIndex] = deepMerge(currentReports[reportIndex], hierarchy);
+  
+  return newReports;
+}
+
+// Глубокое слияние объектов с сохранением всех данных
+function deepMerge(target: any, source: any): any {
+  if (!source) return target;
+  if (!target) return source;
+  
+  const result = { ...target };
+  
+  for (const key in source) {
+    if (source.hasOwnProperty(key)) {
+      if (Array.isArray(source[key])) {
+        // Для массивов - заменяем полностью
+        result[key] = source[key];
+      } else if (typeof source[key] === 'object' && source[key] !== null) {
+        // Для объектов - рекурсивное слияние
+        result[key] = deepMerge(target[key] || {}, source[key]);
+      } else {
+        // Для примитивов - заменяем
+        result[key] = source[key];
+      }
     }
-    return report;
-  });
+  }
+  
+  return result;
 }
 
 // Слияние иерархии с существующим докладом
 function mergeHierarchy(existingReport: any, newReport: any): any {
   if (!newReport) return existingReport;
+  if (!existingReport) return newReport;
   
-  return {
-    ...existingReport,
-    ...newReport,
-    sections: (newReport.sections || []).map((newSection: any) => {
+  // Слияние на уровне доклада
+  const merged = { ...existingReport, ...newReport };
+  
+  // Слияние секций
+  if (newReport.sections) {
+    merged.sections = newReport.sections.map((newSection: any) => {
       const existingSection = existingReport.sections?.find((s: any) => s.id === newSection.id);
       return mergeSection(existingSection || {}, newSection);
-    })
-  };
+    });
+  }
+  
+  return merged;
 }
 
 function mergeSection(existingSection: any, newSection: any): any {
-  return {
-    ...existingSection,
-    ...newSection,
-    notes: (newSection.notes || []).map((newNote: any) => {
+  if (!newSection) return existingSection;
+  if (!existingSection) return newSection;
+  
+  const merged = { ...existingSection, ...newSection };
+  
+  if (newSection.notes) {
+    merged.notes = newSection.notes.map((newNote: any) => {
       const existingNote = existingSection.notes?.find((n: any) => n.id === newNote.id);
       return mergeNote(existingNote || {}, newNote);
-    })
-  };
+    });
+  }
+  
+  return merged;
 }
 
 function mergeNote(existingNote: any, newNote: any): any {
-  return {
-    ...existingNote,
-    ...newNote,
-    note_blocks: newNote.note_blocks || existingNote.note_blocks || [],
-    indicators: (newNote.indicators || []).map((newIndicator: any) => {
+  if (!newNote) return existingNote;
+  if (!existingNote) return newNote;
+  
+  const merged = { ...existingNote, ...newNote };
+  
+  // Сохраняем все массивы из нового состояния
+  merged.note_blocks = newNote.note_blocks || existingNote.note_blocks || [];
+  merged.sources = newNote.sources || existingNote.sources || [];
+  
+  if (newNote.indicators) {
+    merged.indicators = newNote.indicators.map((newIndicator: any) => {
       const existingIndicator = existingNote.indicators?.find((i: any) => i.id === newIndicator.id);
       return mergeIndicator(existingIndicator || {}, newIndicator);
-    }),
-    sources: newNote.sources || existingNote.sources || []
-  };
+    });
+  }
+  
+  return merged;
 }
 
 function mergeIndicator(existingIndicator: any, newIndicator: any): any {
-  return {
-    ...existingIndicator,
-    ...newIndicator,
-    slices: (newIndicator.slices || []).map((newSlice: any) => {
+  if (!newIndicator) return existingIndicator;
+  if (!existingIndicator) return newIndicator;
+  
+  const merged = { ...existingIndicator, ...newIndicator };
+  
+  if (newIndicator.slices) {
+    merged.slices = newIndicator.slices.map((newSlice: any) => {
       const existingSlice = existingIndicator.slices?.find((s: any) => s.id === newSlice.id);
       return mergeSlice(existingSlice || {}, newSlice);
-    })
-  };
+    });
+  }
+  
+  return merged;
 }
 
 function mergeSlice(existingSlice: any, newSlice: any): any {
-  return {
-    ...existingSlice,
-    ...newSlice,
-    sources: newSlice.sources || existingSlice.sources || []
-  };
+  if (!newSlice) return existingSlice;
+  if (!existingSlice) return newSlice;
+  
+  const merged = { ...existingSlice, ...newSlice };
+  merged.sources = newSlice.sources || existingSlice.sources || [];
+  
+  return merged;
 }
 
 // Reports
