@@ -137,6 +137,10 @@ try {
     if ($action === 'move' && $method === 'PUT') {
         $direction = $input['direction'] ?? 'up';
         handleMove($db, $resource, $id, $direction);
+    }
+    // Обработка hierarchy операций (загрузка ветки иерархии)
+    elseif ($action === 'hierarchy' && $method === 'GET') {
+        handleGetHierarchy($db, $resource, $id);
     } else {
         switch ($resource) {
             case 'reports':
@@ -199,21 +203,23 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
             try {
                 if ($id) {
                     $sql = "SELECT * FROM reports WHERE id = ?";
-                    logSQL($sql, [$id]);
+                    $startTime = microtime(true);
                     $stmt = $db->prepare($sql);
                     $stmt->execute([$id]);
                     $report = $stmt->fetch();
-                    logSQL($sql, [$id], $report);
+                    $executionTime = microtime(true) - $startTime;
+                    logSQL($sql, [$id], $report, null, $executionTime);
                     if ($report) {
                         $report['sections'] = getSectionsForReport($db, $id);
                     }
                     echo json_encode($report ?: ['error' => 'Not found']);
                 } else {
                     $sql = "SELECT * FROM reports ORDER BY created_at";
-                    logSQL($sql);
+                    $startTime = microtime(true);
                     $stmt = $db->query($sql);
                     $reports = $stmt->fetchAll();
-                    logSQL($sql, [], $reports);
+                    $executionTime = microtime(true) - $startTime;
+                    logSQL($sql, [], $reports, null, $executionTime);
                     foreach ($reports as &$report) {
                         try {
                             $report['sections'] = getSectionsForReport($db, $report['id']);
@@ -277,11 +283,12 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
 function getSectionsForReport(PDO $db, string $reportId): array {
     try {
         $sql = "SELECT * FROM sections WHERE report_id = ? ORDER BY sort_order";
-        logSQL($sql, [$reportId]);
+        $startTime = microtime(true);
         $stmt = $db->prepare($sql);
         $stmt->execute([$reportId]);
         $sections = $stmt->fetchAll();
-        logSQL($sql, [$reportId], $sections);
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$reportId], $sections, null, $executionTime);
         
         foreach ($sections as &$section) {
             try {
@@ -295,7 +302,7 @@ function getSectionsForReport(PDO $db, string $reportId): array {
         return $sections;
     } catch (Exception $e) {
         error_log("Error in getSectionsForReport: " . $e->getMessage());
-        logSQL("SELECT * FROM sections WHERE report_id = ?", [$reportId], null, $e->getMessage());
+        logSQL("SELECT * FROM sections WHERE report_id = ?", [$reportId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -338,11 +345,12 @@ function handleSections(PDO $db, string $method, ?string $id, ?array $input): vo
 function getNotesForSection(PDO $db, string $sectionId): array {
     try {
         $sql = "SELECT * FROM notes WHERE section_id = ? ORDER BY sort_order";
-        logSQL($sql, [$sectionId]);
+        $startTime = microtime(true);
         $stmt = $db->prepare($sql);
         $stmt->execute([$sectionId]);
         $notes = $stmt->fetchAll();
-        logSQL($sql, [$sectionId], $notes);
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$sectionId], $notes, null, $executionTime);
         
         foreach ($notes as &$note) {
             try {
@@ -361,16 +369,20 @@ function getNotesForSection(PDO $db, string $sectionId): array {
         return $notes;
     } catch (Exception $e) {
         error_log("Error in getNotesForSection: " . $e->getMessage());
-        logSQL("SELECT * FROM notes WHERE section_id = ?", [$sectionId], null, $e->getMessage());
+        logSQL("SELECT * FROM notes WHERE section_id = ?", [$sectionId], null, $e->getMessage(), 0);
         return [];
     }
 }
 
 function getNoteBlocksForNote(PDO $db, string $noteId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM note_blocks WHERE note_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM note_blocks WHERE note_id = ? ORDER BY sort_order";
+        $startTime = microtime(true);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$noteId]);
         $noteBlocks = $stmt->fetchAll();
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$noteId], $noteBlocks, null, $executionTime);
         
         foreach ($noteBlocks as &$noteBlock) {
             try {
@@ -385,6 +397,7 @@ function getNoteBlocksForNote(PDO $db, string $noteId): array {
         return $noteBlocks;
     } catch (Exception $e) {
         error_log("Error in getNoteBlocksForNote: " . $e->getMessage());
+        logSQL("SELECT * FROM note_blocks WHERE note_id = ?", [$noteId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -392,9 +405,13 @@ function getNoteBlocksForNote(PDO $db, string $noteId): array {
 function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
     try {
         // Используем таблицу note_block_indicators, а не indicators
-        $stmt = $db->prepare("SELECT * FROM note_block_indicators WHERE note_block_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM note_block_indicators WHERE note_block_id = ? ORDER BY sort_order";
+        $startTime = microtime(true);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$noteBlockId]);
         $indicators = $stmt->fetchAll();
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$noteBlockId], $indicators, null, $executionTime);
         
         foreach ($indicators as &$indicator) {
             try {
@@ -408,15 +425,20 @@ function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
         return $indicators;
     } catch (Exception $e) {
         error_log("Error in getIndicatorsForNoteBlock: " . $e->getMessage());
+        logSQL("SELECT * FROM note_block_indicators WHERE note_block_id = ?", [$noteBlockId], null, $e->getMessage(), 0);
         return [];
     }
 }
 
 function getSlicesForNoteBlockIndicator(PDO $db, string $indicatorId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM note_block_data_slices WHERE indicator_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM note_block_data_slices WHERE indicator_id = ? ORDER BY sort_order";
+        $startTime = microtime(true);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$indicatorId]);
         $slices = $stmt->fetchAll();
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$indicatorId], $slices, null, $executionTime);
         
         foreach ($slices as &$slice) {
             try {
@@ -430,6 +452,7 @@ function getSlicesForNoteBlockIndicator(PDO $db, string $indicatorId): array {
         return $slices;
     } catch (Exception $e) {
         error_log("Error in getSlicesForNoteBlockIndicator: " . $e->getMessage());
+        logSQL("SELECT * FROM note_block_data_slices WHERE indicator_id = ?", [$indicatorId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -438,9 +461,13 @@ function getSlicesForNoteBlockIndicator(PDO $db, string $indicatorId): array {
 
 function getSourcesForNote(PDO $db, string $noteId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order";
+        $startTime = microtime(true);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$noteId]);
         $sources = $stmt->fetchAll();
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$noteId], $sources, null, $executionTime);
         
         // Decode source_types JSON
         foreach ($sources as &$source) {
@@ -455,6 +482,7 @@ function getSourcesForNote(PDO $db, string $noteId): array {
         return $sources;
     } catch (Exception $e) {
         error_log("Error in getSourcesForNote: " . $e->getMessage());
+        logSQL("SELECT * FROM note_sources WHERE note_id = ?", [$noteId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -567,11 +595,12 @@ function handleNoteBlocks(PDO $db, string $method, ?string $id, ?array $input): 
 function getIndicatorsForNote(PDO $db, string $noteId): array {
     try {
         $sql = "SELECT * FROM indicators WHERE note_id = ? ORDER BY sort_order";
-        logSQL($sql, [$noteId]);
+        $startTime = microtime(true);
         $stmt = $db->prepare($sql);
         $stmt->execute([$noteId]);
         $indicators = $stmt->fetchAll();
-        logSQL($sql, [$noteId], $indicators);
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$noteId], $indicators, null, $executionTime);
         
         foreach ($indicators as &$indicator) {
             try {
@@ -585,7 +614,7 @@ function getIndicatorsForNote(PDO $db, string $noteId): array {
         return $indicators;
     } catch (Exception $e) {
         error_log("Error in getIndicatorsForNote: " . $e->getMessage());
-        logSQL("SELECT * FROM indicators WHERE note_id = ?", [$noteId], null, $e->getMessage());
+        logSQL("SELECT * FROM indicators WHERE note_id = ?", [$noteId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -628,11 +657,12 @@ function handleIndicators(PDO $db, string $method, ?string $id, ?array $input): 
 function getSlicesForIndicator(PDO $db, string $indicatorId): array {
     try {
         $sql = "SELECT * FROM data_slices WHERE indicator_id = ? ORDER BY sort_order";
-        logSQL($sql, [$indicatorId]);
+        $startTime = microtime(true);
         $stmt = $db->prepare($sql);
         $stmt->execute([$indicatorId]);
         $slices = $stmt->fetchAll();
-        logSQL($sql, [$indicatorId], $slices);
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$indicatorId], $slices, null, $executionTime);
         
         foreach ($slices as &$slice) {
             try {
@@ -646,7 +676,7 @@ function getSlicesForIndicator(PDO $db, string $indicatorId): array {
         return $slices;
     } catch (Exception $e) {
         error_log("Error in getSlicesForIndicator: " . $e->getMessage());
-        logSQL("SELECT * FROM data_slices WHERE indicator_id = ?", [$indicatorId], null, $e->getMessage());
+        logSQL("SELECT * FROM data_slices WHERE indicator_id = ?", [$indicatorId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -689,11 +719,12 @@ function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void
 function getSourcesForSlice(PDO $db, string $sliceId): array {
     try {
         $sql = "SELECT * FROM data_sources WHERE slice_id = ? ORDER BY sort_order";
-        logSQL($sql, [$sliceId]);
+        $startTime = microtime(true);
         $stmt = $db->prepare($sql);
         $stmt->execute([$sliceId]);
         $sources = $stmt->fetchAll();
-        logSQL($sql, [$sliceId], $sources);
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$sliceId], $sources, null, $executionTime);
         
         // Decode source_types JSON
         foreach ($sources as &$source) {
@@ -708,7 +739,7 @@ function getSourcesForSlice(PDO $db, string $sliceId): array {
         return $sources;
     } catch (Exception $e) {
         error_log("Error in getSourcesForSlice: " . $e->getMessage());
-        logSQL("SELECT * FROM data_sources WHERE slice_id = ?", [$sliceId], null, $e->getMessage());
+        logSQL("SELECT * FROM data_sources WHERE slice_id = ?", [$sliceId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -990,6 +1021,312 @@ function handleImport(PDO $db, array $input): void {
         http_response_code(500);
         echo json_encode(['error' => 'Import failed: ' . $e->getMessage()]);
     }
+}
+
+// ============================================================
+// Hierarchy handler - загрузка ветки иерархии для элемента
+// ============================================================
+function handleGetHierarchy(PDO $db, string $resource, ?string $id): void {
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'ID is required']);
+        return;
+    }
+    
+    try {
+        $hierarchy = [];
+        
+        switch ($resource) {
+            case 'reports':
+                $report = getReportWithChildren($db, $id);
+                echo json_encode($report);
+                return;
+                
+            case 'sections':
+                $section = getSectionWithChildren($db, $id);
+                $report = getReport($db, $section['report_id']);
+                $report['sections'] = [$section];
+                echo json_encode($report);
+                return;
+                
+            case 'notes':
+                $note = getNoteWithChildren($db, $id);
+                $section = getSection($db, $note['section_id']);
+                $report = getReport($db, $section['report_id']);
+                $section['notes'] = [$note];
+                $report['sections'] = [$section];
+                echo json_encode($report);
+                return;
+                
+            case 'noteBlocks':
+                $noteBlock = getNoteBlockWithChildren($db, $id);
+                $note = getNote($db, $noteBlock['note_id']);
+                $section = getSection($db, $note['section_id']);
+                $report = getReport($db, $section['report_id']);
+                $note['note_blocks'] = [$noteBlock];
+                $note['indicators'] = getIndicatorsForNote($db, $note['id']);
+                $note['sources'] = getSourcesForNote($db, $note['id']);
+                $section['notes'] = [$note];
+                $report['sections'] = [$section];
+                echo json_encode($report);
+                return;
+                
+            case 'indicators':
+                $indicator = getIndicatorWithChildren($db, $id);
+                $note = getNote($db, $indicator['note_id']);
+                $section = getSection($db, $note['section_id']);
+                $report = getReport($db, $section['report_id']);
+                $note['indicators'] = [$indicator];
+                $note['note_blocks'] = getNoteBlocksForNote($db, $note['id']);
+                $note['sources'] = getSourcesForNote($db, $note['id']);
+                $section['notes'] = [$note];
+                $report['sections'] = [$section];
+                echo json_encode($report);
+                return;
+                
+            case 'noteBlockIndicators':
+                $indicator = getNoteBlockIndicatorWithChildren($db, $id);
+                $noteBlock = getNoteBlock($db, $indicator['note_block_id']);
+                $note = getNote($db, $noteBlock['note_id']);
+                $section = getSection($db, $note['section_id']);
+                $report = getReport($db, $section['report_id']);
+                $noteBlock['indicators'] = [$indicator];
+                $note['note_blocks'] = [$noteBlock];
+                $note['indicators'] = getIndicatorsForNote($db, $note['id']);
+                $note['sources'] = getSourcesForNote($db, $note['id']);
+                $section['notes'] = [$note];
+                $report['sections'] = [$section];
+                echo json_encode($report);
+                return;
+                
+            case 'slices':
+                $slice = getSliceWithChildren($db, $id);
+                $indicator = getIndicator($db, $slice['indicator_id']);
+                $note = getNote($db, $indicator['note_id']);
+                $section = getSection($db, $note['section_id']);
+                $report = getReport($db, $section['report_id']);
+                $indicator['slices'] = [$slice];
+                $note['indicators'] = [$indicator];
+                $note['note_blocks'] = getNoteBlocksForNote($db, $note['id']);
+                $note['sources'] = getSourcesForNote($db, $note['id']);
+                $section['notes'] = [$note];
+                $report['sections'] = [$section];
+                echo json_encode($report);
+                return;
+                
+            case 'noteBlockSlices':
+                $slice = getNoteBlockSliceWithChildren($db, $id);
+                $indicator = getNoteBlockIndicator($db, $slice['indicator_id']);
+                $noteBlock = getNoteBlock($db, $indicator['note_block_id']);
+                $note = getNote($db, $noteBlock['note_id']);
+                $section = getSection($db, $note['section_id']);
+                $report = getReport($db, $section['report_id']);
+                $indicator['slices'] = [$slice];
+                $noteBlock['indicators'] = [$indicator];
+                $note['note_blocks'] = [$noteBlock];
+                $note['indicators'] = getIndicatorsForNote($db, $note['id']);
+                $note['sources'] = getSourcesForNote($db, $note['id']);
+                $section['notes'] = [$note];
+                $report['sections'] = [$section];
+                echo json_encode($report);
+                return;
+                
+            case 'sources':
+                $source = getSource($db, $id);
+                $slice = getSlice($db, $source['slice_id']);
+                $indicator = getIndicator($db, $slice['indicator_id']);
+                $note = getNote($db, $indicator['note_id']);
+                $section = getSection($db, $note['section_id']);
+                $report = getReport($db, $section['report_id']);
+                $slice['sources'] = [$source];
+                $indicator['slices'] = [$slice];
+                $note['indicators'] = [$indicator];
+                $note['note_blocks'] = getNoteBlocksForNote($db, $note['id']);
+                $note['sources'] = getSourcesForNote($db, $note['id']);
+                $section['notes'] = [$note];
+                $report['sections'] = [$section];
+                echo json_encode($report);
+                return;
+                
+            case 'noteSources':
+                $source = getNoteSource($db, $id);
+                $note = getNote($db, $source['note_id']);
+                $section = getSection($db, $note['section_id']);
+                $report = getReport($db, $section['report_id']);
+                $note['sources'] = [$source];
+                $note['indicators'] = getIndicatorsForNote($db, $note['id']);
+                $note['note_blocks'] = getNoteBlocksForNote($db, $note['id']);
+                $section['notes'] = [$note];
+                $report['sections'] = [$section];
+                echo json_encode($report);
+                return;
+                
+            case 'noteBlockSources':
+                $source = getSource($db, $id);
+                $slice = getNoteBlockSlice($db, $source['slice_id']);
+                $indicator = getNoteBlockIndicator($db, $slice['indicator_id']);
+                $noteBlock = getNoteBlock($db, $indicator['note_block_id']);
+                $note = getNote($db, $noteBlock['note_id']);
+                $section = getSection($db, $note['section_id']);
+                $report = getReport($db, $section['report_id']);
+                $slice['sources'] = [$source];
+                $indicator['slices'] = [$slice];
+                $noteBlock['indicators'] = [$indicator];
+                $note['note_blocks'] = [$noteBlock];
+                $note['indicators'] = getIndicatorsForNote($db, $note['id']);
+                $note['sources'] = getSourcesForNote($db, $note['id']);
+                $section['notes'] = [$note];
+                $report['sections'] = [$section];
+                echo json_encode($report);
+                return;
+                
+            default:
+                http_response_code(404);
+                echo json_encode(['error' => 'Resource not found']);
+                return;
+        }
+    } catch (Exception $e) {
+        error_log("Error in handleGetHierarchy: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to load hierarchy: ' . $e->getMessage()]);
+    }
+}
+
+// Helper функции для загрузки отдельных элементов
+function getReport(PDO $db, string $id): array {
+    $stmt = $db->prepare("SELECT * FROM reports WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: [];
+}
+
+function getReportWithChildren(PDO $db, string $id): array {
+    $report = getReport($db, $id);
+    if ($report) {
+        $report['sections'] = getSectionsForReport($db, $id);
+    }
+    return $report;
+}
+
+function getSection(PDO $db, string $id): array {
+    $stmt = $db->prepare("SELECT * FROM sections WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: [];
+}
+
+function getSectionWithChildren(PDO $db, string $id): array {
+    $section = getSection($db, $id);
+    if ($section) {
+        $section['notes'] = getNotesForSection($db, $id);
+    }
+    return $section;
+}
+
+function getNote(PDO $db, string $id): array {
+    $stmt = $db->prepare("SELECT * FROM notes WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: [];
+}
+
+function getNoteWithChildren(PDO $db, string $id): array {
+    $note = getNote($db, $id);
+    if ($note) {
+        $note['note_blocks'] = getNoteBlocksForNote($db, $id);
+        $note['indicators'] = getIndicatorsForNote($db, $id);
+        $note['sources'] = getSourcesForNote($db, $id);
+    }
+    return $note;
+}
+
+function getNoteBlock(PDO $db, string $id): array {
+    $stmt = $db->prepare("SELECT * FROM note_blocks WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: [];
+}
+
+function getNoteBlockWithChildren(PDO $db, string $id): array {
+    $noteBlock = getNoteBlock($db, $id);
+    if ($noteBlock) {
+        $noteBlock['indicators'] = getIndicatorsForNoteBlock($db, $id);
+    }
+    return $noteBlock;
+}
+
+function getIndicator(PDO $db, string $id): array {
+    $stmt = $db->prepare("SELECT * FROM indicators WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: [];
+}
+
+function getIndicatorWithChildren(PDO $db, string $id): array {
+    $indicator = getIndicator($db, $id);
+    if ($indicator) {
+        $indicator['slices'] = getSlicesForIndicator($db, $id);
+    }
+    return $indicator;
+}
+
+function getNoteBlockIndicator(PDO $db, string $id): array {
+    $stmt = $db->prepare("SELECT * FROM note_block_indicators WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: [];
+}
+
+function getNoteBlockIndicatorWithChildren(PDO $db, string $id): array {
+    $indicator = getNoteBlockIndicator($db, $id);
+    if ($indicator) {
+        $indicator['slices'] = getSlicesForNoteBlockIndicator($db, $id);
+    }
+    return $indicator;
+}
+
+function getSlice(PDO $db, string $id): array {
+    $stmt = $db->prepare("SELECT * FROM data_slices WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: [];
+}
+
+function getSliceWithChildren(PDO $db, string $id): array {
+    $slice = getSlice($db, $id);
+    if ($slice) {
+        $slice['sources'] = getSourcesForSlice($db, $id);
+    }
+    return $slice;
+}
+
+function getNoteBlockSlice(PDO $db, string $id): array {
+    $stmt = $db->prepare("SELECT * FROM note_block_data_slices WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: [];
+}
+
+function getNoteBlockSliceWithChildren(PDO $db, string $id): array {
+    $slice = getNoteBlockSlice($db, $id);
+    if ($slice) {
+        $slice['sources'] = getSourcesForSlice($db, $id);
+    }
+    return $slice;
+}
+
+function getSource(PDO $db, string $id): array {
+    $stmt = $db->prepare("SELECT * FROM data_sources WHERE id = ?");
+    $stmt->execute([$id]);
+    $source = $stmt->fetch() ?: [];
+    if ($source && isset($source['source_types'])) {
+        $decoded = json_decode($source['source_types'], true);
+        $source['source_types'] = $decoded !== null ? $decoded : [];
+    }
+    return $source;
+}
+
+function getNoteSource(PDO $db, string $id): array {
+    $stmt = $db->prepare("SELECT * FROM note_sources WHERE id = ?");
+    $stmt->execute([$id]);
+    $source = $stmt->fetch() ?: [];
+    if ($source && isset($source['source_types'])) {
+        $decoded = json_decode($source['source_types'], true);
+        $source['source_types'] = $decoded !== null ? $decoded : [];
+    }
+    return $source;
 }
 
 // ============================================================
