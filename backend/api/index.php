@@ -1051,132 +1051,81 @@ function handleGetHierarchy(PDO $db, string $resource, ?string $id): void {
                 
             case 'notes':
                 $note = getNoteWithChildren($db, $id);
-                $section = getSection($db, $note['section_id']);
-                $report = getReport($db, $section['report_id']);
-                $section['notes'] = [$note];
-                $report['sections'] = [$section];
+                $section = getSectionWithChildren($db, $note['section_id']);
+                $report = getReportWithChildren($db, $section['report_id']);
                 echo json_encode($report);
                 return;
                 
             case 'noteBlocks':
                 $noteBlock = getNoteBlockWithChildren($db, $id);
-                $note = getNote($db, $noteBlock['note_id']);
-                $section = getSection($db, $note['section_id']);
-                $report = getReport($db, $section['report_id']);
-                $note['note_blocks'] = [$noteBlock];
-                $note['indicators'] = getIndicatorsForNote($db, $note['id']);
-                $note['sources'] = getSourcesForNote($db, $note['id']);
-                $section['notes'] = [$note];
-                $report['sections'] = [$section];
+                $note = getNoteWithChildren($db, $noteBlock['note_id']);
+                $section = getSectionWithChildren($db, $note['section_id']);
+                $report = getReportWithChildren($db, $section['report_id']);
                 echo json_encode($report);
                 return;
                 
             case 'indicators':
                 $indicator = getIndicatorWithChildren($db, $id);
-                $note = getNote($db, $indicator['note_id']);
-                $section = getSection($db, $note['section_id']);
-                $report = getReport($db, $section['report_id']);
-                $note['indicators'] = [$indicator];
-                $note['note_blocks'] = getNoteBlocksForNote($db, $note['id']);
-                $note['sources'] = getSourcesForNote($db, $note['id']);
-                $section['notes'] = [$note];
-                $report['sections'] = [$section];
+                $note = getNoteWithChildren($db, $indicator['note_id']);
+                $section = getSectionWithChildren($db, $note['section_id']);
+                $report = getReportWithChildren($db, $section['report_id']);
                 echo json_encode($report);
                 return;
                 
             case 'noteBlockIndicators':
                 $indicator = getNoteBlockIndicatorWithChildren($db, $id);
-                $noteBlock = getNoteBlock($db, $indicator['note_block_id']);
-                $note = getNote($db, $noteBlock['note_id']);
-                $section = getSection($db, $note['section_id']);
-                $report = getReport($db, $section['report_id']);
-                $noteBlock['indicators'] = [$indicator];
-                $note['note_blocks'] = [$noteBlock];
-                $note['indicators'] = getIndicatorsForNote($db, $note['id']);
-                $note['sources'] = getSourcesForNote($db, $note['id']);
-                $section['notes'] = [$note];
-                $report['sections'] = [$section];
+                $noteBlock = getNoteBlockWithChildren($db, $indicator['note_block_id']);
+                $note = getNoteWithChildren($db, $noteBlock['note_id']);
+                $section = getSectionWithChildren($db, $note['section_id']);
+                $report = getReportWithChildren($db, $section['report_id']);
                 echo json_encode($report);
                 return;
                 
             case 'slices':
                 $slice = getSliceWithChildren($db, $id);
-                $indicator = getIndicator($db, $slice['indicator_id']);
-                $note = getNote($db, $indicator['note_id']);
-                $section = getSection($db, $note['section_id']);
-                $report = getReport($db, $section['report_id']);
-                $indicator['slices'] = [$slice];
-                $note['indicators'] = [$indicator];
-                $note['note_blocks'] = getNoteBlocksForNote($db, $note['id']);
-                $note['sources'] = getSourcesForNote($db, $note['id']);
-                $section['notes'] = [$note];
-                $report['sections'] = [$section];
+                $indicator = getIndicatorWithChildren($db, $slice['indicator_id']);
+                $note = getNoteWithChildren($db, $indicator['note_id']);
+                $section = getSectionWithChildren($db, $note['section_id']);
+                $report = getReportWithChildren($db, $section['report_id']);
                 echo json_encode($report);
                 return;
                 
             case 'noteBlockSlices':
                 $slice = getNoteBlockSliceWithChildren($db, $id);
-                $indicator = getNoteBlockIndicator($db, $slice['indicator_id']);
-                $noteBlock = getNoteBlock($db, $indicator['note_block_id']);
-                $note = getNote($db, $noteBlock['note_id']);
-                $section = getSection($db, $note['section_id']);
-                $report = getReport($db, $section['report_id']);
-                $indicator['slices'] = [$slice];
-                $noteBlock['indicators'] = [$indicator];
-                $note['note_blocks'] = [$noteBlock];
-                $note['indicators'] = getIndicatorsForNote($db, $note['id']);
-                $note['sources'] = getSourcesForNote($db, $note['id']);
-                $section['notes'] = [$note];
-                $report['sections'] = [$section];
+                $indicator = getNoteBlockIndicatorWithChildren($db, $slice['indicator_id']);
+                $noteBlock = getNoteBlockWithChildren($db, $indicator['note_block_id']);
+                $note = getNoteWithChildren($db, $noteBlock['note_id']);
+                $section = getSectionWithChildren($db, $note['section_id']);
+                $report = getReportWithChildren($db, $section['report_id']);
                 echo json_encode($report);
                 return;
                 
             case 'sources':
                 $source = getSource($db, $id);
-                $slice = getSlice($db, $source['slice_id']);
-                $indicator = getIndicator($db, $slice['indicator_id']);
-                $note = getNote($db, $indicator['note_id']);
-                $section = getSection($db, $note['section_id']);
-                $report = getReport($db, $section['report_id']);
-                $slice['sources'] = [$source];
-                $indicator['slices'] = [$slice];
-                $note['indicators'] = [$indicator];
-                $note['note_blocks'] = getNoteBlocksForNote($db, $note['id']);
-                $note['sources'] = getSourcesForNote($db, $note['id']);
-                $section['notes'] = [$note];
-                $report['sections'] = [$section];
+                $slice = getSliceWithChildren($db, $source['slice_id']);
+                $indicator = getIndicatorWithChildren($db, $slice['indicator_id']);
+                $note = getNoteWithChildren($db, $indicator['note_id']);
+                $section = getSectionWithChildren($db, $note['section_id']);
+                $report = getReportWithChildren($db, $section['report_id']);
                 echo json_encode($report);
                 return;
                 
             case 'noteSources':
                 $source = getNoteSource($db, $id);
-                $note = getNote($db, $source['note_id']);
-                $section = getSection($db, $note['section_id']);
-                $report = getReport($db, $section['report_id']);
-                $note['sources'] = [$source];
-                $note['indicators'] = getIndicatorsForNote($db, $note['id']);
-                $note['note_blocks'] = getNoteBlocksForNote($db, $note['id']);
-                $section['notes'] = [$note];
-                $report['sections'] = [$section];
+                $note = getNoteWithChildren($db, $source['note_id']);
+                $section = getSectionWithChildren($db, $note['section_id']);
+                $report = getReportWithChildren($db, $section['report_id']);
                 echo json_encode($report);
                 return;
                 
             case 'noteBlockSources':
                 $source = getSource($db, $id);
-                $slice = getNoteBlockSlice($db, $source['slice_id']);
-                $indicator = getNoteBlockIndicator($db, $slice['indicator_id']);
-                $noteBlock = getNoteBlock($db, $indicator['note_block_id']);
-                $note = getNote($db, $noteBlock['note_id']);
-                $section = getSection($db, $note['section_id']);
-                $report = getReport($db, $section['report_id']);
-                $slice['sources'] = [$source];
-                $indicator['slices'] = [$slice];
-                $noteBlock['indicators'] = [$indicator];
-                $note['note_blocks'] = [$noteBlock];
-                $note['indicators'] = getIndicatorsForNote($db, $note['id']);
-                $note['sources'] = getSourcesForNote($db, $note['id']);
-                $section['notes'] = [$note];
-                $report['sections'] = [$section];
+                $slice = getNoteBlockSliceWithChildren($db, $source['slice_id']);
+                $indicator = getNoteBlockIndicatorWithChildren($db, $slice['indicator_id']);
+                $noteBlock = getNoteBlockWithChildren($db, $indicator['note_block_id']);
+                $note = getNoteWithChildren($db, $noteBlock['note_id']);
+                $section = getSectionWithChildren($db, $note['section_id']);
+                $report = getReportWithChildren($db, $section['report_id']);
                 echo json_encode($report);
                 return;
                 
