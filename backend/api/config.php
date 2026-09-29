@@ -17,5 +17,6 @@ return [
         'debug' => false,
         'cors_origins' => ['*'],
         'sql_logging' => true, // Включить/выключить логирование SQL запросов
+        'default_mode' => 'local', // Режим по умолчанию: 'local' (localStorage) или 'api' (PostgreSQL)
     ]
 ];

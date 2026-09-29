@@ -8,7 +8,35 @@ const MODE_KEY = 'data_source_mode';
 export type DataSourceMode = 'local' | 'api';
 
 function getMode(): DataSourceMode {
-  return (localStorage.getItem(MODE_KEY) as DataSourceMode) || 'local';
+  // Сначала проверяем localStorage
+  const savedMode = localStorage.getItem(MODE_KEY) as DataSourceMode;
+  if (savedMode) {
+    return savedMode;
+  }
+  
+  // Если в localStorage нет, используем значение по умолчанию из конфига
+  // Это значение будет обновлено при загрузке конфигурации с сервера
+  return 'local';
+}
+
+// Загрузка конфигурации с сервера
+export async function loadConfig(): Promise<void> {
+  try {
+    const response = await fetch('/DataSources/api/config-endpoint.php');
+    if (response.ok) {
+      const config = await response.json();
+      console.log('Config loaded from server:', config);
+      
+      // Если в localStorage нет сохраненного режима, используем значение из конфига
+      if (!localStorage.getItem(MODE_KEY) && config.default_mode) {
+        localStorage.setItem(MODE_KEY, config.default_mode);
+        currentMode = config.default_mode as DataSourceMode;
+        console.log('Default mode set from config:', config.default_mode);
+      }
+    }
+  } catch (error) {
+    console.error('Error loading config:', error);
+  }
 }
 
 export async function setMode(mode: DataSourceMode): Promise<void> {

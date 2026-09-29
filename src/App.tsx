@@ -21,7 +21,7 @@ import {
   moveSourceUp, moveSourceDown,
   moveNoteSourceUp, moveNoteSourceDown,
   moveNoteBlockSourceUp, moveNoteBlockSourceDown,
-  syncFromAPI, getDataSourceMode
+  syncFromAPI, getDataSourceMode, loadConfig
 } from './store';
 
 interface FormState {
@@ -42,24 +42,32 @@ function App() {
   const [importText, setImportText] = useState('');
   const [mergeDuplicates, setMergeDuplicates] = useState(false);
   const [userIP, setUserIP] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Загружаем данные из API при старте, если режим API
+  // Загружаем конфигурацию и данные при старте
   useEffect(() => {
-    if (getDataSourceMode() === 'api') {
-      syncFromAPI();
-      
-      // Получаем IP пользователя
-      fetch('/DataSources/api/user-info.php')
-        .then(response => response.json())
-        .then(data => {
-          setUserIP(data.ip || 'unknown');
-        })
-        .catch(error => {
-          console.error('Error fetching user IP:', error);
-          setUserIP('error');
-        });
-    }
+    // Загружаем конфигурацию с сервера
+    setIsLoading(true);
+    loadConfig().then(() => {
+      // После загрузки конфигурации, если режим API, загружаем данные
+      if (getDataSourceMode() === 'api') {
+        return syncFromAPI();
+      }
+    }).finally(() => {
+      setIsLoading(false);
+    });
+    
+    // Получаем IP пользователя
+    fetch('/DataSources/api/user-info.php')
+      .then(response => response.json())
+      .then(data => {
+        setUserIP(data.ip || 'unknown');
+      })
+      .catch(error => {
+        console.error('Error fetching user IP:', error);
+        setUserIP('error');
+      });
   }, []);
 
   const handleSelect = (id: string, type: string) => {
@@ -450,6 +458,17 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* Loading Indicator */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 shadow-xl flex flex-col items-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mb-4"></div>
+            <p className="text-lg font-semibold text-gray-700">Загрузка данных...</p>
+            <p className="text-sm text-gray-500 mt-2">Пожалуйста, подождите</p>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-hidden">
