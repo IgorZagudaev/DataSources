@@ -25,7 +25,11 @@ export function getReports(): Report[] {
 // Загрузка всех данных из API
 export async function loadReports(): Promise<void> {
   try {
+    console.log('Loading reports from API...');
+    const startTime = performance.now();
     reports = await api.fetchReports();
+    const endTime = performance.now();
+    console.log(`Reports loaded in ${(endTime - startTime).toFixed(2)}ms`);
     notify();
   } catch (e) {
     console.error('Error loading reports:', e);

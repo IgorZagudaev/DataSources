@@ -104,6 +104,7 @@ $segments = array_values(array_filter(explode('/', trim($path, '/'))));
 
 $resource = $segments[0] ?? '';
 $id = $segments[1] ?? null;
+$action = $segments[2] ?? null; // Для обработки /move и других действий
 
 // Get JSON body
 $input = json_decode(file_get_contents('php://input'), true);
@@ -111,42 +112,57 @@ $input = json_decode(file_get_contents('php://input'), true);
 $db = Database::getConnection();
 
 try {
-    switch ($resource) {
-        case 'reports':
-            handleReports($db, $method, $id, $input);
-            break;
-        case 'sections':
-            handleSections($db, $method, $id, $input);
-            break;
-        case 'notes':
-            handleNotes($db, $method, $id, $input);
-            break;
-        case 'noteSources':
-            handleNoteSources($db, $method, $id, $input);
-            break;
-        case 'noteBlocks':
-            handleNoteBlocks($db, $method, $id, $input);
-            break;
-        case 'indicators':
-            handleIndicators($db, $method, $id, $input);
-            break;
-        case 'slices':
-            handleSlices($db, $method, $id, $input);
-            break;
-        case 'sources':
-            handleSources($db, $method, $id, $input);
-            break;
-        case 'import':
-            if ($method === 'POST') {
-                handleImport($db, $input);
-            } else {
-                http_response_code(405);
-                echo json_encode(['error' => 'Method not allowed']);
-            }
-            break;
-        default:
-            http_response_code(404);
-            echo json_encode(['error' => 'Resource not found']);
+    // Обработка move операций
+    if ($action === 'move' && $method === 'PUT') {
+        $direction = $input['direction'] ?? 'up';
+        handleMove($db, $resource, $id, $direction);
+    } else {
+        switch ($resource) {
+            case 'reports':
+                handleReports($db, $method, $id, $input);
+                break;
+            case 'sections':
+                handleSections($db, $method, $id, $input);
+                break;
+            case 'notes':
+                handleNotes($db, $method, $id, $input);
+                break;
+            case 'noteSources':
+                handleNoteSources($db, $method, $id, $input);
+                break;
+            case 'noteBlocks':
+                handleNoteBlocks($db, $method, $id, $input);
+                break;
+            case 'indicators':
+                handleIndicators($db, $method, $id, $input);
+                break;
+            case 'slices':
+                handleSlices($db, $method, $id, $input);
+                break;
+            case 'sources':
+                handleSources($db, $method, $id, $input);
+                break;
+            case 'noteBlockIndicators':
+                handleNoteBlockIndicators($db, $method, $id, $input);
+                break;
+            case 'noteBlockSlices':
+                handleNoteBlockSlices($db, $method, $id, $input);
+                break;
+            case 'noteBlockSources':
+                handleNoteBlockSources($db, $method, $id, $input);
+                break;
+            case 'import':
+                if ($method === 'POST') {
+                    handleImport($db, $input);
+                } else {
+                    http_response_code(405);
+                    echo json_encode(['error' => 'Method not allowed']);
+                }
+                break;
+            default:
+                http_response_code(404);
+                echo json_encode(['error' => 'Resource not found']);
+        }
     }
 } catch (Exception $e) {
     http_response_code(500);
@@ -944,6 +960,225 @@ function handleImport(PDO $db, array $input): void {
         // error_log("Stack trace: " . $e->getTraceAsString());
         http_response_code(500);
         echo json_encode(['error' => 'Import failed: ' . $e->getMessage()]);
+    }
+}
+
+// ============================================================
+// Move handler - перемещение элементов
+// ============================================================
+function handleMove(PDO $db, string $resource, ?string $id, string $direction): void {
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'ID is required']);
+        return;
+    }
+    
+    // Определяем таблицу и родительское поле по ресурсу
+    $tableMap = [
+        'reports' => ['table' => 'reports', 'parent_field' => null],
+        'sections' => ['table' => 'sections', 'parent_field' => 'report_id'],
+        'notes' => ['table' => 'notes', 'parent_field' => 'section_id'],
+        'noteBlocks' => ['table' => 'note_blocks', 'parent_field' => 'note_id'],
+        'indicators' => ['table' => 'indicators', 'parent_field' => 'note_id'],
+        'noteBlockIndicators' => ['table' => 'note_block_indicators', 'parent_field' => 'note_block_id'],
+        'slices' => ['table' => 'data_slices', 'parent_field' => 'indicator_id'],
+        'noteBlockSlices' => ['table' => 'note_block_data_slices', 'parent_field' => 'indicator_id'],
+        'sources' => ['table' => 'data_sources', 'parent_field' => 'slice_id'],
+        'noteSources' => ['table' => 'note_sources', 'parent_field' => 'note_id'],
+        'noteBlockSources' => ['table' => 'note_sources', 'parent_field' => 'note_block_id'],
+    ];
+    
+    if (!isset($tableMap[$resource])) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Resource not found']);
+        return;
+    }
+    
+    $table = $tableMap[$resource]['table'];
+    $parentField = $tableMap[$resource]['parent_field'];
+    
+    try {
+        // Получаем текущий элемент
+        $stmt = $db->prepare("SELECT * FROM $table WHERE id = ?");
+        $stmt->execute([$id]);
+        $item = $stmt->fetch();
+        
+        if (!$item) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Item not found']);
+            return;
+        }
+        
+        $currentOrder = $item['sort_order'];
+        
+        // Получаем все элементы того же уровня
+        if ($parentField) {
+            $parentId = $item[$parentField];
+            $stmt = $db->prepare("SELECT id, sort_order FROM $table WHERE $parentField = ? ORDER BY sort_order");
+            $stmt->execute([$parentId]);
+        } else {
+            $stmt = $db->query("SELECT id, sort_order FROM $table ORDER BY sort_order");
+        }
+        
+        $items = $stmt->fetchAll();
+        
+        // Находим индекс текущего элемента
+        $currentIndex = -1;
+        foreach ($items as $index => $it) {
+            if ($it['id'] === $id) {
+                $currentIndex = $index;
+                break;
+            }
+        }
+        
+        if ($currentIndex === -1) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Item not found in list']);
+            return;
+        }
+        
+        // Определяем новый индекс
+        $newIndex = $currentIndex;
+        if ($direction === 'up' && $currentIndex > 0) {
+            $newIndex = $currentIndex - 1;
+        } elseif ($direction === 'down' && $currentIndex < count($items) - 1) {
+            $newIndex = $currentIndex + 1;
+        }
+        
+        // Если индекс не изменился, ничего не делаем
+        if ($newIndex === $currentIndex) {
+            echo json_encode(['success' => true, 'moved' => false]);
+            return;
+        }
+        
+        // Меняем местами элементы
+        $db->beginTransaction();
+        
+        $itemId1 = $items[$currentIndex]['id'];
+        $itemId2 = $items[$newIndex]['id'];
+        $order1 = $items[$currentIndex]['sort_order'];
+        $order2 = $items[$newIndex]['sort_order'];
+        
+        $stmt = $db->prepare("UPDATE $table SET sort_order = ? WHERE id = ?");
+        $stmt->execute([$order2, $itemId1]);
+        $stmt->execute([$order1, $itemId2]);
+        
+        $db->commit();
+        
+        logAction('move', $resource, $id, $item['name'] ?? 'unknown', "direction: $direction");
+        
+        echo json_encode(['success' => true, 'moved' => true]);
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log("Error in handleMove: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Move failed: ' . $e->getMessage()]);
+    }
+}
+
+// ============================================================
+// Note Block Indicators handlers
+// ============================================================
+function handleNoteBlockIndicators(PDO $db, string $method, ?string $id, ?array $input): void {
+    switch ($method) {
+        case 'POST':
+            $newId = generateUUID();
+            $stmt = $db->prepare("INSERT INTO note_block_indicators (id, note_block_id, name, description) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['note_block_id'], $input['name'], $input['description'] ?? null]);
+            logAction('add', 'noteBlockIndicator', $newId, $input['name']);
+            echo json_encode(['id' => $newId]);
+            break;
+            
+        case 'PUT':
+            $stmt = $db->prepare("UPDATE note_block_indicators SET name = ?, description = ? WHERE id = ?");
+            $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            logAction('edit', 'noteBlockIndicator', $id, $input['name']);
+            echo json_encode(['success' => true]);
+            break;
+            
+        case 'DELETE':
+            $stmt = $db->prepare("SELECT name FROM note_block_indicators WHERE id = ?");
+            $stmt->execute([$id]);
+            $indicator = $stmt->fetch();
+            $indicatorName = $indicator ? $indicator['name'] : 'unknown';
+            
+            $stmt = $db->prepare("DELETE FROM note_block_indicators WHERE id = ?");
+            $stmt->execute([$id]);
+            logAction('delete', 'noteBlockIndicator', $id, $indicatorName);
+            echo json_encode(['success' => true]);
+            break;
+    }
+}
+
+// ============================================================
+// Note Block Slices handlers
+// ============================================================
+function handleNoteBlockSlices(PDO $db, string $method, ?string $id, ?array $input): void {
+    switch ($method) {
+        case 'POST':
+            $newId = generateUUID();
+            $stmt = $db->prepare("INSERT INTO note_block_data_slices (id, indicator_id, name, description) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['indicator_id'], $input['name'], $input['description'] ?? null]);
+            logAction('add', 'noteBlockSlice', $newId, $input['name']);
+            echo json_encode(['id' => $newId]);
+            break;
+            
+        case 'PUT':
+            $stmt = $db->prepare("UPDATE note_block_data_slices SET name = ?, description = ? WHERE id = ?");
+            $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
+            logAction('edit', 'noteBlockSlice', $id, $input['name']);
+            echo json_encode(['success' => true]);
+            break;
+            
+        case 'DELETE':
+            $stmt = $db->prepare("SELECT name FROM note_block_data_slices WHERE id = ?");
+            $stmt->execute([$id]);
+            $slice = $stmt->fetch();
+            $sliceName = $slice ? $slice['name'] : 'unknown';
+            
+            $stmt = $db->prepare("DELETE FROM note_block_data_slices WHERE id = ?");
+            $stmt->execute([$id]);
+            logAction('delete', 'noteBlockSlice', $id, $sliceName);
+            echo json_encode(['success' => true]);
+            break;
+    }
+}
+
+// ============================================================
+// Note Block Sources handlers
+// ============================================================
+function handleNoteBlockSources(PDO $db, string $method, ?string $id, ?array $input): void {
+    switch ($method) {
+        case 'POST':
+            $newId = generateUUID();
+            $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
+            $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['slice_id'], $input['name'], $input['description'] ?? null, $sourceTypes]);
+            logAction('add', 'noteBlockSource', $newId, $input['name']);
+            echo json_encode(['id' => $newId]);
+            break;
+            
+        case 'PUT':
+            $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
+            $stmt = $db->prepare("UPDATE data_sources SET name = ?, description = ?, source_types = ? WHERE id = ?");
+            $stmt->execute([$input['name'], $input['description'] ?? null, $sourceTypes, $id]);
+            logAction('edit', 'noteBlockSource', $id, $input['name']);
+            echo json_encode(['success' => true]);
+            break;
+            
+        case 'DELETE':
+            $stmt = $db->prepare("SELECT name FROM data_sources WHERE id = ?");
+            $stmt->execute([$id]);
+            $source = $stmt->fetch();
+            $sourceName = $source ? $source['name'] : 'unknown';
+            
+            $stmt = $db->prepare("DELETE FROM data_sources WHERE id = ?");
+            $stmt->execute([$id]);
+            logAction('delete', 'noteBlockSource', $id, $sourceName);
+            echo json_encode(['success' => true]);
+            break;
     }
 }
 
