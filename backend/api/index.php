@@ -199,21 +199,23 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
             try {
                 if ($id) {
                     $sql = "SELECT * FROM reports WHERE id = ?";
-                    logSQL($sql, [$id]);
+                    $startTime = microtime(true);
                     $stmt = $db->prepare($sql);
                     $stmt->execute([$id]);
                     $report = $stmt->fetch();
-                    logSQL($sql, [$id], $report);
+                    $executionTime = microtime(true) - $startTime;
+                    logSQL($sql, [$id], $report, null, $executionTime);
                     if ($report) {
                         $report['sections'] = getSectionsForReport($db, $id);
                     }
                     echo json_encode($report ?: ['error' => 'Not found']);
                 } else {
                     $sql = "SELECT * FROM reports ORDER BY created_at";
-                    logSQL($sql);
+                    $startTime = microtime(true);
                     $stmt = $db->query($sql);
                     $reports = $stmt->fetchAll();
-                    logSQL($sql, [], $reports);
+                    $executionTime = microtime(true) - $startTime;
+                    logSQL($sql, [], $reports, null, $executionTime);
                     foreach ($reports as &$report) {
                         try {
                             $report['sections'] = getSectionsForReport($db, $report['id']);
@@ -277,11 +279,12 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
 function getSectionsForReport(PDO $db, string $reportId): array {
     try {
         $sql = "SELECT * FROM sections WHERE report_id = ? ORDER BY sort_order";
-        logSQL($sql, [$reportId]);
+        $startTime = microtime(true);
         $stmt = $db->prepare($sql);
         $stmt->execute([$reportId]);
         $sections = $stmt->fetchAll();
-        logSQL($sql, [$reportId], $sections);
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$reportId], $sections, null, $executionTime);
         
         foreach ($sections as &$section) {
             try {
@@ -295,7 +298,7 @@ function getSectionsForReport(PDO $db, string $reportId): array {
         return $sections;
     } catch (Exception $e) {
         error_log("Error in getSectionsForReport: " . $e->getMessage());
-        logSQL("SELECT * FROM sections WHERE report_id = ?", [$reportId], null, $e->getMessage());
+        logSQL("SELECT * FROM sections WHERE report_id = ?", [$reportId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -338,11 +341,12 @@ function handleSections(PDO $db, string $method, ?string $id, ?array $input): vo
 function getNotesForSection(PDO $db, string $sectionId): array {
     try {
         $sql = "SELECT * FROM notes WHERE section_id = ? ORDER BY sort_order";
-        logSQL($sql, [$sectionId]);
+        $startTime = microtime(true);
         $stmt = $db->prepare($sql);
         $stmt->execute([$sectionId]);
         $notes = $stmt->fetchAll();
-        logSQL($sql, [$sectionId], $notes);
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$sectionId], $notes, null, $executionTime);
         
         foreach ($notes as &$note) {
             try {
@@ -361,16 +365,20 @@ function getNotesForSection(PDO $db, string $sectionId): array {
         return $notes;
     } catch (Exception $e) {
         error_log("Error in getNotesForSection: " . $e->getMessage());
-        logSQL("SELECT * FROM notes WHERE section_id = ?", [$sectionId], null, $e->getMessage());
+        logSQL("SELECT * FROM notes WHERE section_id = ?", [$sectionId], null, $e->getMessage(), 0);
         return [];
     }
 }
 
 function getNoteBlocksForNote(PDO $db, string $noteId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM note_blocks WHERE note_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM note_blocks WHERE note_id = ? ORDER BY sort_order";
+        $startTime = microtime(true);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$noteId]);
         $noteBlocks = $stmt->fetchAll();
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$noteId], $noteBlocks, null, $executionTime);
         
         foreach ($noteBlocks as &$noteBlock) {
             try {
@@ -385,6 +393,7 @@ function getNoteBlocksForNote(PDO $db, string $noteId): array {
         return $noteBlocks;
     } catch (Exception $e) {
         error_log("Error in getNoteBlocksForNote: " . $e->getMessage());
+        logSQL("SELECT * FROM note_blocks WHERE note_id = ?", [$noteId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -392,9 +401,13 @@ function getNoteBlocksForNote(PDO $db, string $noteId): array {
 function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
     try {
         // Используем таблицу note_block_indicators, а не indicators
-        $stmt = $db->prepare("SELECT * FROM note_block_indicators WHERE note_block_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM note_block_indicators WHERE note_block_id = ? ORDER BY sort_order";
+        $startTime = microtime(true);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$noteBlockId]);
         $indicators = $stmt->fetchAll();
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$noteBlockId], $indicators, null, $executionTime);
         
         foreach ($indicators as &$indicator) {
             try {
@@ -408,15 +421,20 @@ function getIndicatorsForNoteBlock(PDO $db, string $noteBlockId): array {
         return $indicators;
     } catch (Exception $e) {
         error_log("Error in getIndicatorsForNoteBlock: " . $e->getMessage());
+        logSQL("SELECT * FROM note_block_indicators WHERE note_block_id = ?", [$noteBlockId], null, $e->getMessage(), 0);
         return [];
     }
 }
 
 function getSlicesForNoteBlockIndicator(PDO $db, string $indicatorId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM note_block_data_slices WHERE indicator_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM note_block_data_slices WHERE indicator_id = ? ORDER BY sort_order";
+        $startTime = microtime(true);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$indicatorId]);
         $slices = $stmt->fetchAll();
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$indicatorId], $slices, null, $executionTime);
         
         foreach ($slices as &$slice) {
             try {
@@ -430,6 +448,7 @@ function getSlicesForNoteBlockIndicator(PDO $db, string $indicatorId): array {
         return $slices;
     } catch (Exception $e) {
         error_log("Error in getSlicesForNoteBlockIndicator: " . $e->getMessage());
+        logSQL("SELECT * FROM note_block_data_slices WHERE indicator_id = ?", [$indicatorId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -438,9 +457,13 @@ function getSlicesForNoteBlockIndicator(PDO $db, string $indicatorId): array {
 
 function getSourcesForNote(PDO $db, string $noteId): array {
     try {
-        $stmt = $db->prepare("SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order");
+        $sql = "SELECT * FROM note_sources WHERE note_id = ? ORDER BY sort_order";
+        $startTime = microtime(true);
+        $stmt = $db->prepare($sql);
         $stmt->execute([$noteId]);
         $sources = $stmt->fetchAll();
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$noteId], $sources, null, $executionTime);
         
         // Decode source_types JSON
         foreach ($sources as &$source) {
@@ -455,6 +478,7 @@ function getSourcesForNote(PDO $db, string $noteId): array {
         return $sources;
     } catch (Exception $e) {
         error_log("Error in getSourcesForNote: " . $e->getMessage());
+        logSQL("SELECT * FROM note_sources WHERE note_id = ?", [$noteId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -567,11 +591,12 @@ function handleNoteBlocks(PDO $db, string $method, ?string $id, ?array $input): 
 function getIndicatorsForNote(PDO $db, string $noteId): array {
     try {
         $sql = "SELECT * FROM indicators WHERE note_id = ? ORDER BY sort_order";
-        logSQL($sql, [$noteId]);
+        $startTime = microtime(true);
         $stmt = $db->prepare($sql);
         $stmt->execute([$noteId]);
         $indicators = $stmt->fetchAll();
-        logSQL($sql, [$noteId], $indicators);
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$noteId], $indicators, null, $executionTime);
         
         foreach ($indicators as &$indicator) {
             try {
@@ -585,7 +610,7 @@ function getIndicatorsForNote(PDO $db, string $noteId): array {
         return $indicators;
     } catch (Exception $e) {
         error_log("Error in getIndicatorsForNote: " . $e->getMessage());
-        logSQL("SELECT * FROM indicators WHERE note_id = ?", [$noteId], null, $e->getMessage());
+        logSQL("SELECT * FROM indicators WHERE note_id = ?", [$noteId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -628,11 +653,12 @@ function handleIndicators(PDO $db, string $method, ?string $id, ?array $input): 
 function getSlicesForIndicator(PDO $db, string $indicatorId): array {
     try {
         $sql = "SELECT * FROM data_slices WHERE indicator_id = ? ORDER BY sort_order";
-        logSQL($sql, [$indicatorId]);
+        $startTime = microtime(true);
         $stmt = $db->prepare($sql);
         $stmt->execute([$indicatorId]);
         $slices = $stmt->fetchAll();
-        logSQL($sql, [$indicatorId], $slices);
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$indicatorId], $slices, null, $executionTime);
         
         foreach ($slices as &$slice) {
             try {
@@ -646,7 +672,7 @@ function getSlicesForIndicator(PDO $db, string $indicatorId): array {
         return $slices;
     } catch (Exception $e) {
         error_log("Error in getSlicesForIndicator: " . $e->getMessage());
-        logSQL("SELECT * FROM data_slices WHERE indicator_id = ?", [$indicatorId], null, $e->getMessage());
+        logSQL("SELECT * FROM data_slices WHERE indicator_id = ?", [$indicatorId], null, $e->getMessage(), 0);
         return [];
     }
 }
@@ -689,11 +715,12 @@ function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void
 function getSourcesForSlice(PDO $db, string $sliceId): array {
     try {
         $sql = "SELECT * FROM data_sources WHERE slice_id = ? ORDER BY sort_order";
-        logSQL($sql, [$sliceId]);
+        $startTime = microtime(true);
         $stmt = $db->prepare($sql);
         $stmt->execute([$sliceId]);
         $sources = $stmt->fetchAll();
-        logSQL($sql, [$sliceId], $sources);
+        $executionTime = microtime(true) - $startTime;
+        logSQL($sql, [$sliceId], $sources, null, $executionTime);
         
         // Decode source_types JSON
         foreach ($sources as &$source) {
@@ -708,7 +735,7 @@ function getSourcesForSlice(PDO $db, string $sliceId): array {
         return $sources;
     } catch (Exception $e) {
         error_log("Error in getSourcesForSlice: " . $e->getMessage());
-        logSQL("SELECT * FROM data_sources WHERE slice_id = ?", [$sliceId], null, $e->getMessage());
+        logSQL("SELECT * FROM data_sources WHERE slice_id = ?", [$sliceId], null, $e->getMessage(), 0);
         return [];
     }
 }
