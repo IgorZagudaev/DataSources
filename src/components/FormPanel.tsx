@@ -53,95 +53,100 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
   const labels = getLabels(formState.type);
   const isEdit = !!formState.editData;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
     const { type, parentIds, editData } = formState;
 
-    if (isEdit) {
-      // Режим редактирования
-      switch (type) {
-        case 'report':
-          updateReport(editData.id, name, description);
-          break;
-        case 'section':
-          updateSection(parentIds[0], editData.id, name, description);
-          break;
-        case 'note':
-          updateNote(parentIds[0], parentIds[1], editData.id, name, description, shortName);
-          break;
-        case 'noteBlock':
-          updateNoteBlock(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
-          break;
-        case 'indicator':
-          updateIndicator(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
-          break;
-        case 'noteBlockIndicator':
-          updateNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], editData.id, name, description);
-          break;
-        case 'slice':
-          updateSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], editData.id, name, description);
-          break;
-        case 'noteBlockSlice':
-          updateNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
-          break;
-        case 'source':
-          updateSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description, sourceTypes);
-          break;
-        case 'noteSource':
-          updateNoteSource(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description, sourceTypes);
-          break;
-        case 'noteBlockSource':
-          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description, sourceTypes);
-          break;
-        case 'noteBlockSliceSource':
-          updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description, sourceTypes);
-          break;
+    try {
+      if (isEdit) {
+        // Режим редактирования
+        switch (type) {
+          case 'report':
+            await updateReport(editData.id, name, description);
+            break;
+          case 'section':
+            await updateSection(parentIds[0], editData.id, name, description);
+            break;
+          case 'note':
+            await updateNote(parentIds[0], parentIds[1], editData.id, name, description, shortName);
+            break;
+          case 'noteBlock':
+            await updateNoteBlock(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
+            break;
+          case 'indicator':
+            await updateIndicator(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description);
+            break;
+          case 'noteBlockIndicator':
+            await updateNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], editData.id, name, description);
+            break;
+          case 'slice':
+            await updateSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], editData.id, name, description);
+            break;
+          case 'noteBlockSlice':
+            await updateNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description);
+            break;
+          case 'source':
+            await updateSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], editData.id, name, description, sourceTypes);
+            break;
+          case 'noteSource':
+            await updateNoteSource(parentIds[0], parentIds[1], parentIds[2], editData.id, name, description, sourceTypes);
+            break;
+          case 'noteBlockSource':
+            await updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description, sourceTypes);
+            break;
+          case 'noteBlockSliceSource':
+            await updateNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], editData.id, name, description, sourceTypes);
+            break;
+        }
+      } else {
+        // Режим добавления
+        switch (type) {
+          case 'report':
+            await addReport(name, description);
+            break;
+          case 'section':
+            await addSection(parentIds[0], name, description);
+            break;
+          case 'note':
+            await addNote(parentIds[0], parentIds[1], name, description, shortName);
+            break;
+          case 'noteBlock':
+            await addNoteBlock(parentIds[0], parentIds[1], parentIds[2], name, description);
+            break;
+          case 'indicator':
+            await addIndicator(parentIds[0], parentIds[1], parentIds[2], name, description);
+            break;
+          case 'noteBlockIndicator':
+            await addNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
+            break;
+          case 'slice':
+            await addSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
+            break;
+          case 'noteBlockSlice':
+            await addNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
+            break;
+          case 'source':
+            await addSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description, sourceTypes);
+            break;
+          case 'noteSource':
+            await addNoteSource(parentIds[0], parentIds[1], parentIds[2], name, description, sourceTypes);
+            break;
+          case 'noteBlockSource':
+            await addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes);
+            break;
+          case 'noteBlockSliceSource':
+            await addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes);
+            break;
+        }
       }
-    } else {
-      // Режим добавления
-      switch (type) {
-        case 'report':
-          addReport(name, description);
-          break;
-        case 'section':
-          addSection(parentIds[0], name, description);
-          break;
-        case 'note':
-          addNote(parentIds[0], parentIds[1], name, description, shortName);
-          break;
-        case 'noteBlock':
-          addNoteBlock(parentIds[0], parentIds[1], parentIds[2], name, description);
-          break;
-        case 'indicator':
-          addIndicator(parentIds[0], parentIds[1], parentIds[2], name, description);
-          break;
-        case 'noteBlockIndicator':
-          addNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
-          break;
-        case 'slice':
-          addSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
-          break;
-        case 'noteBlockSlice':
-          addNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
-          break;
-        case 'source':
-          addSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description, sourceTypes);
-          break;
-        case 'noteSource':
-          addNoteSource(parentIds[0], parentIds[1], parentIds[2], name, description, sourceTypes);
-          break;
-        case 'noteBlockSource':
-          addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes);
-          break;
-        case 'noteBlockSliceSource':
-          addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes);
-          break;
-      }
-    }
 
-    onSave();
+      onSave();
+    } catch (error) {
+      console.error('Error saving:', error);
+      alert('Ошибка при сохранении. Проверьте подключение к серверу.');
+    }
   };
 
   return (
