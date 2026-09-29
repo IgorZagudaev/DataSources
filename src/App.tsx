@@ -3,6 +3,7 @@ import { useReports } from './hooks';
 import { TreeView } from './components/TreeView';
 import { DetailPanel } from './components/DetailPanel';
 import { FormPanel, DeleteConfirmPanel } from './components/FormPanel';
+import { ModeSwitcher } from './components/ModeSwitcher';
 import {
   resetData, exportData, importData, loadReports,
   deleteReport, deleteSection, deleteNote, deleteNoteBlock,
@@ -45,7 +46,7 @@ function App() {
 
   // Загружаем данные из API при старте
   useEffect(() => {
-    loadReports().catch(err => {
+    loadReports().catch((err: any) => {
       console.error('Failed to load reports:', err);
       alert('Ошибка загрузки данных. Проверьте подключение к серверу.');
     });
@@ -323,6 +324,7 @@ function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            <ModeSwitcher />
             <button
               onClick={handleExport}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"

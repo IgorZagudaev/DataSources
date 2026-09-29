@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getReports, subscribe, loadReports } from './store';
+import { getReports, subscribe } from './store';
 import { Report } from './types';
 
 export function useReports(): Report[] {
