@@ -45,6 +45,18 @@ export async function loadHierarchy(level: string, id: string): Promise<void> {
     
     const hierarchy = await api.fetchHierarchy(level, id);
     
+    // Логируем структуру полученного доклада
+    console.log('Received hierarchy:', {
+      reportId: hierarchy.id,
+      reportName: hierarchy.name,
+      sectionsCount: hierarchy.sections?.length || 0,
+      sections: hierarchy.sections?.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        notesCount: s.notes?.length || 0
+      }))
+    });
+    
     // Локальное обновление состояния
     reports = updateLocalState(reports, hierarchy);
     
@@ -62,22 +74,33 @@ export async function loadHierarchy(level: string, id: string): Promise<void> {
 // Локальное обновление состояния на основе полученной иерархии
 function updateLocalState(currentReports: any[], hierarchy: any): any[] {
   if (!hierarchy || !hierarchy.id) {
+    console.log('updateLocalState: hierarchy is empty');
     return currentReports;
   }
+  
+  console.log('updateLocalState: updating report', hierarchy.id);
+  console.log('Current reports count:', currentReports.length);
+  console.log('Hierarchy sections count:', hierarchy.sections?.length || 0);
   
   // Находим индекс изменённого доклада
   const reportIndex = currentReports.findIndex(r => r.id === hierarchy.id);
   
   if (reportIndex === -1) {
+    console.log('Report not found, adding new one');
     // Если доклад не найден, добавляем его
     return [...currentReports, hierarchy];
   }
+  
+  console.log('Found report at index', reportIndex);
+  console.log('Current report sections count:', currentReports[reportIndex].sections?.length || 0);
   
   // Создаём новую копию массива
   const newReports = [...currentReports];
   
   // Обновляем только изменённый доклад
   newReports[reportIndex] = deepMerge(currentReports[reportIndex], hierarchy);
+  
+  console.log('After merge, sections count:', newReports[reportIndex].sections?.length || 0);
   
   return newReports;
 }
@@ -87,17 +110,25 @@ function deepMerge(target: any, source: any): any {
   if (!source) return target;
   if (!target) return source;
   
+  console.log('deepMerge: merging', {
+    targetKeys: Object.keys(target),
+    sourceKeys: Object.keys(source)
+  });
+  
   const result = { ...target };
   
   for (const key in source) {
     if (source.hasOwnProperty(key)) {
       if (Array.isArray(source[key])) {
+        console.log(`deepMerge: replacing array '${key}' (${source[key].length} items)`);
         // Для массивов - заменяем полностью
         result[key] = source[key];
       } else if (typeof source[key] === 'object' && source[key] !== null) {
+        console.log(`deepMerge: merging object '${key}'`);
         // Для объектов - рекурсивное слияние
         result[key] = deepMerge(target[key] || {}, source[key]);
       } else {
+        console.log(`deepMerge: replacing primitive '${key}'`);
         // Для примитивов - заменяем
         result[key] = source[key];
       }
