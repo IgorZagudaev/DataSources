@@ -1,19 +1,19 @@
-import { getDataSourceMode, setMode, syncFromAPI, DataSourceMode } from '../store';
-import { useState, useEffect } from 'react';
+import { getDataSourceMode, setMode, DataSourceMode } from '../store';
+import { useState } from 'react';
 
 export function ModeSwitcher() {
   const [mode, setModeState] = useState<DataSourceMode>(getDataSourceMode());
   const [loading, setLoading] = useState(false);
 
   const handleModeChange = async (newMode: DataSourceMode) => {
+    console.log('ModeSwitcher: changing mode to', newMode);
     setLoading(true);
-    setMode(newMode);
     setModeState(newMode);
     
-    if (newMode === 'api') {
-      await syncFromAPI();
-    }
+    // setMode теперь асинхронная и сама вызывает syncFromAPI при необходимости
+    await setMode(newMode);
     
+    console.log('ModeSwitcher: mode change complete');
     setLoading(false);
   };
 

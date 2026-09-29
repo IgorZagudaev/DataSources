@@ -11,12 +11,21 @@ function getMode(): DataSourceMode {
   return (localStorage.getItem(MODE_KEY) as DataSourceMode) || 'local';
 }
 
-export function setMode(mode: DataSourceMode): void {
+export async function setMode(mode: DataSourceMode): Promise<void> {
+  console.log('setMode called with mode:', mode);
   localStorage.setItem(MODE_KEY, mode);
   currentMode = mode;
-  // Перезагружаем данные при смене режима
-  reports = loadData();
-  notify();
+  
+  if (mode === 'api') {
+    console.log('Switching to API mode, syncing from API...');
+    // Для API режима загружаем данные асинхронно
+    await syncFromAPI();
+  } else {
+    console.log('Switching to local mode, loading from localStorage...');
+    // Для локального режима загружаем из localStorage
+    reports = loadData();
+    notify();
+  }
 }
 
 export function getDataSourceMode(): DataSourceMode {
@@ -29,6 +38,60 @@ let syncTimeout: ReturnType<typeof setTimeout> | null = null; // Таймер д
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// Преобразование snake_case в camelCase для фронтенда
+// Преобразование snake_case в camelCase
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
+}
+
+function convertToCamelCase(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(convertToCamelCase);
+  } else if (obj && typeof obj === 'object') {
+    const result: any = {};
+    for (const key in obj) {
+      // Преобразуем все snake_case ключи в camelCase
+      const camelKey = snakeToCamel(key);
+      result[camelKey] = convertToCamelCase(obj[key]);
+    }
+    return result;
+  }
+  return obj;
+}
+
+async function loadFromAPI(): Promise<Report[]> {
+  try {
+    console.log('Loading data from API...');
+    const data = await api.fetchReports();
+    console.log('Data received from API:', data);
+    console.log('Number of reports:', data.length);
+    
+    // Проверяем структуру данных
+    if (!Array.isArray(data)) {
+      console.error('API returned non-array data:', data);
+      return [];
+    }
+    
+    // Преобразуем snake_case в camelCase
+    const convertedData = convertToCamelCase(data);
+    
+    // Проверяем, что каждый элемент имеет нужную структуру
+    const validReports = convertedData.filter((report: any) => {
+      const isValid = report && report.id && report.name;
+      if (!isValid) {
+        console.warn('Invalid report structure:', report);
+      }
+      return isValid;
+    });
+    
+    console.log('Valid reports:', validReports.length);
+    return validReports;
+  } catch (e) {
+    console.error('Error loading from API:', e);
+    return [];
+  }
 }
 
 function loadData(): Report[] {
@@ -44,7 +107,7 @@ function loadData(): Report[] {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
       const parsed = JSON.parse(data);
-      // Migrate old  add 'sources' and 'noteBlocks' arrays to notes if missing
+      // Migrate old data: add 'sources' and 'noteBlocks' arrays to notes if missing
       if (Array.isArray(parsed)) {
         let needsMigration = false;
         parsed.forEach((report: any) => {
@@ -90,6 +153,101 @@ function loadData(): Report[] {
   return getDefaultData();
 }
 
+// Асинхронная загрузка данных из API
+export async function syncFromAPI(): Promise<void> {
+  console.log('syncFromAPI called, current mode:', currentMode);
+  if (currentMode === 'api') {
+    console.log('Mode is API, loading data...');
+    isLoadingFromAPI = true; // Устанавливаем флаг перед загрузкой
+    try {
+      const data = await loadFromAPI();
+      console.log('Loaded data:', data);
+      if (data.length > 0) {
+        console.log('Updating reports with', data.length, 'items');
+        reports = data;
+        notify();
+      } else {
+        console.warn('No data loaded from API');
+      }
+    } finally {
+      isLoadingFromAPI = false; // Сбрасываем флаг после загрузки
+    }
+  } else {
+    console.log('Mode is not API, skipping sync');
+  }
+}
+
+// Преобразование camelCase в snake_case для API
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+function convertToSnakeCase(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(convertToSnakeCase);
+  } else if (obj && typeof obj === 'object') {
+    const result: any = {};
+    for (const key in obj) {
+      // Преобразуем все camelCase ключи в snake_case
+      const snakeKey = camelToSnake(key);
+      result[snakeKey] = convertToSnakeCase(obj[key]);
+    }
+    return result;
+  }
+  return obj;
+}
+
+// Синхронизация всех данных на сервер (для API режима)
+async function syncToAPI(): Promise<void> {
+  console.log('syncToAPI called, currentMode:', currentMode);
+  if (currentMode === 'api') {
+    try {
+      console.log('Syncing data to API...');
+      
+      // Преобразуем данные в snake_case перед отправкой
+      const reportsToSend = convertToSnakeCase(reports);
+      
+      console.log('Reports to send:', reportsToSend.length);
+      
+      // Логируем первый источник для проверки source_types
+      if (reportsToSend.length > 0 && reportsToSend[0].sections?.length > 0) {
+        const firstSection = reportsToSend[0].sections[0];
+        if (firstSection.notes?.length > 0) {
+          const firstNote = firstSection.notes[0];
+          if (firstNote.indicators?.length > 0) {
+            const firstIndicator = firstNote.indicators[0];
+            if (firstIndicator.slices?.length > 0) {
+              const firstSlice = firstIndicator.slices[0];
+              if (firstSlice.sources?.length > 0) {
+                const firstSource = firstSlice.sources[0];
+                console.log('First source to send:', firstSource);
+                console.log('source_types:', firstSource.source_types);
+              } else {
+                console.log('No sources in first slice');
+              }
+            } else {
+              console.log('No slices in first indicator');
+            }
+          } else {
+            console.log('No indicators in first note');
+          }
+        } else {
+          console.log('No notes in first section');
+        }
+      } else {
+        console.log('No reports or sections');
+      }
+      
+      await api.importAllReports(reportsToSend);
+      console.log('Sync to API completed');
+    } catch (e) {
+      console.error('Error syncing to API:', e);
+    }
+  } else {
+    console.log('Not in API mode, skipping sync');
+  }
+}
+
 function saveData(reports: Report[]): void {
   try {
     // В режиме API не сохраняем в localStorage, чтобы избежать переполнения
@@ -119,10 +277,10 @@ function getDefaultData(): Report[] {
             {
               id: 'note-1',
               name: 'Численность и состав населения',
-              shortName: 'Численность',
               description: 'Справка о текущей численности и составе населения региона',
               sectionId: 'section-1',
               noteBlocks: [],
+              sources: [],
               indicators: [
                 {
                   id: 'indicator-1',
@@ -140,15 +298,120 @@ function getDefaultData(): Report[] {
                           id: 'source-1',
                           name: 'Росстат (форма 1-Т)',
                           description: 'Ежегодные данные Федеральной службы государственной статистики',
-                          sliceId: 'slice-1',
-                          sourceTypes: ['Робот', 'ЕАСД']
+                          sliceId: 'slice-1'
+                        },
+                        {
+                          id: 'source-2',
+                          name: 'ЗАГС',
+                          description: 'Данные о регистрации актов гражданского состояния',
+                          sliceId: 'slice-1'
+                        }
+                      ]
+                    },
+                    {
+                      id: 'slice-2',
+                      name: 'По возрастным группам',
+                      description: 'Разбивка по возрастным группам',
+                      indicatorId: 'indicator-1',
+                      sources: [
+                        {
+                          id: 'source-3',
+                          name: 'Перепись населения 2020',
+                          description: 'Данные Всероссийской переписи населения',
+                          sliceId: 'slice-2'
                         }
                       ]
                     }
                   ]
                 }
-              ],
-              sources: []
+              ]
+            }
+          ]
+        },
+        {
+          id: 'section-2',
+          name: 'Экономика',
+          description: 'Раздел об экономических показателях',
+          reportId: 'report-1',
+          notes: [
+            {
+              id: 'note-2',
+              name: 'Валовой региональный продукт',
+              description: 'Справка о ВРП и его динамике',
+              sectionId: 'section-2',
+              noteBlocks: [],
+              sources: [],
+              indicators: [
+                {
+                  id: 'indicator-2',
+                  name: 'ВРП',
+                  description: 'Валовой региональный продукт',
+                  noteId: 'note-2',
+                  slices: [
+                    {
+                      id: 'slice-3',
+                      name: 'По видам экономической деятельности',
+                      description: '',
+                      indicatorId: 'indicator-2',
+                      sources: [
+                        {
+                          id: 'source-4',
+                          name: 'Росстат (форма 1-ВРП)',
+                          description: 'Данные о валовом региональном продукте',
+                          sliceId: 'slice-3'
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'report-2',
+      name: 'Анализ инвестиционного климата 2024',
+      description: 'Доклад об инвестиционной привлекательности региона',
+      sections: [
+        {
+          id: 'section-3',
+          name: 'Инвестиции в основной капитал',
+          description: 'Раздел об инвестициях в основной капитал',
+          reportId: 'report-2',
+          notes: [
+            {
+              id: 'note-3',
+              name: 'Объем инвестиций',
+              description: 'Справка об объеме инвестиций в основной капитал',
+              sectionId: 'section-3',
+              noteBlocks: [],
+              sources: [],
+              indicators: [
+                {
+                  id: 'indicator-3',
+                  name: 'Инвестиции в основной капитал',
+                  description: 'Объем инвестиций в основной капитал',
+                  noteId: 'note-3',
+                  slices: [
+                    {
+                      id: 'slice-4',
+                      name: 'По источникам финансирования',
+                      description: 'Разбивка по источникам финансирования',
+                      indicatorId: 'indicator-3',
+                      sources: [
+                        {
+                          id: 'source-5',
+                          name: 'Росстат (форма 1-инвестиции)',
+                          description: 'Данные Федеральной службы государственной статистики',
+                          sliceId: 'slice-4'
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
@@ -187,121 +450,8 @@ export function getReports(): Report[] {
   return reports;
 }
 
-// Преобразование camelCase в snake_case для API
-function camelToSnake(str: string): string {
-  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-}
-
-function convertToSnakeCase(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(convertToSnakeCase);
-  } else if (obj && typeof obj === 'object') {
-    const result: any = {};
-    for (const key in obj) {
-      // Преобразуем все camelCase ключи в snake_case
-      const snakeKey = camelToSnake(key);
-      result[snakeKey] = convertToSnakeCase(obj[key]);
-    }
-    return result;
-  }
-  return obj;
-}
-
-// Преобразование snake_case в camelCase для фронтенда
-function snakeToCamel(str: string): string {
-  return str.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
-}
-
-function convertToCamelCase(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(convertToCamelCase);
-  } else if (obj && typeof obj === 'object') {
-    const result: any = {};
-    for (const key in obj) {
-      // Преобразуем все snake_case ключи в camelCase
-      const camelKey = snakeToCamel(key);
-      result[camelKey] = convertToCamelCase(obj[key]);
-    }
-    return result;
-  }
-  return obj;
-}
-
-async function loadFromAPI(): Promise<Report[]> {
-  try {
-    console.log('Loading data from API...');
-    const data = await api.fetchReports();
-    console.log('Data received from API:', data);
-    console.log('Number of reports:', data.length);
-    
-    // Проверяем структуру данных
-    if (!Array.isArray(data)) {
-      console.error('API returned non-array ', data);
-      return [];
-    }
-    
-    // Преобразуем snake_case в camelCase
-    const convertedData = convertToCamelCase(data);
-    
-    // Проверяем, что каждый элемент имеет нужную структуру
-    const validReports = convertedData.filter((report: any) => {
-      const isValid = report && report.id && report.name;
-      if (!isValid) {
-        console.warn('Invalid report structure:', report);
-      }
-      return isValid;
-    });
-    
-    console.log('Valid reports:', validReports.length);
-    return validReports;
-  } catch (e) {
-    console.error('Error loading from API:', e);
-    return [];
-  }
-}
-
-// Асинхронная загрузка данных из API
-export async function syncFromAPI(): Promise<void> {
-  console.log('syncFromAPI called, current mode:', currentMode);
-  if (currentMode === 'api') {
-    console.log('Mode is API, loading data...');
-    isLoadingFromAPI = true; // Устанавливаем флаг перед загрузкой
-    try {
-      const data = await loadFromAPI();
-      console.log('Loaded ', data);
-      if (data.length > 0) {
-        console.log('Updating reports with', data.length, 'items');
-        reports = data;
-        notify();
-      } else {
-        console.warn('No data loaded from API');
-      }
-    } finally {
-      isLoadingFromAPI = false; // Сбрасываем флаг после загрузки
-    }
-  } else {
-    console.log('Mode is not API, skipping sync');
-  }
-}
-
-// Псевдоним для syncFromAPI для совместимости
-export const loadReports = syncFromAPI;
-
-// Синхронизация всех данных на сервер (для API режима)
-async function syncToAPI(): Promise<void> {
-  if (currentMode === 'api') {
-    try {
-      console.log('Syncing data to API...');
-      
-      // Преобразуем данные в snake_case перед отправкой
-      const reportsToSend = convertToSnakeCase(reports);
-      
-      await api.importAllReports(reportsToSend);
-      console.log('Sync to API completed');
-    } catch (e) {
-      console.error('Error syncing to API:', e);
-    }
-  }
+export function getReport(id: string): Report | undefined {
+  return reports.find(r => r.id === id);
 }
 
 // Report CRUD (Уровень 1)
@@ -310,6 +460,28 @@ export function addReport(name: string, description?: string): Report {
   reports = [...reports, report];
   notify();
   return report;
+}
+
+export function moveReportUp(id: string) {
+  const index = reports.findIndex(r => r.id === id);
+  if (index > 0) {
+    const newReports = [...reports];
+    [newReports[index - 1], newReports[index]] = [newReports[index], newReports[index - 1]];
+    // Обновляем sortOrder для всех докладов
+    reports = newReports.map((report, idx) => ({ ...report, sortOrder: idx }));
+    notify();
+  }
+}
+
+export function moveReportDown(id: string) {
+  const index = reports.findIndex(r => r.id === id);
+  if (index < reports.length - 1) {
+    const newReports = [...reports];
+    [newReports[index], newReports[index + 1]] = [newReports[index + 1], newReports[index]];
+    // Обновляем sortOrder для всех докладов
+    reports = newReports.map((report, idx) => ({ ...report, sortOrder: idx }));
+    notify();
+  }
 }
 
 export function updateReport(id: string, name: string, description?: string) {
@@ -346,6 +518,46 @@ export function deleteSection(reportId: string, sectionId: string) {
   notify();
 }
 
+export function moveSectionUp(reportId: string, sectionId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      const index = r.sections.findIndex(s => s.id === sectionId);
+      if (index > 0) {
+        const newSections = [...r.sections];
+        [newSections[index - 1], newSections[index]] = [newSections[index], newSections[index - 1]];
+        // Обновляем sort_order для всех разделов
+        const sectionsWithOrder = newSections.map((section, idx) => ({
+          ...section,
+          sortOrder: idx
+        }));
+        return { ...r, sections: sectionsWithOrder };
+      }
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveSectionDown(reportId: string, sectionId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      const index = r.sections.findIndex(s => s.id === sectionId);
+      if (index < r.sections.length - 1) {
+        const newSections = [...r.sections];
+        [newSections[index], newSections[index + 1]] = [newSections[index + 1], newSections[index]];
+        // Обновляем sort_order для всех разделов
+        const sectionsWithOrder = newSections.map((section, idx) => ({
+          ...section,
+          sortOrder: idx
+        }));
+        return { ...r, sections: sectionsWithOrder };
+      }
+    }
+    return r;
+  });
+  notify();
+}
+
 // Note CRUD (Уровень 3)
 export function addNote(reportId: string, sectionId: string, name: string, description?: string, shortName?: string): Note {
   const note: Note = { id: generateId(), name, shortName, description, sectionId, noteBlocks: [], indicators: [], sources: [] };
@@ -376,306 +588,6 @@ export function deleteNote(reportId: string, sectionId: string, noteId: string) 
       notes: s.notes.filter(n => n.id !== noteId)
     } : s)
   } : r);
-  notify();
-}
-
-// NoteBlock CRUD (Уровень 4 - необязательный)
-export function addNoteBlock(reportId: string, sectionId: string, noteId: string, name: string, description?: string): NoteBlock {
-  const noteBlock: NoteBlock = { id: generateId(), name, description, noteId, indicators: [] };
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? { ...n, noteBlocks: [...n.noteBlocks, noteBlock] } : n)
-    } : s)
-  } : r);
-  notify();
-  return noteBlock;
-}
-
-export function updateNoteBlock(reportId: string, sectionId: string, noteId: string, noteBlockId: string, name: string, description?: string) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? { ...nb, name, description } : nb)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
-
-export function deleteNoteBlock(reportId: string, sectionId: string, noteId: string, noteBlockId: string) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        noteBlocks: n.noteBlocks.filter(nb => nb.id !== noteBlockId)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
-
-// Indicator CRUD (Уровень 4/5)
-export function addIndicator(reportId: string, sectionId: string, noteId: string, name: string, description?: string): Indicator {
-  const indicator: Indicator = { id: generateId(), name, description, noteId, slices: [] };
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? { ...n, indicators: [...n.indicators, indicator] } : n)
-    } : s)
-  } : r);
-  notify();
-  return indicator;
-}
-
-export function updateIndicator(reportId: string, sectionId: string, noteId: string, indicatorId: string, name: string, description?: string) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        indicators: n.indicators.map(i => i.id === indicatorId ? { ...i, name, description } : i)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
-
-export function deleteIndicator(reportId: string, sectionId: string, noteId: string, indicatorId: string) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        indicators: n.indicators.filter(i => i.id !== indicatorId)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
-
-// Slice CRUD (Уровень 5/6)
-export function addSlice(reportId: string, sectionId: string, noteId: string, indicatorId: string, name: string, description?: string): DataSlice {
-  const slice: DataSlice = { id: generateId(), name, description, indicatorId, sources: [] };
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        indicators: n.indicators.map(i => i.id === indicatorId ? { ...i, slices: [...i.slices, slice] } : i)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-  return slice;
-}
-
-export function updateSlice(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, name: string, description?: string) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        indicators: n.indicators.map(i => i.id === indicatorId ? {
-          ...i,
-          slices: i.slices.map(sl => sl.id === sliceId ? { ...sl, name, description } : sl)
-        } : i)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
-
-export function deleteSlice(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        indicators: n.indicators.map(i => i.id === indicatorId ? {
-          ...i,
-          slices: i.slices.filter(sl => sl.id !== sliceId)
-        } : i)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
-
-// Source CRUD (Уровень 6/7)
-export function addSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, name: string, description?: string, sourceTypes?: SourceType[]): DataSource {
-  const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId };
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        indicators: n.indicators.map(i => i.id === indicatorId ? {
-          ...i,
-          slices: i.slices.map(sl => sl.id === sliceId ? { ...sl, sources: [...sl.sources, source] } : sl)
-        } : i)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-  return source;
-}
-
-export function updateSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string, name: string, description?: string, sourceTypes?: SourceType[]) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        indicators: n.indicators.map(i => i.id === indicatorId ? {
-          ...i,
-          slices: i.slices.map(sl => sl.id === sliceId ? {
-            ...sl,
-            sources: sl.sources.map(src => src.id === sourceId ? { ...src, name, description, sourceTypes } : src)
-          } : sl)
-        } : i)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
-
-export function deleteSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        indicators: n.indicators.map(i => i.id === indicatorId ? {
-          ...i,
-          slices: i.slices.map(sl => sl.id === sliceId ? {
-            ...sl,
-            sources: sl.sources.filter(src => src.id !== sourceId)
-          } : sl)
-        } : i)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
-
-// Note Source CRUD (прямые источники в справке)
-export function addNoteSource(reportId: string, sectionId: string, noteId: string, name: string, description?: string, sourceTypes?: SourceType[]): DataSource {
-  const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId: noteId };
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? { ...n, sources: [...n.sources, source] } : n)
-    } : s)
-  } : r);
-  notify();
-  return source;
-}
-
-export function updateNoteSource(reportId: string, sectionId: string, noteId: string, sourceId: string, name: string, description?: string, sourceTypes?: SourceType[]) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        sources: n.sources.map(src => src.id === sourceId ? { ...src, name, description, sourceTypes } : src)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
-
-export function deleteNoteSource(reportId: string, sectionId: string, noteId: string, sourceId: string) {
-  reports = reports.map(r => r.id === reportId ? {
-    ...r,
-    sections: r.sections.map(s => s.id === sectionId ? {
-      ...s,
-      notes: s.notes.map(n => n.id === noteId ? {
-        ...n,
-        sources: n.sources.filter(src => src.id !== sourceId)
-      } : n)
-    } : s)
-  } : r);
-  notify();
-}
-
-// Move functions
-export function moveReportUp(id: string) {
-  const index = reports.findIndex(r => r.id === id);
-  if (index > 0) {
-    const newReports = [...reports];
-    [newReports[index - 1], newReports[index]] = [newReports[index], newReports[index - 1]];
-    // Обновляем sortOrder для всех докладов
-    reports = newReports.map((report, idx) => ({ ...report, sortOrder: idx }));
-    notify();
-  }
-}
-
-export function moveReportDown(id: string) {
-  const index = reports.findIndex(r => r.id === id);
-  if (index < reports.length - 1) {
-    const newReports = [...reports];
-    [newReports[index], newReports[index + 1]] = [newReports[index + 1], newReports[index]];
-    // Обновляем sortOrder для всех докладов
-    reports = newReports.map((report, idx) => ({ ...report, sortOrder: idx }));
-    notify();
-  }
-}
-
-export function moveSectionUp(reportId: string, sectionId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      const index = r.sections.findIndex(s => s.id === sectionId);
-      if (index > 0) {
-        const newSections = [...r.sections];
-        [newSections[index - 1], newSections[index]] = [newSections[index], newSections[index - 1]];
-        // Обновляем sortOrder для всех разделов
-        const sectionsWithOrder = newSections.map((section, idx) => ({
-          ...section,
-          sortOrder: idx
-        }));
-        return { ...r, sections: sectionsWithOrder };
-      }
-    }
-    return r;
-  });
-  notify();
-}
-
-export function moveSectionDown(reportId: string, sectionId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      const index = r.sections.findIndex(s => s.id === sectionId);
-      if (index < r.sections.length - 1) {
-        const newSections = [...r.sections];
-        [newSections[index], newSections[index + 1]] = [newSections[index + 1], newSections[index]];
-        // Обновляем sortOrder для всех разделов
-        const sectionsWithOrder = newSections.map((section, idx) => ({
-          ...section,
-          sortOrder: idx
-        }));
-        return { ...r, sections: sectionsWithOrder };
-      }
-    }
-    return r;
-  });
   notify();
 }
 
@@ -729,7 +641,48 @@ export function moveNoteDown(reportId: string, sectionId: string, noteId: string
   notify();
 }
 
-// NoteBlock Move
+// NoteBlock CRUD (Уровень 4 - необязательный)
+export function addNoteBlock(reportId: string, sectionId: string, noteId: string, name: string, description?: string): NoteBlock {
+  const noteBlock: NoteBlock = { id: generateId(), name, description, noteId, indicators: [] };
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? { ...n, noteBlocks: [...n.noteBlocks, noteBlock] } : n)
+    } : s)
+  } : r);
+  notify();
+  return noteBlock;
+}
+
+export function updateNoteBlock(reportId: string, sectionId: string, noteId: string, noteBlockId: string, name: string, description?: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.map(nb => nb.id === noteBlockId ? { ...nb, name, description } : nb)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function deleteNoteBlock(reportId: string, sectionId: string, noteId: string, noteBlockId: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        noteBlocks: n.noteBlocks.filter(nb => nb.id !== noteBlockId)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
 export function moveNoteBlockUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string) {
   reports = reports.map(r => {
     if (r.id === reportId) {
@@ -796,606 +749,7 @@ export function moveNoteBlockDown(reportId: string, sectionId: string, noteId: s
   notify();
 }
 
-// Indicator Move
-export function moveIndicatorUp(reportId: string, sectionId: string, noteId: string, indicatorId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  const index = n.indicators.findIndex(i => i.id === indicatorId);
-                  if (index > 0) {
-                    const newIndicators = [...n.indicators];
-                    [newIndicators[index - 1], newIndicators[index]] = [newIndicators[index], newIndicators[index - 1]];
-                    const indicatorsWithOrder = newIndicators.map((ind, idx) => ({ ...ind, sortOrder: idx }));
-                    return { ...n, indicators: indicatorsWithOrder };
-                  }
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-export function moveIndicatorDown(reportId: string, sectionId: string, noteId: string, indicatorId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  const index = n.indicators.findIndex(i => i.id === indicatorId);
-                  if (index < n.indicators.length - 1) {
-                    const newIndicators = [...n.indicators];
-                    [newIndicators[index], newIndicators[index + 1]] = [newIndicators[index + 1], newIndicators[index]];
-                    const indicatorsWithOrder = newIndicators.map((ind, idx) => ({ ...ind, sortOrder: idx }));
-                    return { ...n, indicators: indicatorsWithOrder };
-                  }
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-// NoteBlock Indicator Move
-export function moveNoteBlockIndicatorUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  return {
-                    ...n,
-                    noteBlocks: n.noteBlocks.map(nb => {
-                      if (nb.id === noteBlockId) {
-                        const index = nb.indicators.findIndex(i => i.id === indicatorId);
-                        if (index > 0) {
-                          const newIndicators = [...nb.indicators];
-                          [newIndicators[index - 1], newIndicators[index]] = [newIndicators[index], newIndicators[index - 1]];
-                          const indicatorsWithOrder = newIndicators.map((ind, idx) => ({ ...ind, sortOrder: idx }));
-                          return { ...nb, indicators: indicatorsWithOrder };
-                        }
-                      }
-                      return nb;
-                    })
-                  };
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-export function moveNoteBlockIndicatorDown(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  return {
-                    ...n,
-                    noteBlocks: n.noteBlocks.map(nb => {
-                      if (nb.id === noteBlockId) {
-                        const index = nb.indicators.findIndex(i => i.id === indicatorId);
-                        if (index < nb.indicators.length - 1) {
-                          const newIndicators = [...nb.indicators];
-                          [newIndicators[index], newIndicators[index + 1]] = [newIndicators[index + 1], newIndicators[index]];
-                          const indicatorsWithOrder = newIndicators.map((ind, idx) => ({ ...ind, sortOrder: idx }));
-                          return { ...nb, indicators: indicatorsWithOrder };
-                        }
-                      }
-                      return nb;
-                    })
-                  };
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-// Slice Move
-export function moveSliceUp(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  return {
-                    ...n,
-                    indicators: n.indicators.map(i => {
-                      if (i.id === indicatorId) {
-                        const index = i.slices.findIndex(sl => sl.id === sliceId);
-                        if (index > 0) {
-                          const newSlices = [...i.slices];
-                          [newSlices[index - 1], newSlices[index]] = [newSlices[index], newSlices[index - 1]];
-                          const slicesWithOrder = newSlices.map((sl, idx) => ({ ...sl, sortOrder: idx }));
-                          return { ...i, slices: slicesWithOrder };
-                        }
-                      }
-                      return i;
-                    })
-                  };
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-export function moveSliceDown(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  return {
-                    ...n,
-                    indicators: n.indicators.map(i => {
-                      if (i.id === indicatorId) {
-                        const index = i.slices.findIndex(sl => sl.id === sliceId);
-                        if (index < i.slices.length - 1) {
-                          const newSlices = [...i.slices];
-                          [newSlices[index], newSlices[index + 1]] = [newSlices[index + 1], newSlices[index]];
-                          const slicesWithOrder = newSlices.map((sl, idx) => ({ ...sl, sortOrder: idx }));
-                          return { ...i, slices: slicesWithOrder };
-                        }
-                      }
-                      return i;
-                    })
-                  };
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-// NoteBlock Slice Move
-export function moveNoteBlockSliceUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  return {
-                    ...n,
-                    noteBlocks: n.noteBlocks.map(nb => {
-                      if (nb.id === noteBlockId) {
-                        return {
-                          ...nb,
-                          indicators: nb.indicators.map(i => {
-                            if (i.id === indicatorId) {
-                              const index = i.slices.findIndex(sl => sl.id === sliceId);
-                              if (index > 0) {
-                                const newSlices = [...i.slices];
-                                [newSlices[index - 1], newSlices[index]] = [newSlices[index], newSlices[index - 1]];
-                                const slicesWithOrder = newSlices.map((sl, idx) => ({ ...sl, sortOrder: idx }));
-                                return { ...i, slices: slicesWithOrder };
-                              }
-                            }
-                            return i;
-                          })
-                        };
-                      }
-                      return nb;
-                    })
-                  };
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-export function moveNoteBlockSliceDown(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  return {
-                    ...n,
-                    noteBlocks: n.noteBlocks.map(nb => {
-                      if (nb.id === noteBlockId) {
-                        return {
-                          ...nb,
-                          indicators: nb.indicators.map(i => {
-                            if (i.id === indicatorId) {
-                              const index = i.slices.findIndex(sl => sl.id === sliceId);
-                              if (index < i.slices.length - 1) {
-                                const newSlices = [...i.slices];
-                                [newSlices[index], newSlices[index + 1]] = [newSlices[index + 1], newSlices[index]];
-                                const slicesWithOrder = newSlices.map((sl, idx) => ({ ...sl, sortOrder: idx }));
-                                return { ...i, slices: slicesWithOrder };
-                              }
-                            }
-                            return i;
-                          })
-                        };
-                      }
-                      return nb;
-                    })
-                  };
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-// Source Move
-export function moveSourceUp(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  return {
-                    ...n,
-                    indicators: n.indicators.map(i => {
-                      if (i.id === indicatorId) {
-                        return {
-                          ...i,
-                          slices: i.slices.map(sl => {
-                            if (sl.id === sliceId) {
-                              const index = sl.sources.findIndex(src => src.id === sourceId);
-                              if (index > 0) {
-                                const newSources = [...sl.sources];
-                                [newSources[index - 1], newSources[index]] = [newSources[index], newSources[index - 1]];
-                                const sourcesWithOrder = newSources.map((src, idx) => ({ ...src, sortOrder: idx }));
-                                return { ...sl, sources: sourcesWithOrder };
-                              }
-                            }
-                            return sl;
-                          })
-                        };
-                      }
-                      return i;
-                    })
-                  };
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-export function moveSourceDown(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  return {
-                    ...n,
-                    indicators: n.indicators.map(i => {
-                      if (i.id === indicatorId) {
-                        return {
-                          ...i,
-                          slices: i.slices.map(sl => {
-                            if (sl.id === sliceId) {
-                              const index = sl.sources.findIndex(src => src.id === sourceId);
-                              if (index < sl.sources.length - 1) {
-                                const newSources = [...sl.sources];
-                                [newSources[index], newSources[index + 1]] = [newSources[index + 1], newSources[index]];
-                                const sourcesWithOrder = newSources.map((src, idx) => ({ ...src, sortOrder: idx }));
-                                return { ...sl, sources: sourcesWithOrder };
-                              }
-                            }
-                            return sl;
-                          })
-                        };
-                      }
-                      return i;
-                    })
-                  };
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-// NoteSource Move
-export function moveNoteSourceUp(reportId: string, sectionId: string, noteId: string, sourceId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  const index = n.sources.findIndex(src => src.id === sourceId);
-                  if (index > 0) {
-                    const newSources = [...n.sources];
-                    [newSources[index - 1], newSources[index]] = [newSources[index], newSources[index - 1]];
-                    const sourcesWithOrder = newSources.map((src, idx) => ({ ...src, sortOrder: idx }));
-                    return { ...n, sources: sourcesWithOrder };
-                  }
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-export function moveNoteSourceDown(reportId: string, sectionId: string, noteId: string, sourceId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  const index = n.sources.findIndex(src => src.id === sourceId);
-                  if (index < n.sources.length - 1) {
-                    const newSources = [...n.sources];
-                    [newSources[index], newSources[index + 1]] = [newSources[index + 1], newSources[index]];
-                    const sourcesWithOrder = newSources.map((src, idx) => ({ ...src, sortOrder: idx }));
-                    return { ...n, sources: sourcesWithOrder };
-                  }
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-// NoteBlock Source Move
-export function moveNoteBlockSourceUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, sourceId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  return {
-                    ...n,
-                    noteBlocks: n.noteBlocks.map(nb => {
-                      if (nb.id === noteBlockId) {
-                        return {
-                          ...nb,
-                          indicators: nb.indicators.map(i => {
-                            if (i.id === indicatorId) {
-                              return {
-                                ...i,
-                                slices: i.slices.map(sl => {
-                                  if (sl.id === sliceId) {
-                                    const index = sl.sources.findIndex(src => src.id === sourceId);
-                                    if (index > 0) {
-                                      const newSources = [...sl.sources];
-                                      [newSources[index - 1], newSources[index]] = [newSources[index], newSources[index - 1]];
-                                      const sourcesWithOrder = newSources.map((src, idx) => ({ ...src, sortOrder: idx }));
-                                      return { ...sl, sources: sourcesWithOrder };
-                                    }
-                                  }
-                                  return sl;
-                                })
-                              };
-                            }
-                            return i;
-                          })
-                        };
-                      }
-                      return nb;
-                    })
-                  };
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-export function moveNoteBlockSourceDown(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, sourceId: string) {
-  reports = reports.map(r => {
-    if (r.id === reportId) {
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id === sectionId) {
-            return {
-              ...s,
-              notes: s.notes.map(n => {
-                if (n.id === noteId) {
-                  return {
-                    ...n,
-                    noteBlocks: n.noteBlocks.map(nb => {
-                      if (nb.id === noteBlockId) {
-                        return {
-                          ...nb,
-                          indicators: nb.indicators.map(i => {
-                            if (i.id === indicatorId) {
-                              return {
-                                ...i,
-                                slices: i.slices.map(sl => {
-                                  if (sl.id === sliceId) {
-                                    const index = sl.sources.findIndex(src => src.id === sourceId);
-                                    if (index < sl.sources.length - 1) {
-                                      const newSources = [...sl.sources];
-                                      [newSources[index], newSources[index + 1]] = [newSources[index + 1], newSources[index]];
-                                      const sourcesWithOrder = newSources.map((src, idx) => ({ ...src, sortOrder: idx }));
-                                      return { ...sl, sources: sourcesWithOrder };
-                                    }
-                                  }
-                                  return sl;
-                                })
-                              };
-                            }
-                            return i;
-                          })
-                        };
-                      }
-                      return nb;
-                    })
-                  };
-                }
-                return n;
-              })
-            };
-          }
-          return s;
-        })
-      };
-    }
-    return r;
-  });
-  notify();
-}
-
-// NoteBlock Indicator CRUD
+// NoteBlock Indicator CRUD (Показатели в блоке справки)
 export function addNoteBlockIndicator(reportId: string, sectionId: string, noteId: string, noteBlockId: string, name: string, description?: string): Indicator {
   const indicator: Indicator = { id: generateId(), name, description, noteId, slices: [] };
   reports = reports.map(r => r.id === reportId ? {
@@ -1446,7 +800,85 @@ export function deleteNoteBlockIndicator(reportId: string, sectionId: string, no
   notify();
 }
 
-// NoteBlock Slice CRUD
+export function moveNoteBlockIndicatorUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        const index = nb.indicators.findIndex(i => i.id === indicatorId);
+                        if (index > 0) {
+                          const newIndicators = [...nb.indicators];
+                          [newIndicators[index - 1], newIndicators[index]] = [newIndicators[index], newIndicators[index - 1]];
+                          return { ...nb, indicators: newIndicators };
+                        }
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveNoteBlockIndicatorDown(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        const index = nb.indicators.findIndex(i => i.id === indicatorId);
+                        if (index < nb.indicators.length - 1) {
+                          const newIndicators = [...nb.indicators];
+                          [newIndicators[index], newIndicators[index + 1]] = [newIndicators[index + 1], newIndicators[index]];
+                          return { ...nb, indicators: newIndicators };
+                        }
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+// NoteBlock Slice CRUD (Разрезы в показателях блока справки)
 export function addNoteBlockSlice(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, name: string, description?: string): DataSlice {
   const slice: DataSlice = { id: generateId(), name, description, indicatorId, sources: [] };
   reports = reports.map(r => r.id === reportId ? {
@@ -1506,7 +938,101 @@ export function deleteNoteBlockSlice(reportId: string, sectionId: string, noteId
   notify();
 }
 
-// NoteBlock Source CRUD
+export function moveNoteBlockSliceUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        return {
+                          ...nb,
+                          indicators: nb.indicators.map(i => {
+                            if (i.id === indicatorId) {
+                              const index = i.slices.findIndex(sl => sl.id === sliceId);
+                              if (index > 0) {
+                                const newSlices = [...i.slices];
+                                [newSlices[index - 1], newSlices[index]] = [newSlices[index], newSlices[index - 1]];
+                                return { ...i, slices: newSlices };
+                              }
+                            }
+                            return i;
+                          })
+                        };
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveNoteBlockSliceDown(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        return {
+                          ...nb,
+                          indicators: nb.indicators.map(i => {
+                            if (i.id === indicatorId) {
+                              const index = i.slices.findIndex(sl => sl.id === sliceId);
+                              if (index < i.slices.length - 1) {
+                                const newSlices = [...i.slices];
+                                [newSlices[index], newSlices[index + 1]] = [newSlices[index + 1], newSlices[index]];
+                                return { ...i, slices: newSlices };
+                              }
+                            }
+                            return i;
+                          })
+                        };
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+// NoteBlock Source CRUD (Источники в разрезах блока справки)
 export function addNoteBlockSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, name: string, description?: string, sourceTypes?: SourceType[]): DataSource {
   const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId };
   reports = reports.map(r => r.id === reportId ? {
@@ -1575,15 +1101,652 @@ export function deleteNoteBlockSource(reportId: string, sectionId: string, noteI
   notify();
 }
 
-export function importData(json: string): boolean {
+export function moveNoteBlockSourceUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        return {
+                          ...nb,
+                          indicators: nb.indicators.map(i => {
+                            if (i.id === indicatorId) {
+                              return {
+                                ...i,
+                                slices: i.slices.map(sl => {
+                                  if (sl.id === sliceId) {
+                                    const index = sl.sources.findIndex(src => src.id === sourceId);
+                                    if (index > 0) {
+                                      const newSources = [...sl.sources];
+                                      [newSources[index - 1], newSources[index]] = [newSources[index], newSources[index - 1]];
+                                      return { ...sl, sources: newSources };
+                                    }
+                                  }
+                                  return sl;
+                                })
+                              };
+                            }
+                            return i;
+                          })
+                        };
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveNoteBlockSourceDown(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    noteBlocks: n.noteBlocks.map(nb => {
+                      if (nb.id === noteBlockId) {
+                        return {
+                          ...nb,
+                          indicators: nb.indicators.map(i => {
+                            if (i.id === indicatorId) {
+                              return {
+                                ...i,
+                                slices: i.slices.map(sl => {
+                                  if (sl.id === sliceId) {
+                                    const index = sl.sources.findIndex(src => src.id === sourceId);
+                                    if (index < sl.sources.length - 1) {
+                                      const newSources = [...sl.sources];
+                                      [newSources[index], newSources[index + 1]] = [newSources[index + 1], newSources[index]];
+                                      return { ...sl, sources: newSources };
+                                    }
+                                  }
+                                  return sl;
+                                })
+                              };
+                            }
+                            return i;
+                          })
+                        };
+                      }
+                      return nb;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+
+
+// Note Source CRUD (Уровень 6 - напрямую в справке)
+export function addNoteSource(reportId: string, sectionId: string, noteId: string, name: string, description?: string, sourceTypes?: SourceType[]): DataSource {
+  const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId: noteId };
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? { ...n, sources: [...n.sources, source] } : n)
+    } : s)
+  } : r);
+  notify();
+  return source;
+}
+
+export function updateNoteSource(reportId: string, sectionId: string, noteId: string, sourceId: string, name: string, description?: string, sourceTypes?: SourceType[]) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        sources: n.sources.map(src => src.id === sourceId ? { ...src, name, description, sourceTypes } : src)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function deleteNoteSource(reportId: string, sectionId: string, noteId: string, sourceId: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        sources: n.sources.filter(src => src.id !== sourceId)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function moveNoteSourceUp(reportId: string, sectionId: string, noteId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  const index = n.sources.findIndex(src => src.id === sourceId);
+                  if (index > 0) {
+                    const newSources = [...n.sources];
+                    [newSources[index - 1], newSources[index]] = [newSources[index], newSources[index - 1]];
+                    return { ...n, sources: newSources };
+                  }
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveNoteSourceDown(reportId: string, sectionId: string, noteId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  const index = n.sources.findIndex(src => src.id === sourceId);
+                  if (index < n.sources.length - 1) {
+                    const newSources = [...n.sources];
+                    [newSources[index], newSources[index + 1]] = [newSources[index + 1], newSources[index]];
+                    return { ...n, sources: newSources };
+                  }
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+// Indicator CRUD (Уровень 4)
+export function addIndicator(reportId: string, sectionId: string, noteId: string, name: string, description?: string): Indicator {
+  const indicator: Indicator = { id: generateId(), name, description, noteId, slices: [] };
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? { ...n, indicators: [...n.indicators, indicator] } : n)
+    } : s)
+  } : r);
+  notify();
+  return indicator;
+}
+
+export function updateIndicator(reportId: string, sectionId: string, noteId: string, indicatorId: string, name: string, description?: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? { ...i, name, description } : i)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function deleteIndicator(reportId: string, sectionId: string, noteId: string, indicatorId: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.filter(i => i.id !== indicatorId)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function moveIndicatorUp(reportId: string, sectionId: string, noteId: string, indicatorId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  const index = n.indicators.findIndex(i => i.id === indicatorId);
+                  if (index > 0) {
+                    const newIndicators = [...n.indicators];
+                    [newIndicators[index - 1], newIndicators[index]] = [newIndicators[index], newIndicators[index - 1]];
+                    return { ...n, indicators: newIndicators };
+                  }
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveIndicatorDown(reportId: string, sectionId: string, noteId: string, indicatorId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  const index = n.indicators.findIndex(i => i.id === indicatorId);
+                  if (index < n.indicators.length - 1) {
+                    const newIndicators = [...n.indicators];
+                    [newIndicators[index], newIndicators[index + 1]] = [newIndicators[index + 1], newIndicators[index]];
+                    return { ...n, indicators: newIndicators };
+                  }
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+// Slice CRUD (Уровень 5)
+export function addSlice(reportId: string, sectionId: string, noteId: string, indicatorId: string, name: string, description?: string): DataSlice {
+  const slice: DataSlice = { id: generateId(), name, description, indicatorId, sources: [] };
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? { ...i, slices: [...i.slices, slice] } : i)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+  return slice;
+}
+
+export function updateSlice(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, name: string, description?: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? {
+          ...i,
+          slices: i.slices.map(sl => sl.id === sliceId ? { ...sl, name, description } : sl)
+        } : i)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function deleteSlice(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? {
+          ...i,
+          slices: i.slices.filter(sl => sl.id !== sliceId)
+        } : i)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function moveSliceUp(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    indicators: n.indicators.map(i => {
+                      if (i.id === indicatorId) {
+                        const index = i.slices.findIndex(sl => sl.id === sliceId);
+                        if (index > 0) {
+                          const newSlices = [...i.slices];
+                          [newSlices[index - 1], newSlices[index]] = [newSlices[index], newSlices[index - 1]];
+                          return { ...i, slices: newSlices };
+                        }
+                      }
+                      return i;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveSliceDown(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    indicators: n.indicators.map(i => {
+                      if (i.id === indicatorId) {
+                        const index = i.slices.findIndex(sl => sl.id === sliceId);
+                        if (index < i.slices.length - 1) {
+                          const newSlices = [...i.slices];
+                          [newSlices[index], newSlices[index + 1]] = [newSlices[index + 1], newSlices[index]];
+                          return { ...i, slices: newSlices };
+                        }
+                      }
+                      return i;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+// Source CRUD (Уровень 6)
+export function addSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, name: string, description?: string, sourceTypes?: SourceType[]): DataSource {
+  const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId };
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? {
+          ...i,
+          slices: i.slices.map(sl => sl.id === sliceId ? { ...sl, sources: [...sl.sources, source] } : sl)
+        } : i)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+  return source;
+}
+
+export function updateSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string, name: string, description?: string, sourceTypes?: SourceType[]) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? {
+          ...i,
+          slices: i.slices.map(sl => sl.id === sliceId ? {
+            ...sl,
+            sources: sl.sources.map(src => src.id === sourceId ? { ...src, name, description, sourceTypes } : src)
+          } : sl)
+        } : i)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function deleteSource(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string) {
+  reports = reports.map(r => r.id === reportId ? {
+    ...r,
+    sections: r.sections.map(s => s.id === sectionId ? {
+      ...s,
+      notes: s.notes.map(n => n.id === noteId ? {
+        ...n,
+        indicators: n.indicators.map(i => i.id === indicatorId ? {
+          ...i,
+          slices: i.slices.map(sl => sl.id === sliceId ? {
+            ...sl,
+            sources: sl.sources.filter(src => src.id !== sourceId)
+          } : sl)
+        } : i)
+      } : n)
+    } : s)
+  } : r);
+  notify();
+}
+
+export function moveSourceUp(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    indicators: n.indicators.map(i => {
+                      if (i.id === indicatorId) {
+                        return {
+                          ...i,
+                          slices: i.slices.map(sl => {
+                            if (sl.id === sliceId) {
+                              const index = sl.sources.findIndex(src => src.id === sourceId);
+                              if (index > 0) {
+                                const newSources = [...sl.sources];
+                                [newSources[index - 1], newSources[index]] = [newSources[index], newSources[index - 1]];
+                                return { ...sl, sources: newSources };
+                              }
+                            }
+                            return sl;
+                          })
+                        };
+                      }
+                      return i;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function moveSourceDown(reportId: string, sectionId: string, noteId: string, indicatorId: string, sliceId: string, sourceId: string) {
+  reports = reports.map(r => {
+    if (r.id === reportId) {
+      return {
+        ...r,
+        sections: r.sections.map(s => {
+          if (s.id === sectionId) {
+            return {
+              ...s,
+              notes: s.notes.map(n => {
+                if (n.id === noteId) {
+                  return {
+                    ...n,
+                    indicators: n.indicators.map(i => {
+                      if (i.id === indicatorId) {
+                        return {
+                          ...i,
+                          slices: i.slices.map(sl => {
+                            if (sl.id === sliceId) {
+                              const index = sl.sources.findIndex(src => src.id === sourceId);
+                              if (index < sl.sources.length - 1) {
+                                const newSources = [...sl.sources];
+                                [newSources[index], newSources[index + 1]] = [newSources[index + 1], newSources[index]];
+                                return { ...sl, sources: newSources };
+                              }
+                            }
+                            return sl;
+                          })
+                        };
+                      }
+                      return i;
+                    })
+                  };
+                }
+                return n;
+              })
+            };
+          }
+          return s;
+        })
+      };
+    }
+    return r;
+  });
+  notify();
+}
+
+export function resetData() {
+  reports = getDefaultData();
+  notify();
+}
+
+export function exportData(): string {
+  // Рекурсивно удаляем все ID и ссылки на ID для удобного импорта
+  const removeIds = (obj: any): any => {
+    if (Array.isArray(obj)) {
+      return obj.map(removeIds);
+    } else if (obj && typeof obj === 'object') {
+      const result: any = {};
+      for (const key in obj) {
+        // Пропускаем поля id и все поля заканчивающиеся на Id
+        if (key === 'id' || key.endsWith('Id')) {
+          continue;
+        }
+        result[key] = removeIds(obj[key]);
+      }
+      return result;
+    }
+    return obj;
+  };
+  
+  const exportableReports = removeIds(reports);
+  return JSON.stringify(exportableReports, null, 2);
+}
+
+export function importData(json: string, mergeDuplicates: boolean = false): boolean {
   try {
+    console.log('=== НАЧАЛО importData ===');
+    console.log('Начало импорта, JSON длина:', json.length);
+    console.log('mergeDuplicates:', mergeDuplicates);
     const data = JSON.parse(json);
+    console.log('JSON распарсен:', data);
     let reportsToImport: any[];
     
     // Поддержка обоих форматов: массив или объект с ключом "reports"
     if (Array.isArray(data)) {
+      console.log('Формат: массив');
       reportsToImport = data;
     } else if (data && typeof data === 'object' && Array.isArray(data.reports)) {
+      console.log('Формат: объект с reports');
       reportsToImport = data.reports;
     } else {
       console.error('Неверный формат данных: ожидается массив или объект с ключом "reports"');
@@ -1591,6 +1754,199 @@ export function importData(json: string): boolean {
     }
     
     console.log('Импортируется отчетов:', reportsToImport.length);
+    
+    // Если включено объединение дубликатов
+    if (mergeDuplicates) {
+      console.log('Режим объединения дубликатов включен');
+      
+      reportsToImport.forEach(importedReport => {
+        // Ищем существующий доклад с таким же названием
+        const existingReport = reports.find(r => r.name === importedReport.name);
+        
+        if (existingReport) {
+          console.log(`Найден существующий доклад "${importedReport.name}", добавляем разделы`);
+          
+          // Добавляем новые разделы в существующий доклад
+          const newSections = (importedReport.sections || []).map((section: any) => {
+            const newSectionId = generateId();
+            
+            return {
+              ...section,
+              id: newSectionId,
+              reportId: existingReport.id,
+              notes: (section.notes || []).map((note: any) => {
+                const newNoteId = generateId();
+                
+                return {
+                  ...note,
+                  id: newNoteId,
+                  sectionId: newSectionId,
+                  noteBlocks: (note.noteBlocks || []).map((noteBlock: any) => {
+                    const newNoteBlockId = generateId();
+                    
+                    return {
+                      ...noteBlock,
+                      id: newNoteBlockId,
+                      noteId: newNoteId,
+                      indicators: (noteBlock.indicators || []).map((indicator: any) => {
+                        const newIndicatorId = generateId();
+                        
+                        return {
+                          ...indicator,
+                          id: newIndicatorId,
+                          noteId: newNoteId,
+                          slices: (indicator.slices || []).map((slice: any) => {
+                            const newSliceId = generateId();
+                            
+                            return {
+                              ...slice,
+                              id: newSliceId,
+                              indicatorId: newIndicatorId,
+                              sources: (slice.sources || []).map((source: any) => ({
+                                ...source,
+                                id: generateId(),
+                                sliceId: newSliceId
+                              }))
+                            };
+                          })
+                        };
+                      })
+                    };
+                  }),
+                  indicators: (note.indicators || []).map((indicator: any) => {
+                    const newIndicatorId = generateId();
+                    
+                    return {
+                      ...indicator,
+                      id: newIndicatorId,
+                      noteId: newNoteId,
+                      slices: (indicator.slices || []).map((slice: any) => {
+                        const newSliceId = generateId();
+                        
+                        return {
+                          ...slice,
+                          id: newSliceId,
+                          indicatorId: newIndicatorId,
+                          sources: (slice.sources || []).map((source: any) => ({
+                            ...source,
+                            id: generateId(),
+                            sliceId: newSliceId
+                          }))
+                        };
+                      })
+                    };
+                  }),
+                  sources: (note.sources || []).map((source: any) => ({
+                    ...source,
+                    id: generateId(),
+                    sliceId: newNoteId
+                  }))
+                };
+              })
+            };
+          });
+          
+          // Добавляем новые разделы к существующему докладу
+          existingReport.sections = [...existingReport.sections, ...newSections];
+        } else {
+          console.log(`Доклад "${importedReport.name}" не найден, создаем новый`);
+          
+          // Создаем новый доклад как обычно
+          const newReportId = generateId();
+          const newReport = {
+            ...importedReport,
+            id: newReportId,
+            sections: (importedReport.sections || []).map((section: any) => {
+              const newSectionId = generateId();
+              
+              return {
+                ...section,
+                id: newSectionId,
+                reportId: newReportId,
+                notes: (section.notes || []).map((note: any) => {
+                  const newNoteId = generateId();
+                  
+                  return {
+                    ...note,
+                    id: newNoteId,
+                    sectionId: newSectionId,
+                    noteBlocks: (note.noteBlocks || []).map((noteBlock: any) => {
+                      const newNoteBlockId = generateId();
+                      
+                      return {
+                        ...noteBlock,
+                        id: newNoteBlockId,
+                        noteId: newNoteId,
+                        indicators: (noteBlock.indicators || []).map((indicator: any) => {
+                          const newIndicatorId = generateId();
+                          
+                          return {
+                            ...indicator,
+                            id: newIndicatorId,
+                            noteId: newNoteId,
+                            slices: (indicator.slices || []).map((slice: any) => {
+                              const newSliceId = generateId();
+                              
+                              return {
+                                ...slice,
+                                id: newSliceId,
+                                indicatorId: newIndicatorId,
+                                sources: (slice.sources || []).map((source: any) => ({
+                                  ...source,
+                                  id: generateId(),
+                                  sliceId: newSliceId
+                                }))
+                              };
+                            })
+                          };
+                        })
+                      };
+                    }),
+                    indicators: (note.indicators || []).map((indicator: any) => {
+                      const newIndicatorId = generateId();
+                      
+                      return {
+                        ...indicator,
+                        id: newIndicatorId,
+                        noteId: newNoteId,
+                        slices: (indicator.slices || []).map((slice: any) => {
+                          const newSliceId = generateId();
+                          
+                          return {
+                            ...slice,
+                            id: newSliceId,
+                            indicatorId: newIndicatorId,
+                            sources: (slice.sources || []).map((source: any) => ({
+                              ...source,
+                              id: generateId(),
+                              sliceId: newSliceId
+                            }))
+                          };
+                        })
+                      };
+                    }),
+                    sources: (note.sources || []).map((source: any) => ({
+                      ...source,
+                      id: generateId(),
+                      sliceId: newNoteId
+                    }))
+                  };
+                })
+              };
+            })
+          };
+          
+          reports.push(newReport);
+        }
+      });
+      
+      console.log('Объединение дубликатов завершено');
+      notify();
+      return true;
+    }
+    
+    // Обычный режим - создаем новые доклады
+    console.log('Обычный режим импорта');
     
     // Генерируем новые ID для всех элементов
     const importedReports = reportsToImport.map(report => {
@@ -1680,39 +2036,18 @@ export function importData(json: string): boolean {
       };
     });
     
+    console.log('Импортированные отчеты:', importedReports);
+    // Добавляем новые данные к существующим, а не заменяем
     reports = [...reports, ...importedReports];
+    console.log('Новые данные добавлены к существующим');
     notify();
+    console.log('notify() вызван');
+    console.log('=== КОНЕЦ importData (успех) ===');
     return true;
   } catch (error) {
+    console.error('=== ОШИБКА importData ===');
     console.error('Ошибка импорта:', error);
+    console.error('=== КОНЕЦ importData (ошибка) ===');
     return false;
   }
-}
-
-export function exportData(): string {
-  // Рекурсивно удаляем все ID и ссылки на ID для удобного импорта
-  const removeIds = (obj: any): any => {
-    if (Array.isArray(obj)) {
-      return obj.map(removeIds);
-    } else if (obj && typeof obj === 'object') {
-      const result: any = {};
-      for (const key in obj) {
-        // Пропускаем поля id и все поля заканчивающиеся на Id
-        if (key === 'id' || key.endsWith('Id')) {
-          continue;
-        }
-        result[key] = removeIds(obj[key]);
-      }
-      return result;
-    }
-    return obj;
-  };
-  
-  const exportableReports = removeIds(reports);
-  return JSON.stringify(exportableReports, null, 2);
-}
-
-export function resetData() {
-  reports = getDefaultData();
-  notify();
 }

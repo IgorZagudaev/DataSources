@@ -1,16 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import { getReports, subscribe } from './store';
-import { Report } from './types';
 
-export function useReports(): Report[] {
-  const [reports, setReports] = useState<Report[]>(getReports());
-
-  useEffect(() => {
-    const unsubscribe = subscribe(() => {
-      setReports(getReports());
-    });
-    return unsubscribe;
-  }, []);
-
-  return reports;
+export function useReports() {
+  return useSyncExternalStore(subscribe, getReports);
 }
