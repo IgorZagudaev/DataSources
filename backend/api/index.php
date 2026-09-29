@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Функция логирования SQL запросов
-function logSQL($sql, $params = [], $result = null, $error = null) {
+function logSQL($sql, $params = [], $result = null, $error = null, $executionTime = null) {
     // Проверяем, включено ли логирование в конфигурации
     $config = require __DIR__ . '/config.php';
     if (!isset($config['app']['sql_logging']) || !$config['app']['sql_logging']) {
@@ -69,6 +69,10 @@ function logSQL($sql, $params = [], $result = null, $error = null) {
     
     if (!empty($params)) {
         $logEntry .= "  Params: " . json_encode($params, JSON_UNESCAPED_UNICODE) . "\n";
+    }
+    
+    if ($executionTime !== null) {
+        $logEntry .= "  Execution time: " . number_format($executionTime * 1000, 2) . " ms\n";
     }
     
     if ($error) {
@@ -84,6 +88,23 @@ function logSQL($sql, $params = [], $result = null, $error = null) {
     $logEntry .= str_repeat('-', 80) . "\n";
     
     file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+}
+
+// Обёртка для выполнения SQL запросов с замером времени
+function executeSQL(PDO $db, string $sql, array $params = [], bool $fetchAll = false) {
+    $startTime = microtime(true);
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $executionTime = microtime(true) - $startTime;
+    
+    if ($fetchAll) {
+        $result = $stmt->fetchAll();
+        logSQL($sql, $params, $result, null, $executionTime);
+        return $result;
+    } else {
+        logSQL($sql, $params, ['success' => true], null, $executionTime);
+        return $stmt;
+    }
 }
 
 require_once __DIR__ . '/Database.php';
@@ -213,8 +234,9 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
             
         case 'POST':
             $newId = generateUUID();
-            $sql = "INSERT INTO reports (id, name, description) VALUES (?, ?, ?)";
-            $params = [$newId, $input['name'], $input['description'] ?? null];
+            $nextOrder = (int)$db->query("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM reports")->fetchColumn();
+            $sql = "INSERT INTO reports (id, name, description, sort_order) VALUES (?, ?, ?, ?)";
+            $params = [$newId, $input['name'], $input['description'] ?? null, $nextOrder];
             logSQL($sql, $params);
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
@@ -285,8 +307,9 @@ function handleSections(PDO $db, string $method, ?string $id, ?array $input): vo
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO sections (id, report_id, name, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['report_id'], $input['name'], $input['description'] ?? null]);
+            $nextOrder = getNextSortOrder($db, 'sections', 'report_id', $input['report_id']);
+            $stmt = $db->prepare("INSERT INTO sections (id, report_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['report_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
             logAction('add', 'section', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -443,8 +466,9 @@ function handleNotes(PDO $db, string $method, ?string $id, ?array $input): void 
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['section_id'], $input['name'], $input['short_name'] ?? null, $input['description'] ?? null]);
+            $nextOrder = getNextSortOrder($db, 'notes', 'section_id', $input['section_id']);
+            $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['section_id'], $input['name'], $input['short_name'] ?? null, $input['description'] ?? null, $nextOrder]);
             logAction('add', 'note', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -477,8 +501,9 @@ function handleNoteSources(PDO $db, string $method, ?string $id, ?array $input):
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
+            $nextOrder = getNextSortOrder($db, 'note_sources', 'note_id', $input['note_id']);
+            $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
             logAction('add', 'noteSource', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -511,8 +536,9 @@ function handleNoteBlocks(PDO $db, string $method, ?string $id, ?array $input): 
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
+            $nextOrder = getNextSortOrder($db, 'note_blocks', 'note_id', $input['note_id']);
+            $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
             logAction('add', 'noteBlock', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -571,8 +597,9 @@ function handleIndicators(PDO $db, string $method, ?string $id, ?array $input): 
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
+            $nextOrder = getNextSortOrder($db, 'indicators', 'note_id', $input['note_id']);
+            $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
             logAction('add', 'indicator', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -631,8 +658,9 @@ function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['indicator_id'], $input['name'], $input['description'] ?? null]);
+            $nextOrder = getNextSortOrder($db, 'data_slices', 'indicator_id', $input['indicator_id']);
+            $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['indicator_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
             logAction('add', 'slice', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -692,9 +720,10 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
+            $nextOrder = getNextSortOrder($db, 'data_sources', 'slice_id', $input['slice_id']);
             $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
-            $sql = "INSERT INTO data_sources (id, slice_id, name, description, source_types) VALUES (?, ?, ?, ?, ?)";
-            $params = [$newId, $input['slice_id'], $input['name'], $input['description'] ?? null, $sourceTypes];
+            $sql = "INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
+            $params = [$newId, $input['slice_id'], $input['name'], $input['description'] ?? null, $sourceTypes, $nextOrder];
             logSQL($sql, $params);
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
@@ -1085,8 +1114,9 @@ function handleNoteBlockIndicators(PDO $db, string $method, ?string $id, ?array 
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO note_block_indicators (id, note_block_id, name, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['note_block_id'], $input['name'], $input['description'] ?? null]);
+            $nextOrder = getNextSortOrder($db, 'note_block_indicators', 'note_block_id', $input['note_block_id']);
+            $stmt = $db->prepare("INSERT INTO note_block_indicators (id, note_block_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['note_block_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
             logAction('add', 'noteBlockIndicator', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -1119,8 +1149,9 @@ function handleNoteBlockSlices(PDO $db, string $method, ?string $id, ?array $inp
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
-            $stmt = $db->prepare("INSERT INTO note_block_data_slices (id, indicator_id, name, description) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['indicator_id'], $input['name'], $input['description'] ?? null]);
+            $nextOrder = getNextSortOrder($db, 'note_block_data_slices', 'indicator_id', $input['indicator_id']);
+            $stmt = $db->prepare("INSERT INTO note_block_data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['indicator_id'], $input['name'], $input['description'] ?? null, $nextOrder]);
             logAction('add', 'noteBlockSlice', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -1153,9 +1184,10 @@ function handleNoteBlockSources(PDO $db, string $method, ?string $id, ?array $in
     switch ($method) {
         case 'POST':
             $newId = generateUUID();
+            $nextOrder = getNextSortOrder($db, 'data_sources', 'slice_id', $input['slice_id']);
             $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
-            $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$newId, $input['slice_id'], $input['name'], $input['description'] ?? null, $sourceTypes]);
+            $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$newId, $input['slice_id'], $input['name'], $input['description'] ?? null, $sourceTypes, $nextOrder]);
             logAction('add', 'noteBlockSource', $newId, $input['name']);
             echo json_encode(['id' => $newId]);
             break;
@@ -1185,6 +1217,14 @@ function handleNoteBlockSources(PDO $db, string $method, ?string $id, ?array $in
 // ============================================================
 // Helper functions
 // ============================================================
+
+// Получение следующего sort_order для элемента
+function getNextSortOrder(PDO $db, string $table, string $parentField, string $parentId): int {
+    $stmt = $db->prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 as next_order FROM $table WHERE $parentField = ?");
+    $stmt->execute([$parentId]);
+    return (int)$stmt->fetchColumn();
+}
+
 function generateUUID(): string {
     return sprintf(
         '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
