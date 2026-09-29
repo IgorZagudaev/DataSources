@@ -688,20 +688,20 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
             break;
             
         case 'PUT':
-            // Логирование входных данных для отладки
-            error_log("Updating source ID: $id");
-            error_log("Input data: " . json_encode($input));
+            // Логирование входных данных для отладки (отключено)
+            // error_log("Updating source ID: $id");
+            // error_log("Input data: " . json_encode($input));
             
             // Валидация обязательных полей
             if (!isset($input['name']) || empty($input['name'])) {
-                error_log("Error updating source: name is required");
+                // error_log("Error updating source: name is required");
                 http_response_code(400);
                 echo json_encode(['error' => 'Name is required']);
                 return;
             }
             
             $sourceTypes = isset($input['source_types']) ? json_encode($input['source_types']) : null;
-            error_log("Source types to save: " . $sourceTypes);
+            // error_log("Source types to save: " . $sourceTypes);
             
             $sql = "UPDATE data_sources SET name = ?, description = ?, source_types = ? WHERE id = ?";
             $params = [$input['name'], $input['description'] ?? null, $sourceTypes, $id];
@@ -734,17 +734,17 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
 // Import handler - полная замена всех данных
 // ============================================================
 function handleImport(PDO $db, array $input): void {
-    error_log("=== handleImport called ===");
+    // error_log("=== handleImport called ===");
     
     if (!isset($input['reports']) || !is_array($input['reports'])) {
-        error_log("Invalid import data: reports not set or not array");
+        // error_log("Invalid import data: reports not set or not array");
         http_response_code(400);
         echo json_encode(['error' => 'Invalid import data']);
         return;
     }
     
     $reports = $input['reports'];
-    error_log("Importing " . count($reports) . " reports");
+    // error_log("Importing " . count($reports) . " reports");
     
     // Логируем структуру первого источника для проверки source_types
     foreach ($reports as $report) {
@@ -758,8 +758,8 @@ function handleImport(PDO $db, array $input): void {
                                     foreach ($indicator['slices'] as $slice) {
                                         if (isset($slice['sources']) && is_array($slice['sources']) && count($slice['sources']) > 0) {
                                             $firstSource = $slice['sources'][0];
-                                            error_log("First source structure: " . json_encode($firstSource));
-                                            error_log("Source types: " . json_encode($firstSource['source_types'] ?? 'NOT SET'));
+                                            // error_log("First source structure: " . json_encode($firstSource));
+                                            // error_log("Source types: " . json_encode($firstSource['source_types'] ?? 'NOT SET'));
                                             break 5;
                                         }
                                     }
@@ -797,11 +797,11 @@ function handleImport(PDO $db, array $input): void {
         
         // Импортируем данные
         foreach ($reports as $reportIndex => $report) {
-            error_log("Importing report $reportIndex: " . ($report['name'] ?? 'NO NAME'));
+            // error_log("Importing report $reportIndex: " . ($report['name'] ?? 'NO NAME'));
             
             // Валидация обязательных полей
             if (!isset($report['name']) || empty($report['name'])) {
-                error_log("Warning: Report $reportIndex has no name, skipping");
+                // error_log("Warning: Report $reportIndex has no name, skipping");
                 continue;
             }
             
@@ -815,10 +815,10 @@ function handleImport(PDO $db, array $input): void {
             
             if (isset($report['sections']) && is_array($report['sections'])) {
                 foreach ($report['sections'] as $sectionIndex => $section) {
-                    error_log("  Importing section $sectionIndex: " . ($section['name'] ?? 'NO NAME'));
+                    // error_log("  Importing section $sectionIndex: " . ($section['name'] ?? 'NO NAME'));
                     
                     if (!isset($section['name']) || empty($section['name'])) {
-                        error_log("  Warning: Section $sectionIndex has no name, skipping");
+                        // error_log("  Warning: Section $sectionIndex has no name, skipping");
                         continue;
                     }
                     
@@ -833,7 +833,7 @@ function handleImport(PDO $db, array $input): void {
                     if (isset($section['notes']) && is_array($section['notes'])) {
                         foreach ($section['notes'] as $noteIndex => $note) {
                             if (!isset($note['name']) || empty($note['name'])) {
-                                error_log("    Warning: Note $noteIndex has no name, skipping");
+                                // error_log("    Warning: Note $noteIndex has no name, skipping");
                                 continue;
                             }
                             
@@ -883,7 +883,7 @@ function handleImport(PDO $db, array $input): void {
                                                         foreach ($slice['sources'] as $sourceIndex => $source) {
                                                             $sourceId = $source['id'] ?? generateUUID();
                                                             $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
-                                                            error_log("Importing source: " . $source['name'] . ", source_types: " . $sourceTypes);
+                                                            // error_log("Importing source: " . $source['name'] . ", source_types: " . $sourceTypes);
                                                             $sql = "INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
                                                             $params = [$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex];
                                                             logSQL($sql, $params);
@@ -916,7 +916,7 @@ function handleImport(PDO $db, array $input): void {
                                                 foreach ($slice['sources'] as $sourceIndex => $source) {
                                                     $sourceId = $source['id'] ?? generateUUID();
                                                     $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
-                                                    error_log("Importing source: " . $source['name'] . ", source_types: " . $sourceTypes);
+                                                    // error_log("Importing source: " . $source['name'] . ", source_types: " . $sourceTypes);
                                                     $sql = "INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
                                                     $params = [$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex];
                                                     logSQL($sql, $params);
@@ -936,12 +936,12 @@ function handleImport(PDO $db, array $input): void {
         }
         
         $db->commit();
-        error_log("=== Import completed successfully ===");
+        // error_log("=== Import completed successfully ===");
         echo json_encode(['success' => true, 'imported' => count($reports)]);
     } catch (Exception $e) {
         $db->rollBack();
         error_log("=== Import failed: " . $e->getMessage() . " ===");
-        error_log("Stack trace: " . $e->getTraceAsString());
+        // error_log("Stack trace: " . $e->getTraceAsString());
         http_response_code(500);
         echo json_encode(['error' => 'Import failed: ' . $e->getMessage()]);
     }
