@@ -26,8 +26,12 @@ class Database {
                     PDO::ATTR_EMULATE_PREPARES => false,
                 ]);
             } catch (PDOException $e) {
+                // Устанавливаем заголовок если ещё не установлен
+                if (!headers_sent()) {
+                    header('Content-Type: application/json; charset=utf-8');
+                }
                 http_response_code(500);
-                echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
+                echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
                 exit;
             }
         }

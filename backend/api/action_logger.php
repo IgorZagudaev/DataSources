@@ -3,19 +3,8 @@
  * Система логирования действий пользователей
  */
 
-// Получаем IP-адрес пользователя
-function getUserIP() {
-    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-        return trim($ips[0]);
-    } elseif (!empty($_SERVER['HTTP_X_REAL_IP'])) {
-        return $_SERVER['HTTP_X_REAL_IP'];
-    } elseif (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-        return $_SERVER['HTTP_CLIENT_IP'];
-    }
-    
-    return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-}
+// Подключаем систему контроля доступа для получения getUserIP()
+require_once __DIR__ . '/access_control.php';
 
 /**
  * Запись действия в лог
