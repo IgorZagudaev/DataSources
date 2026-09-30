@@ -42,28 +42,23 @@
  * DELETE /api/sources/{id}         - Удалить источник
  */
 
-// Буферизация вывода для предотвращения вывода HTML ошибок
-ob_start();
-
-// Отключаем отображение ошибок в выводе (они будут в логах)
-ini_set('display_errors', 0);
+// Включаем отображение ошибок для диагностики
+ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-// Устанавливаем заголовки ДО любого вывода
+// Устанавливаем заголовки
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    ob_end_clean();
     http_response_code(200);
     exit;
 }
 
 // Функция для отправки JSON ответа
 function sendJsonResponse($data, $statusCode = 200) {
-    ob_end_clean(); // Очищаем буфер
     http_response_code($statusCode);
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
@@ -191,11 +186,6 @@ try {
 } catch (Error $e) {
     error_log("Error in API: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine());
     sendJsonError('Server error: ' . $e->getMessage(), 500);
-} finally {
-    // Очищаем буфер если он ещё не очищен
-    if (ob_get_level() > 0) {
-        ob_end_clean();
-    }
 }
 
 // ============================================================
