@@ -995,42 +995,60 @@ function handleImport(PDO $db, array $input): void {
 // Report Sync handler - синхронизация одного доклада (оптимизированная версия)
 // ============================================================
 function handleReportSync(PDO $db, string $reportId, array $input): void {
+    error_log("=== handleReportSync called for report: $reportId ===");
+    
     if (!isset($input['report'])) {
+        error_log("Error: Report data is missing");
         sendJsonError('Report data is required', 400);
         return;
     }
     
     $report = $input['report'];
+    error_log("Report data received: " . json_encode(['id' => $report['id'] ?? 'null', 'name' => $report['name'] ?? 'null']));
     
     try {
         $db->beginTransaction();
+        error_log("Transaction started");
         
         // Удаляем все связанные данные вручную (в правильном порядке)
-        // Сначала удаляем источники
+        error_log("Deleting data_sources...");
         $db->prepare("DELETE FROM data_sources WHERE slice_id IN (SELECT ds.id FROM data_slices ds JOIN indicators i ON ds.indicator_id = i.id JOIN notes n ON i.note_id = n.id JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
+        
+        error_log("Deleting note_sources...");
         $db->prepare("DELETE FROM note_sources WHERE note_id IN (SELECT n.id FROM notes n JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
         
         // Удаляем срезы
+        error_log("Deleting data_slices...");
         $db->prepare("DELETE FROM data_slices WHERE indicator_id IN (SELECT i.id FROM indicators i JOIN notes n ON i.note_id = n.id JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
+        
+        error_log("Deleting note_block_data_slices...");
         $db->prepare("DELETE FROM note_block_data_slices WHERE indicator_id IN (SELECT nbi.id FROM note_block_indicators nbi JOIN note_blocks nb ON nbi.note_block_id = nb.id JOIN notes n ON nb.note_id = n.id JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
         
         // Удаляем показатели
+        error_log("Deleting indicators...");
         $db->prepare("DELETE FROM indicators WHERE note_id IN (SELECT n.id FROM notes n JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
+        
+        error_log("Deleting note_block_indicators...");
         $db->prepare("DELETE FROM note_block_indicators WHERE note_block_id IN (SELECT nb.id FROM note_blocks nb JOIN notes n ON nb.note_id = n.id JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
         
         // Удаляем блоки заметок
+        error_log("Deleting note_blocks...");
         $db->prepare("DELETE FROM note_blocks WHERE note_id IN (SELECT n.id FROM notes n JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
         
         // Удаляем заметки
+        error_log("Deleting notes...");
         $db->prepare("DELETE FROM notes WHERE section_id IN (SELECT id FROM sections WHERE report_id = ?)")->execute([$reportId]);
         
         // Удаляем разделы
+        error_log("Deleting sections...");
         $db->prepare("DELETE FROM sections WHERE report_id = ?")->execute([$reportId]);
         
         // Удаляем доклад
+        error_log("Deleting report...");
         $db->prepare("DELETE FROM reports WHERE id = ?")->execute([$reportId]);
         
         // Вставляем новый доклад
+        error_log("Inserting new report...");
         $stmt = $db->prepare("INSERT INTO reports (id, name, description, sort_order) VALUES (?, ?, ?, ?)");
         $stmt->execute([
             $report['id'],
@@ -1038,6 +1056,7 @@ function handleReportSync(PDO $db, string $reportId, array $input): void {
             $report['description'] ?? null,
             $report['sort_order'] ?? $report['sortOrder'] ?? 0
         ]);
+        error_log("Report inserted successfully");
         
         // Вставляем разделы
         if (isset($report['sections']) && is_array($report['sections'])) {
@@ -1132,16 +1151,25 @@ function handleReportSync(PDO $db, string $reportId, array $input): void {
             }
         }
         
+        error_log("Committing transaction...");
         $db->commit();
+        error_log("Transaction committed successfully");
+        
         logAction('sync', 'report', $reportId, $report['name']);
+        error_log("=== handleReportSync completed successfully ===");
         sendJsonResponse(['success' => true]);
         
     } catch (Exception $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
-        error_log("Error syncing report: " . $e->getMessage());
+        error_log("!!! EXCEPTION in handleReportSync: " . $e->getMessage());
+        error_log("Exception class: " . get_class($e));
         error_log("Stack trace: " . $e->getTraceAsString());
+        
+        if ($db->inTransaction()) {
+            error_log("Rolling back transaction...");
+            $db->rollBack();
+            error_log("Transaction rolled back");
+        }
+        
         sendJsonError('Sync failed: ' . $e->getMessage(), 500);
     }
 }
@@ -1150,15 +1178,20 @@ function handleReportSync(PDO $db, string $reportId, array $input): void {
 // Section Sync handler - синхронизация одного раздела (самая оптимизированная версия)
 // ============================================================
 function handleSectionSync(PDO $db, string $reportId, string $sectionId, array $input): void {
+    error_log("=== handleSectionSync called for section: $sectionId in report: $reportId ===");
+    
     if (!isset($input['section'])) {
+        error_log("Error: Section data is missing");
         sendJsonError('Section data is required', 400);
         return;
     }
     
     $section = $input['section'];
+    error_log("Section data received: " . json_encode(['id' => $section['id'] ?? 'null', 'name' => $section['name'] ?? 'null']));
     
     try {
         $db->beginTransaction();
+        error_log("Transaction started");
         
         // Удаляем все связанные данные вручную (в правильном порядке)
         // Сначала удаляем источники
@@ -1277,16 +1310,25 @@ function handleSectionSync(PDO $db, string $reportId, string $sectionId, array $
             }
         }
         
+        error_log("Committing transaction...");
         $db->commit();
+        error_log("Transaction committed successfully");
+        
         logAction('sync', 'section', $sectionId, $section['name']);
+        error_log("=== handleSectionSync completed successfully ===");
         sendJsonResponse(['success' => true]);
         
     } catch (Exception $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
-        error_log("Error syncing section: " . $e->getMessage());
+        error_log("!!! EXCEPTION in handleSectionSync: " . $e->getMessage());
+        error_log("Exception class: " . get_class($e));
         error_log("Stack trace: " . $e->getTraceAsString());
+        
+        if ($db->inTransaction()) {
+            error_log("Rolling back transaction...");
+            $db->rollBack();
+            error_log("Transaction rolled back");
+        }
+        
         sendJsonError('Sync failed: ' . $e->getMessage(), 500);
     }
 }

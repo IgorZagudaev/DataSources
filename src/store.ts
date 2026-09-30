@@ -638,7 +638,7 @@ export function moveSectionUp(reportId: string, sectionId: string) {
     }
     return r;
   });
-  notify(reportId); // Для перемещения раздела синхронизируем весь доклад
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 export function moveSectionDown(reportId: string, sectionId: string) {
@@ -658,7 +658,7 @@ export function moveSectionDown(reportId: string, sectionId: string) {
     }
     return r;
   });
-  notify(reportId); // Для перемещения раздела синхронизируем весь доклад
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 // Note CRUD (Уровень 3)
