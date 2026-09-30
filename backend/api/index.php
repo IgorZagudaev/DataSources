@@ -69,11 +69,11 @@ function sendJsonError($message, $statusCode = 500) {
     sendJsonResponse(['error' => $message], $statusCode);
 }
 
+// Подключаем систему контроля доступа (должна быть первой, т.к. содержит getUserIP())
+require_once __DIR__ . '/access_control.php';
+
 // Подключаем систему логирования
 require_once __DIR__ . '/action_logger.php';
-
-// Подключаем систему контроля доступа
-require_once __DIR__ . '/access_control.php';
 
 // Функция логирования SQL запросов
 function logSQL($sql, $params = [], $result = null, $error = null) {

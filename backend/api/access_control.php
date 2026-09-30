@@ -29,12 +29,16 @@ function isAdmin() {
 // Проверка прав доступа для административных операций
 function requireAdmin() {
     if (!isAdmin()) {
+        // Устанавливаем заголовок если ещё не установлен
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
         http_response_code(403);
         echo json_encode([
             'error' => 'Доступ запрещён',
             'message' => 'У вашего IP-адреса нет прав для выполнения этой операции',
             'your_ip' => getUserIP()
-        ]);
+        ], JSON_UNESCAPED_UNICODE);
         exit;
     }
 }
