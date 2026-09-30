@@ -762,7 +762,7 @@ function App() {
                 )}
               </span>
             )}
-            <span>Докладов: {reports.length} | Разделов: {reports.reduce((sum, r) => sum + r.sections.length, 0)}</span>
+            <span className="ml-4">Докладов: {reports.length} | Разделов: {reports.reduce((sum, r) => sum + r.sections.length, 0)}</span>
           </div>
         </div>
       </footer>
