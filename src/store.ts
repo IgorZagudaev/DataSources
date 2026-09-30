@@ -276,6 +276,70 @@ async function syncToAPI(): Promise<void> {
   }
 }
 
+// Синхронизация только одного доклада на сервер (оптимизированная версия)
+async function syncReportToAPI(reportId: string): Promise<void> {
+  console.log('syncReportToAPI called for report:', reportId);
+  if (currentMode === 'api') {
+    try {
+      const report = reports.find(r => r.id === reportId);
+      if (!report) {
+        console.warn('Report not found:', reportId);
+        return;
+      }
+      
+      console.log('Syncing single report:', report.name);
+      
+      // Преобразуем только этот доклад в snake_case
+      const reportToSend = convertToSnakeCase(report);
+      
+      await api.syncReport(reportToSend);
+      console.log('Sync report completed');
+    } catch (e) {
+      console.error('Error syncing report to API:', e);
+      // Fallback: синхронизируем все данные
+      console.log('Falling back to full sync...');
+      await syncToAPI();
+    }
+  } else {
+    console.log('Not in API mode, skipping sync');
+  }
+}
+
+// Синхронизация только одного раздела на сервер (ещё более оптимизированная версия)
+async function syncSectionToAPI(reportId: string, sectionId: string): Promise<void> {
+  console.log('syncSectionToAPI called for section:', sectionId, 'in report:', reportId);
+  if (currentMode === 'api') {
+    try {
+      const report = reports.find(r => r.id === reportId);
+      if (!report) {
+        console.warn('Report not found:', reportId);
+        return;
+      }
+      
+      const section = report.sections.find(s => s.id === sectionId);
+      if (!section) {
+        console.warn('Section not found:', sectionId);
+        return;
+      }
+      
+      console.log('Syncing single section:', section.name);
+      
+      // Преобразуем только этот раздел в snake_case
+      const sectionToSend = convertToSnakeCase(section);
+      
+      await api.syncSection(reportId, sectionToSend);
+      console.log('Sync section completed');
+    } catch (e) {
+      console.error('Error syncing section to API:', e);
+      // Fallback: синхронизируем весь доклад
+      console.log('Falling back to report sync...');
+      await syncReportToAPI(reportId);
+    }
+  } else {
+    console.log('Not in API mode, skipping sync');
+  }
+}
+
 function saveData(reports: Report[]): void {
   try {
     // В режиме API не сохраняем в localStorage, чтобы избежать переполнения
@@ -451,7 +515,7 @@ function getDefaultData(): Report[] {
 let reports: Report[] = loadData();
 let listeners: Array<() => void> = [];
 
-function notify() {
+function notify(reportId?: string, sectionId?: string) {
   saveData(reports);
   listeners.forEach(l => l());
   // Синхронизируем с сервером в API режиме, но только если это не загрузка данных
@@ -461,7 +525,17 @@ function notify() {
       clearTimeout(syncTimeout);
     }
     syncTimeout = setTimeout(() => {
-      syncToAPI();
+      // Если указан sectionId, синхронизируем только этот раздел
+      if (sectionId && reportId) {
+        syncSectionToAPI(reportId, sectionId);
+      }
+      // Если указан только reportId, синхронизируем только этот доклад
+      else if (reportId) {
+        syncReportToAPI(reportId);
+      } else {
+        // Иначе синхронизируем все данные
+        syncToAPI();
+      }
       syncTimeout = null;
     }, 5000); // Синхронизация через 5 секунд после последнего изменения
   }
@@ -486,7 +560,7 @@ export function getReport(id: string): Report | undefined {
 export function addReport(name: string, description?: string): Report {
   const report: Report = { id: generateId(), name, description, sections: [] };
   reports = [...reports, report];
-  notify();
+  notify(report.id);
   return report;
 }
 
@@ -497,7 +571,7 @@ export function moveReportUp(id: string) {
     [newReports[index - 1], newReports[index]] = [newReports[index], newReports[index - 1]];
     // Обновляем sortOrder для всех докладов
     reports = newReports.map((report, idx) => ({ ...report, sortOrder: idx }));
-    notify();
+    notify(id);
   }
 }
 
@@ -508,17 +582,18 @@ export function moveReportDown(id: string) {
     [newReports[index], newReports[index + 1]] = [newReports[index + 1], newReports[index]];
     // Обновляем sortOrder для всех докладов
     reports = newReports.map((report, idx) => ({ ...report, sortOrder: idx }));
-    notify();
+    notify(id);
   }
 }
 
 export function updateReport(id: string, name: string, description?: string) {
   reports = reports.map(r => r.id === id ? { ...r, name, description } : r);
-  notify();
+  notify(id);
 }
 
 export function deleteReport(id: string) {
   reports = reports.filter(r => r.id !== id);
+  // Для удаления доклада синхронизируем все данные, т.к. доклад удалён
   notify();
 }
 
@@ -526,7 +601,7 @@ export function deleteReport(id: string) {
 export function addSection(reportId: string, name: string, description?: string): Section {
   const section: Section = { id: generateId(), name, description, reportId, notes: [] };
   reports = reports.map(r => r.id === reportId ? { ...r, sections: [...r.sections, section] } : r);
-  notify();
+  notify(reportId); // Для добавления раздела синхронизируем весь доклад
   return section;
 }
 
@@ -535,7 +610,7 @@ export function updateSection(reportId: string, sectionId: string, name: string,
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? { ...s, name, description } : s)
   } : r);
-  notify();
+  notify(reportId, sectionId); // Для обновления раздела синхронизируем только этот раздел
 }
 
 export function deleteSection(reportId: string, sectionId: string) {
@@ -543,7 +618,7 @@ export function deleteSection(reportId: string, sectionId: string) {
     ...r,
     sections: r.sections.filter(s => s.id !== sectionId)
   } : r);
-  notify();
+  notify(reportId); // Для удаления раздела синхронизируем весь доклад
 }
 
 export function moveSectionUp(reportId: string, sectionId: string) {
@@ -563,7 +638,7 @@ export function moveSectionUp(reportId: string, sectionId: string) {
     }
     return r;
   });
-  notify();
+  notify(reportId); // Для перемещения раздела синхронизируем весь доклад
 }
 
 export function moveSectionDown(reportId: string, sectionId: string) {
@@ -583,7 +658,7 @@ export function moveSectionDown(reportId: string, sectionId: string) {
     }
     return r;
   });
-  notify();
+  notify(reportId); // Для перемещения раздела синхронизируем весь доклад
 }
 
 // Note CRUD (Уровень 3)
@@ -593,7 +668,7 @@ export function addNote(reportId: string, sectionId: string, name: string, descr
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? { ...s, notes: [...s.notes, note] } : s)
   } : r);
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
   return note;
 }
 
@@ -605,7 +680,7 @@ export function updateNote(reportId: string, sectionId: string, noteId: string, 
       notes: s.notes.map(n => n.id === noteId ? { ...n, name, description, shortName } : n)
     } : s)
   } : r);
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 export function deleteNote(reportId: string, sectionId: string, noteId: string) {
@@ -616,7 +691,7 @@ export function deleteNote(reportId: string, sectionId: string, noteId: string) 
       notes: s.notes.filter(n => n.id !== noteId)
     } : s)
   } : r);
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 export function moveNoteUp(reportId: string, sectionId: string, noteId: string) {
@@ -641,7 +716,7 @@ export function moveNoteUp(reportId: string, sectionId: string, noteId: string) 
     }
     return r;
   });
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 export function moveNoteDown(reportId: string, sectionId: string, noteId: string) {
@@ -666,7 +741,7 @@ export function moveNoteDown(reportId: string, sectionId: string, noteId: string
     }
     return r;
   });
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 // NoteBlock CRUD (Уровень 4 - необязательный)
@@ -679,7 +754,7 @@ export function addNoteBlock(reportId: string, sectionId: string, noteId: string
       notes: s.notes.map(n => n.id === noteId ? { ...n, noteBlocks: [...n.noteBlocks, noteBlock] } : n)
     } : s)
   } : r);
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
   return noteBlock;
 }
 
@@ -694,7 +769,7 @@ export function updateNoteBlock(reportId: string, sectionId: string, noteId: str
       } : n)
     } : s)
   } : r);
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 export function deleteNoteBlock(reportId: string, sectionId: string, noteId: string, noteBlockId: string) {
@@ -708,7 +783,7 @@ export function deleteNoteBlock(reportId: string, sectionId: string, noteId: str
       } : n)
     } : s)
   } : r);
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 export function moveNoteBlockUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string) {
@@ -741,7 +816,7 @@ export function moveNoteBlockUp(reportId: string, sectionId: string, noteId: str
     }
     return r;
   });
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 export function moveNoteBlockDown(reportId: string, sectionId: string, noteId: string, noteBlockId: string) {
@@ -774,7 +849,7 @@ export function moveNoteBlockDown(reportId: string, sectionId: string, noteId: s
     }
     return r;
   });
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 // NoteBlock Indicator CRUD (Показатели в блоке справки)
@@ -790,7 +865,7 @@ export function addNoteBlockIndicator(reportId: string, sectionId: string, noteI
       } : n)
     } : s)
   } : r);
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
   return indicator;
 }
 
@@ -808,7 +883,7 @@ export function updateNoteBlockIndicator(reportId: string, sectionId: string, no
       } : n)
     } : s)
   } : r);
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 export function deleteNoteBlockIndicator(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string) {
@@ -825,7 +900,7 @@ export function deleteNoteBlockIndicator(reportId: string, sectionId: string, no
       } : n)
     } : s)
   } : r);
-  notify();
+  notify(reportId, sectionId); // Синхронизируем только этот раздел
 }
 
 export function moveNoteBlockIndicatorUp(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string) {

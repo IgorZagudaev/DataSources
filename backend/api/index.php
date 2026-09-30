@@ -142,6 +142,19 @@ try {
         case 'reports':
             handleReports($db, $method, $id, $input);
             break;
+        case 'report':
+            // Обработка синхронизации одного раздела: POST /api/report/{reportId}/section/{sectionId}/sync
+            if ($id && isset($segments[2]) && $segments[2] === 'section' && 
+                isset($segments[3]) && isset($segments[4]) && $segments[4] === 'sync' && $method === 'POST') {
+                handleSectionSync($db, $id, $segments[3], $input);
+            }
+            // Обработка синхронизации одного доклада: POST /api/report/{id}/sync
+            else if ($id && isset($segments[2]) && $segments[2] === 'sync' && $method === 'POST') {
+                handleReportSync($db, $id, $input);
+            } else {
+                sendJsonError('Invalid endpoint', 404);
+            }
+            break;
         case 'sections':
             handleSections($db, $method, $id, $input);
             break;
@@ -975,6 +988,258 @@ function handleImport(PDO $db, array $input): void {
         error_log("=== Import failed: " . $e->getMessage() . " ===");
         // error_log("Stack trace: " . $e->getTraceAsString());
         sendJsonError('Import failed: ' . $e->getMessage(), 500);
+    }
+}
+
+// ============================================================
+// Report Sync handler - синхронизация одного доклада (оптимизированная версия)
+// ============================================================
+function handleReportSync(PDO $db, string $reportId, array $input): void {
+    if (!isset($input['report'])) {
+        sendJsonError('Report data is required', 400);
+        return;
+    }
+    
+    $report = $input['report'];
+    
+    try {
+        $db->beginTransaction();
+        
+        // Удаляем старый доклад и все связанные данные (каскадное удаление)
+        $db->prepare("DELETE FROM reports WHERE id = ?")->execute([$reportId]);
+        
+        // Вставляем новый доклад
+        $stmt = $db->prepare("INSERT INTO reports (id, name, description, sort_order) VALUES (?, ?, ?, ?)");
+        $stmt->execute([
+            $report['id'],
+            $report['name'],
+            $report['description'] ?? null,
+            $report['sort_order'] ?? 0
+        ]);
+        
+        // Вставляем разделы
+        if (isset($report['sections']) && is_array($report['sections'])) {
+            foreach ($report['sections'] as $sectionIndex => $section) {
+                $sectionId = $section['id'] ?? generateUUID();
+                $stmt = $db->prepare("INSERT INTO sections (id, report_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([$sectionId, $reportId, $section['name'], $section['description'] ?? null, $sectionIndex]);
+                
+                // Вставляем заметки
+                if (isset($section['notes']) && is_array($section['notes'])) {
+                    foreach ($section['notes'] as $noteIndex => $note) {
+                        $noteId = $note['id'] ?? generateUUID();
+                        $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$noteId, $sectionId, $note['name'], $note['short_name'] ?? null, $note['description'] ?? null, $noteIndex]);
+                        
+                        // Вставляем источники заметки
+                        if (isset($note['sources']) && is_array($note['sources'])) {
+                            foreach ($note['sources'] as $sourceIndex => $source) {
+                                $sourceId = $source['id'] ?? generateUUID();
+                                $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                                $stmt->execute([$sourceId, $noteId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
+                            }
+                        }
+                        
+                        // Вставляем блоки заметок
+                        if (isset($note['note_blocks']) && is_array($note['note_blocks'])) {
+                            foreach ($note['note_blocks'] as $blockIndex => $noteBlock) {
+                                $noteBlockId = $noteBlock['id'] ?? generateUUID();
+                                $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                $stmt->execute([$noteBlockId, $noteId, $noteBlock['name'], $noteBlock['description'] ?? null, $blockIndex]);
+                                
+                                // Вставляем индикаторы блока заметок
+                                if (isset($noteBlock['indicators']) && is_array($noteBlock['indicators'])) {
+                                    foreach ($noteBlock['indicators'] as $indicatorIndex => $indicator) {
+                                        $indicatorId = $indicator['id'] ?? generateUUID();
+                                        $stmt = $db->prepare("INSERT INTO note_block_indicators (id, note_block_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                        $stmt->execute([$indicatorId, $noteBlockId, $indicator['name'], $indicator['description'] ?? null, $indicatorIndex]);
+                                        
+                                        // Вставляем срезы индикатора блока
+                                        if (isset($indicator['slices']) && is_array($indicator['slices'])) {
+                                            foreach ($indicator['slices'] as $sliceIndex => $slice) {
+                                                $sliceId = $slice['id'] ?? generateUUID();
+                                                $stmt = $db->prepare("INSERT INTO note_block_data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                                $stmt->execute([$sliceId, $indicatorId, $slice['name'], $slice['description'] ?? null, $sliceIndex]);
+                                                
+                                                // Вставляем источники среза блока
+                                                if (isset($slice['sources']) && is_array($slice['sources'])) {
+                                                    foreach ($slice['sources'] as $sourceIndex => $source) {
+                                                        $sourceId = $source['id'] ?? generateUUID();
+                                                        $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                                        $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                                                        $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Вставляем индикаторы заметки
+                        if (isset($note['indicators']) && is_array($note['indicators'])) {
+                            foreach ($note['indicators'] as $indicatorIndex => $indicator) {
+                                $indicatorId = $indicator['id'] ?? generateUUID();
+                                $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                $stmt->execute([$indicatorId, $noteId, $indicator['name'], $indicator['description'] ?? null, $indicatorIndex]);
+                                
+                                // Вставляем срезы индикатора
+                                if (isset($indicator['slices']) && is_array($indicator['slices'])) {
+                                    foreach ($indicator['slices'] as $sliceIndex => $slice) {
+                                        $sliceId = $slice['id'] ?? generateUUID();
+                                        $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                        $stmt->execute([$sliceId, $indicatorId, $slice['name'], $slice['description'] ?? null, $sliceIndex]);
+                                        
+                                        // Вставляем источники среза
+                                        if (isset($slice['sources']) && is_array($slice['sources'])) {
+                                            foreach ($slice['sources'] as $sourceIndex => $source) {
+                                                $sourceId = $source['id'] ?? generateUUID();
+                                                $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                                $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                                                $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        $db->commit();
+        logAction('sync', 'report', $reportId, $report['name']);
+        sendJsonResponse(['success' => true]);
+        
+    } catch (Exception $e) {
+        $db->rollBack();
+        error_log("Error syncing report: " . $e->getMessage());
+        sendJsonError('Sync failed: ' . $e->getMessage(), 500);
+    }
+}
+
+// ============================================================
+// Section Sync handler - синхронизация одного раздела (самая оптимизированная версия)
+// ============================================================
+function handleSectionSync(PDO $db, string $reportId, string $sectionId, array $input): void {
+    if (!isset($input['section'])) {
+        sendJsonError('Section data is required', 400);
+        return;
+    }
+    
+    $section = $input['section'];
+    
+    try {
+        $db->beginTransaction();
+        
+        // Удаляем старый раздел и все связанные данные (каскадное удаление)
+        $db->prepare("DELETE FROM sections WHERE id = ? AND report_id = ?")->execute([$sectionId, $reportId]);
+        
+        // Вставляем новый раздел
+        $stmt = $db->prepare("INSERT INTO sections (id, report_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $section['id'],
+            $reportId,
+            $section['name'],
+            $section['description'] ?? null,
+            $section['sort_order'] ?? 0
+        ]);
+        
+        // Вставляем заметки
+        if (isset($section['notes']) && is_array($section['notes'])) {
+            foreach ($section['notes'] as $noteIndex => $note) {
+                $noteId = $note['id'] ?? generateUUID();
+                $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$noteId, $sectionId, $note['name'], $note['short_name'] ?? null, $note['description'] ?? null, $noteIndex]);
+                
+                // Вставляем источники заметки
+                if (isset($note['sources']) && is_array($note['sources'])) {
+                    foreach ($note['sources'] as $sourceIndex => $source) {
+                        $sourceId = $source['id'] ?? generateUUID();
+                        $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                        $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$sourceId, $noteId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
+                    }
+                }
+                
+                // Вставляем блоки заметок
+                if (isset($note['note_blocks']) && is_array($note['note_blocks'])) {
+                    foreach ($note['note_blocks'] as $blockIndex => $noteBlock) {
+                        $noteBlockId = $noteBlock['id'] ?? generateUUID();
+                        $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                        $stmt->execute([$noteBlockId, $noteId, $noteBlock['name'], $noteBlock['description'] ?? null, $blockIndex]);
+                        
+                        // Вставляем индикаторы блока заметок
+                        if (isset($noteBlock['indicators']) && is_array($noteBlock['indicators'])) {
+                            foreach ($noteBlock['indicators'] as $indicatorIndex => $indicator) {
+                                $indicatorId = $indicator['id'] ?? generateUUID();
+                                $stmt = $db->prepare("INSERT INTO note_block_indicators (id, note_block_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                $stmt->execute([$indicatorId, $noteBlockId, $indicator['name'], $indicator['description'] ?? null, $indicatorIndex]);
+                                
+                                // Вставляем срезы индикатора блока
+                                if (isset($indicator['slices']) && is_array($indicator['slices'])) {
+                                    foreach ($indicator['slices'] as $sliceIndex => $slice) {
+                                        $sliceId = $slice['id'] ?? generateUUID();
+                                        $stmt = $db->prepare("INSERT INTO note_block_data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                        $stmt->execute([$sliceId, $indicatorId, $slice['name'], $slice['description'] ?? null, $sliceIndex]);
+                                        
+                                        // Вставляем источники среза блока
+                                        if (isset($slice['sources']) && is_array($slice['sources'])) {
+                                            foreach ($slice['sources'] as $sourceIndex => $source) {
+                                                $sourceId = $source['id'] ?? generateUUID();
+                                                $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                                $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                                                $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Вставляем индикаторы заметки
+                if (isset($note['indicators']) && is_array($note['indicators'])) {
+                    foreach ($note['indicators'] as $indicatorIndex => $indicator) {
+                        $indicatorId = $indicator['id'] ?? generateUUID();
+                        $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                        $stmt->execute([$indicatorId, $noteId, $indicator['name'], $indicator['description'] ?? null, $indicatorIndex]);
+                        
+                        // Вставляем срезы индикатора
+                        if (isset($indicator['slices']) && is_array($indicator['slices'])) {
+                            foreach ($indicator['slices'] as $sliceIndex => $slice) {
+                                $sliceId = $slice['id'] ?? generateUUID();
+                                $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
+                                $stmt->execute([$sliceId, $indicatorId, $slice['name'], $slice['description'] ?? null, $sliceIndex]);
+                                
+                                // Вставляем источники среза
+                                if (isset($slice['sources']) && is_array($slice['sources'])) {
+                                    foreach ($slice['sources'] as $sourceIndex => $source) {
+                                        $sourceId = $source['id'] ?? generateUUID();
+                                        $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                        $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                                        $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        $db->commit();
+        logAction('sync', 'section', $sectionId, $section['name']);
+        sendJsonResponse(['success' => true]);
+        
+    } catch (Exception $e) {
+        $db->rollBack();
+        error_log("Error syncing section: " . $e->getMessage());
+        sendJsonError('Sync failed: ' . $e->getMessage(), 500);
     }
 }
 
