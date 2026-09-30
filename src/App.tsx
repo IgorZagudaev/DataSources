@@ -42,6 +42,7 @@ function App() {
   const [mergeDuplicates, setMergeDuplicates] = useState(false);
   const [userIP, setUserIP] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Загружаем конфигурацию и данные при старте
@@ -57,15 +58,20 @@ function App() {
       setIsLoading(false);
     });
     
-    // Получаем IP пользователя
-    fetch('/DataSources/api/user-info.php')
-      .then(response => response.json())
-      .then(data => {
-        setUserIP(data.ip || 'unknown');
+    // Получаем IP пользователя и права доступа
+    Promise.all([
+      fetch('/DataSources/api/user-info.php').then(r => r.json()),
+      fetch('/DataSources/api/permissions.php').then(r => r.json())
+    ])
+      .then(([userInfo, permissions]) => {
+        setUserIP(userInfo.ip || 'unknown');
+        setIsAdmin(permissions.is_admin || false);
+        console.log('User permissions:', permissions);
       })
       .catch(error => {
-        console.error('Error fetching user IP:', error);
+        console.error('Error fetching user info:', error);
         setUserIP('error');
+        setIsAdmin(false);
       });
   }, []);
 
@@ -429,41 +435,45 @@ function App() {
 
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-              title="Экспорт данных"
-            >
-              <span>⬇</span>
-              <span className="hidden sm:inline">Экспорт</span>
-            </button>
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-              title="Импорт данных"
-            >
-              <span>⬆</span>
-              <span className="hidden sm:inline">Импорт</span>
-            </button>
-            <button
-              onClick={handleReset}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
-              title="Сбросить данные"
-            >
-              <span>↻</span>
-              <span className="hidden sm:inline">Сброс</span>
-            </button>
+            {isAdmin && (
+              <>
+                <button
+                  onClick={handleExport}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  title="Экспорт данных"
+                >
+                  <span>⬇</span>
+                  <span className="hidden sm:inline">Экспорт</span>
+                </button>
+                <button
+                  onClick={() => setShowImportModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  title="Импорт данных"
+                >
+                  <span>⬆</span>
+                  <span className="hidden sm:inline">Импорт</span>
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                  title="Сбросить данные"
+                >
+                  <span>↻</span>
+                  <span className="hidden sm:inline">Сброс</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
 
       {/* Loading Indicator */}
       {isLoading && (
-        <div className="fixed top-0 left-0 w-full h-full flex items-center justify-center" style={{ backgroundColor: 'transparent', zIndex: 9999 }}>
-          <div className="bg-gray-900 rounded-xl p-10 shadow-2xl flex flex-col items-center max-w-md mx-4 border-2 border-gray-600">
-            <div className="animate-spin rounded-full h-20 w-20 border-b-4 border-blue-400 mb-6"></div>
-            <p className="text-2xl font-bold mb-3" style={{ color: '#ffffff' }}>Загрузка данных</p>
-            <p className="text-base text-center" style={{ color: '#e5e7eb' }}>Пожалуйста, подождите пока данные загружаются из базы данных...</p>
+        <div className="fixed top-0 left-0 w-full h-full flex items-center justify-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', zIndex: 9999 }}>
+          <div className="bg-white rounded-xl p-10 shadow-2xl flex flex-col items-center max-w-md mx-4 border-2 border-gray-300">
+            <div className="animate-spin rounded-full h-20 w-20 border-b-4 border-blue-600 mb-6"></div>
+            <p className="text-2xl font-bold mb-3" style={{ color: '#000000' }}>Загрузка данных</p>
+            <p className="text-base text-center" style={{ color: '#374151' }}>Пожалуйста, подождите пока данные загружаются из базы данных...</p>
           </div>
         </div>
       )}
@@ -477,6 +487,7 @@ function App() {
             selectedId={selectedId}
             editingId={formState?.editData?.id || null}
             actionId={actionId}
+            isAdmin={isAdmin}
             onSelect={handleSelect}
             onAdd={handleAdd}
             onEdit={handleEdit}
@@ -739,6 +750,16 @@ function App() {
             {userIP && (
               <span className="text-gray-600">
                 IP: <span className="font-mono font-semibold">{userIP}</span>
+                {isAdmin && (
+                  <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 rounded text-xs font-medium">
+                    Администратор
+                  </span>
+                )}
+                {!isAdmin && (
+                  <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">
+                    Только просмотр
+                  </span>
+                )}
               </span>
             )}
             <span>Докладов: {reports.length} | Разделов: {reports.reduce((sum, r) => sum + r.sections.length, 0)}</span>

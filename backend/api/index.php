@@ -50,6 +50,9 @@ header('Access-Control-Allow-Headers: Content-Type');
 // Подключаем систему логирования
 require_once __DIR__ . '/action_logger.php';
 
+// Подключаем систему контроля доступа
+require_once __DIR__ . '/access_control.php';
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
@@ -111,6 +114,12 @@ $input = json_decode(file_get_contents('php://input'), true);
 $db = Database::getConnection();
 
 try {
+    // Проверка прав доступа для административных операций
+    // GET запросы разрешены всем, POST/PUT/DELETE требуют прав администратора
+    if ($method !== 'GET' && $resource !== 'permissions') {
+        requireAdmin();
+    }
+    
     switch ($resource) {
         case 'reports':
             handleReports($db, $method, $id, $input);
@@ -135,6 +144,14 @@ try {
             break;
         case 'sources':
             handleSources($db, $method, $id, $input);
+            break;
+        case 'permissions':
+            if ($method === 'GET') {
+                echo json_encode(getUserPermissions());
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
             break;
         case 'import':
             if ($method === 'POST') {

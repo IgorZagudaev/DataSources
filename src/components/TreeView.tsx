@@ -6,6 +6,7 @@ interface TreeViewProps {
   selectedId: string | null;
   editingId?: string | null;
   actionId?: string | null;
+  isAdmin?: boolean;
   onSelect: (id: string, type: string) => void;
   onAdd: (type: string, parentIds: string[]) => void;
   onEdit: (type: string, parentIds: string[], data: any) => void;
@@ -14,7 +15,7 @@ interface TreeViewProps {
   onMoveDown: (type: string, id: string, parentIds: string[]) => void;
 }
 
-export function TreeView({ reports, selectedId, editingId, actionId, onSelect, onAdd, onEdit, onDelete, onMoveUp, onMoveDown }: TreeViewProps) {
+export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = false, onSelect, onAdd, onEdit, onDelete, onMoveUp, onMoveDown }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
   const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('');
   const [isAllExpanded, setIsAllExpanded] = useState<boolean>(false);
@@ -285,6 +286,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, onSelect, o
             isSelected={selectedId === report.id}
             isEditing={editingId === report.id}
             isAction={actionId === report.id}
+            isAdmin={isAdmin}
             onToggle={() => toggleExpand(report.id)}
             onSelect={() => handleSelect(report.id, 'report')}
             onAddChild={() => handleAdd('section', [report.id])}
@@ -306,9 +308,9 @@ export function TreeView({ reports, selectedId, editingId, actionId, onSelect, o
                 isExpanded={expandedNodes.has(section.id)}
                 isSelected={selectedId === section.id}
                 isEditing={editingId === section.id}
-                isAction={actionId === section.id}
-                onToggle={() => toggleExpand(section.id)}
-                onSelect={() => handleSelect(section.id, 'section')}
+            isAction={actionId === section.id}
+            isAdmin={isAdmin}
+            onToggle={() => toggleExpand(section.id)}                onSelect={() => handleSelect(section.id, 'section')}
                 onAddChild={() => handleAdd('note', [report.id, section.id])}
                 onEdit={() => handleEdit('section', [report.id], section)}
                 onDelete={() => handleDelete(section.id, 'section', [report.id])}
@@ -329,6 +331,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, onSelect, o
                     isSelected={selectedId === note.id}
                     isEditing={editingId === note.id}
                     isAction={actionId === note.id}
+                    isAdmin={isAdmin}
                     onToggle={() => toggleExpand(note.id)}
                     onSelect={() => handleSelect(note.id, 'note')}
                     onAddChild={() => {}}
@@ -356,6 +359,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, onSelect, o
                         isSelected={selectedId === noteBlock.id}
                         isEditing={editingId === noteBlock.id}
                         isAction={actionId === noteBlock.id}
+                        isAdmin={isAdmin}
                         onToggle={() => toggleExpand(noteBlock.id)}
                         onSelect={() => handleSelect(noteBlock.id, 'noteBlock')}
                         onEdit={() => handleEdit('noteBlock', [report.id, section.id, note.id], noteBlock)}
@@ -379,6 +383,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, onSelect, o
                             isSelected={selectedId === indicator.id}
                             isEditing={editingId === indicator.id}
                             isAction={actionId === indicator.id}
+                            isAdmin={isAdmin}
                             onToggle={() => toggleExpand(indicator.id)}
                             onSelect={() => handleSelect(indicator.id, 'noteBlockIndicator')}
                             onAddChild={() => handleAdd('noteBlockSlice', [report.id, section.id, note.id, noteBlock.id, indicator.id])}
@@ -401,6 +406,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, onSelect, o
                                 isSelected={selectedId === slice.id}
                                 isEditing={editingId === slice.id}
                                 isAction={actionId === slice.id}
+                                isAdmin={isAdmin}
                                 onToggle={() => toggleExpand(slice.id)}
                                 onSelect={() => handleSelect(slice.id, 'noteBlockSlice')}
                                 onAddChild={() => handleAdd('noteBlockSliceSource', [report.id, section.id, note.id, noteBlock.id, indicator.id, slice.id])}
@@ -423,6 +429,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, onSelect, o
                                     isSelected={selectedId === source.id}
                                     isEditing={editingId === source.id}
                                     isAction={actionId === source.id}
+                                    isAdmin={isAdmin}
                                     isHighlighted={hasSourceType(source)}
                                     onToggle={() => {}}
                                     onSelect={() => handleSelect(source.id, 'noteBlockSliceSource')}
@@ -453,6 +460,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, onSelect, o
                         isSelected={selectedId === indicator.id}
                         isEditing={editingId === indicator.id}
                         isAction={actionId === indicator.id}
+                        isAdmin={isAdmin}
                         onToggle={() => toggleExpand(indicator.id)}
                         onSelect={() => handleSelect(indicator.id, 'indicator')}
                         onAddChild={() => handleAdd('slice', [report.id, section.id, note.id, indicator.id])}
@@ -475,6 +483,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, onSelect, o
                             isSelected={selectedId === slice.id}
                             isEditing={editingId === slice.id}
                             isAction={actionId === slice.id}
+                            isAdmin={isAdmin}
                             onToggle={() => toggleExpand(slice.id)}
                             onSelect={() => handleSelect(slice.id, 'slice')}
                             onAddChild={() => handleAdd('source', [report.id, section.id, note.id, indicator.id, slice.id])}
@@ -497,6 +506,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, onSelect, o
                                 isSelected={selectedId === source.id}
                                 isEditing={editingId === source.id}
                                 isAction={actionId === source.id}
+                                isAdmin={isAdmin}
                                 isHighlighted={hasSourceType(source)}
                                 onToggle={() => {}}
                                 onSelect={() => handleSelect(source.id, 'source')}
@@ -525,6 +535,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, onSelect, o
                         isSelected={selectedId === source.id}
                         isEditing={editingId === source.id}
                         isAction={actionId === source.id}
+                        isAdmin={isAdmin}
                         isHighlighted={hasSourceType(source)}
                         onToggle={() => {}}
                         onSelect={() => handleSelect(source.id, 'noteSource')}
@@ -556,6 +567,7 @@ interface TreeNodeItemProps {
   isSelected: boolean;
   isEditing?: boolean;
   isAction?: boolean;
+  isAdmin?: boolean;
   onToggle: () => void;
   onSelect: () => void;
   onAddChild: () => void;
@@ -585,7 +597,7 @@ function getTypeLabel(type: string): string {
 }
 
 function TreeNodeItem({
-  id, name, type, level, icon, isExpanded, isSelected, isEditing = false, isAction = false, index = 0,
+  id, name, type, level, icon, isExpanded, isSelected, isEditing = false, isAction = false, isAdmin = false, index = 0,
   onToggle, onSelect, onAddChild, onEdit, onDelete, onMoveUp, onMoveDown,
   children, childLabel, childLabels, isHighlighted = false
 }: TreeNodeItemProps) {
@@ -679,61 +691,63 @@ function TreeNodeItem({
           {name}
         </span>
 
-        {/* Actions - always visible */}
-        <div className={`flex items-center gap-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}>
-          {childLabels ? (
-            childLabels.map((item, idx) => (
+        {/* Actions - visible only for admins */}
+        {isAdmin && (
+          <div className={`flex items-center gap-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}>
+            {childLabels ? (
+              childLabels.map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={(e) => { e.stopPropagation(); item.action(); }}
+                  className="px-2 py-1 text-green-600 hover:bg-green-100 rounded transition-colors text-xs font-medium border border-green-300"
+                  title={item.label}
+                >
+                  + {item.label}
+                </button>
+              ))
+            ) : childLabel ? (
               <button
-                key={idx}
-                onClick={(e) => { e.stopPropagation(); item.action(); }}
-                className="px-2 py-1 text-green-600 hover:bg-green-100 rounded transition-colors text-xs font-medium border border-green-300"
-                title={item.label}
+                onClick={(e) => { e.stopPropagation(); onAddChild(); }}
+                className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors text-sm font-bold"
+                title={childLabel}
               >
-                + {item.label}
+                +
               </button>
-            ))
-          ) : childLabel ? (
+            ) : null}
+            {onMoveUp && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+                className="p-1.5 text-purple-600 hover:bg-purple-100 rounded transition-colors text-sm"
+                title="Переместить вверх"
+              >
+                ↑
+              </button>
+            )}
+            {onMoveDown && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+                className="p-1.5 text-purple-600 hover:bg-purple-100 rounded transition-colors text-sm"
+                title="Переместить вниз"
+              >
+                ↓
+              </button>
+            )}
             <button
-              onClick={(e) => { e.stopPropagation(); onAddChild(); }}
-              className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors text-sm font-bold"
-              title={childLabel}
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors text-sm"
+              title="Редактировать"
             >
-              +
+              ✎
             </button>
-          ) : null}
-          {onMoveUp && (
             <button
-              onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
-              className="p-1.5 text-purple-600 hover:bg-purple-100 rounded transition-colors text-sm"
-              title="Переместить вверх"
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors text-sm"
+              title="Удалить"
             >
-              ↑
+              ✕
             </button>
-          )}
-          {onMoveDown && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
-              className="p-1.5 text-purple-600 hover:bg-purple-100 rounded transition-colors text-sm"
-              title="Переместить вниз"
-            >
-              ↓
-            </button>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors text-sm"
-            title="Редактировать"
-          >
-            ✎
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors text-sm"
-            title="Удалить"
-          >
-            ✕
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Children */}

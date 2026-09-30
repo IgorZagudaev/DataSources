@@ -7,6 +7,7 @@ RewriteEngine On
 # API routes - proxy to PHP
 # Специальные маршруты для отдельных PHP файлов
 RewriteRule ^api/user-info.php$ api/user-info.php [QSA,L]
+RewriteRule ^api/permissions.php$ api/permissions.php [QSA,L]
 
 # Все остальные API запросы - в index.php
 RewriteRule ^api/(.*)$ api/index.php [QSA,L]
