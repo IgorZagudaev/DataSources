@@ -225,3 +225,11 @@ export async function importAllReports(reports: any[]) {
   console.log('Import result:', result);
   return result;
 }
+
+// Sync single report (optimized)
+export async function syncReport(report: any) {
+  console.log('Syncing single report:', report.id, report.name);
+  const result = await apiRequest(`/report/${report.id}/sync`, 'POST', { report });
+  console.log('Sync result:', result);
+  return result;
+}
