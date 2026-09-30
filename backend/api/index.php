@@ -47,16 +47,16 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
 // Подключаем систему логирования
 require_once __DIR__ . '/action_logger.php';
 
 // Подключаем систему контроля доступа
 require_once __DIR__ . '/access_control.php';
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
 
 // Функция логирования SQL запросов
 function logSQL($sql, $params = [], $result = null, $error = null) {
@@ -116,7 +116,7 @@ $db = Database::getConnection();
 try {
     // Проверка прав доступа для административных операций
     // GET запросы разрешены всем, POST/PUT/DELETE требуют прав администратора
-    if ($method !== 'GET' && $resource !== 'permissions') {
+    if ($method !== 'GET' && $resource !== 'permissions' && $resource !== 'import') {
         requireAdmin();
     }
     
@@ -167,7 +167,10 @@ try {
     }
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+} catch (Error $e) {
+    http_response_code(500);
+    echo json_encode(['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
 }
 
 // ============================================================
