@@ -1005,7 +1005,29 @@ function handleReportSync(PDO $db, string $reportId, array $input): void {
     try {
         $db->beginTransaction();
         
-        // Удаляем старый доклад и все связанные данные (каскадное удаление)
+        // Удаляем все связанные данные вручную (в правильном порядке)
+        // Сначала удаляем источники
+        $db->prepare("DELETE FROM data_sources WHERE slice_id IN (SELECT ds.id FROM data_slices ds JOIN indicators i ON ds.indicator_id = i.id JOIN notes n ON i.note_id = n.id JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
+        $db->prepare("DELETE FROM note_sources WHERE note_id IN (SELECT n.id FROM notes n JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
+        
+        // Удаляем срезы
+        $db->prepare("DELETE FROM data_slices WHERE indicator_id IN (SELECT i.id FROM indicators i JOIN notes n ON i.note_id = n.id JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
+        $db->prepare("DELETE FROM note_block_data_slices WHERE indicator_id IN (SELECT nbi.id FROM note_block_indicators nbi JOIN note_blocks nb ON nbi.note_block_id = nb.id JOIN notes n ON nb.note_id = n.id JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
+        
+        // Удаляем показатели
+        $db->prepare("DELETE FROM indicators WHERE note_id IN (SELECT n.id FROM notes n JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
+        $db->prepare("DELETE FROM note_block_indicators WHERE note_block_id IN (SELECT nb.id FROM note_blocks nb JOIN notes n ON nb.note_id = n.id JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
+        
+        // Удаляем блоки заметок
+        $db->prepare("DELETE FROM note_blocks WHERE note_id IN (SELECT n.id FROM notes n JOIN sections s ON n.section_id = s.id WHERE s.report_id = ?)")->execute([$reportId]);
+        
+        // Удаляем заметки
+        $db->prepare("DELETE FROM notes WHERE section_id IN (SELECT id FROM sections WHERE report_id = ?)")->execute([$reportId]);
+        
+        // Удаляем разделы
+        $db->prepare("DELETE FROM sections WHERE report_id = ?")->execute([$reportId]);
+        
+        // Удаляем доклад
         $db->prepare("DELETE FROM reports WHERE id = ?")->execute([$reportId]);
         
         // Вставляем новый доклад
@@ -1014,7 +1036,7 @@ function handleReportSync(PDO $db, string $reportId, array $input): void {
             $report['id'],
             $report['name'],
             $report['description'] ?? null,
-            $report['sort_order'] ?? 0
+            $report['sort_order'] ?? $report['sortOrder'] ?? 0
         ]);
         
         // Вставляем разделы
@@ -1035,15 +1057,16 @@ function handleReportSync(PDO $db, string $reportId, array $input): void {
                         if (isset($note['sources']) && is_array($note['sources'])) {
                             foreach ($note['sources'] as $sourceIndex => $source) {
                                 $sourceId = $source['id'] ?? generateUUID();
-                                $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : (isset($source['sourceTypes']) ? json_encode($source['sourceTypes']) : null);
                                 $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
                                 $stmt->execute([$sourceId, $noteId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
                             }
                         }
                         
-                        // Вставляем блоки заметок
-                        if (isset($note['note_blocks']) && is_array($note['note_blocks'])) {
-                            foreach ($note['note_blocks'] as $blockIndex => $noteBlock) {
+                        // Вставляем блоки заметок (поддержка обоих форматов: noteBlocks и note_blocks)
+                        $noteBlocks = $note['noteBlocks'] ?? $note['note_blocks'] ?? [];
+                        if (is_array($noteBlocks) && !empty($noteBlocks)) {
+                            foreach ($noteBlocks as $blockIndex => $noteBlock) {
                                 $noteBlockId = $noteBlock['id'] ?? generateUUID();
                                 $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
                                 $stmt->execute([$noteBlockId, $noteId, $noteBlock['name'], $noteBlock['description'] ?? null, $blockIndex]);
@@ -1066,7 +1089,7 @@ function handleReportSync(PDO $db, string $reportId, array $input): void {
                                                 if (isset($slice['sources']) && is_array($slice['sources'])) {
                                                     foreach ($slice['sources'] as $sourceIndex => $source) {
                                                         $sourceId = $source['id'] ?? generateUUID();
-                                                        $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                                        $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : (isset($source['sourceTypes']) ? json_encode($source['sourceTypes']) : null);
                                                         $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
                                                         $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
                                                     }
@@ -1092,16 +1115,15 @@ function handleReportSync(PDO $db, string $reportId, array $input): void {
                                         $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
                                         $stmt->execute([$sliceId, $indicatorId, $slice['name'], $slice['description'] ?? null, $sliceIndex]);
                                         
-                                        // Вставляем источники среза
-                                        if (isset($slice['sources']) && is_array($slice['sources'])) {
-                                            foreach ($slice['sources'] as $sourceIndex => $source) {
-                                                $sourceId = $source['id'] ?? generateUUID();
-                                                $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
-                                                $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
-                                                $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
-                                            }
-                                        }
+                                // Вставляем источники среза
+                                if (isset($slice['sources']) && is_array($slice['sources'])) {
+                                    foreach ($slice['sources'] as $sourceIndex => $source) {
+                                        $sourceId = $source['id'] ?? generateUUID();
+                                        $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : (isset($source['sourceTypes']) ? json_encode($source['sourceTypes']) : null);
+                                        $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                                        $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
                                     }
+                                }                                    }
                                 }
                             }
                         }
@@ -1115,8 +1137,11 @@ function handleReportSync(PDO $db, string $reportId, array $input): void {
         sendJsonResponse(['success' => true]);
         
     } catch (Exception $e) {
-        $db->rollBack();
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
         error_log("Error syncing report: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
         sendJsonError('Sync failed: ' . $e->getMessage(), 500);
     }
 }
@@ -1135,7 +1160,26 @@ function handleSectionSync(PDO $db, string $reportId, string $sectionId, array $
     try {
         $db->beginTransaction();
         
-        // Удаляем старый раздел и все связанные данные (каскадное удаление)
+        // Удаляем все связанные данные вручную (в правильном порядке)
+        // Сначала удаляем источники
+        $db->prepare("DELETE FROM data_sources WHERE slice_id IN (SELECT ds.id FROM data_slices ds JOIN indicators i ON ds.indicator_id = i.id JOIN notes n ON i.note_id = n.id WHERE n.section_id = ?)")->execute([$sectionId]);
+        $db->prepare("DELETE FROM note_sources WHERE note_id IN (SELECT id FROM notes WHERE section_id = ?)")->execute([$sectionId]);
+        
+        // Удаляем срезы
+        $db->prepare("DELETE FROM data_slices WHERE indicator_id IN (SELECT i.id FROM indicators i JOIN notes n ON i.note_id = n.id WHERE n.section_id = ?)")->execute([$sectionId]);
+        $db->prepare("DELETE FROM note_block_data_slices WHERE indicator_id IN (SELECT nbi.id FROM note_block_indicators nbi JOIN note_blocks nb ON nbi.note_block_id = nb.id JOIN notes n ON nb.note_id = n.id WHERE n.section_id = ?)")->execute([$sectionId]);
+        
+        // Удаляем показатели
+        $db->prepare("DELETE FROM indicators WHERE note_id IN (SELECT id FROM notes WHERE section_id = ?)")->execute([$sectionId]);
+        $db->prepare("DELETE FROM note_block_indicators WHERE note_block_id IN (SELECT nb.id FROM note_blocks nb JOIN notes n ON nb.note_id = n.id WHERE n.section_id = ?)")->execute([$sectionId]);
+        
+        // Удаляем блоки заметок
+        $db->prepare("DELETE FROM note_blocks WHERE note_id IN (SELECT id FROM notes WHERE section_id = ?)")->execute([$sectionId]);
+        
+        // Удаляем заметки
+        $db->prepare("DELETE FROM notes WHERE section_id = ?")->execute([$sectionId]);
+        
+        // Удаляем раздел
         $db->prepare("DELETE FROM sections WHERE id = ? AND report_id = ?")->execute([$sectionId, $reportId]);
         
         // Вставляем новый раздел
@@ -1145,7 +1189,7 @@ function handleSectionSync(PDO $db, string $reportId, string $sectionId, array $
             $reportId,
             $section['name'],
             $section['description'] ?? null,
-            $section['sort_order'] ?? 0
+            $section['sort_order'] ?? $section['sortOrder'] ?? 0
         ]);
         
         // Вставляем заметки
@@ -1159,15 +1203,16 @@ function handleSectionSync(PDO $db, string $reportId, string $sectionId, array $
                 if (isset($note['sources']) && is_array($note['sources'])) {
                     foreach ($note['sources'] as $sourceIndex => $source) {
                         $sourceId = $source['id'] ?? generateUUID();
-                        $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                        $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : (isset($source['sourceTypes']) ? json_encode($source['sourceTypes']) : null);
                         $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
                         $stmt->execute([$sourceId, $noteId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
                     }
                 }
                 
-                // Вставляем блоки заметок
-                if (isset($note['note_blocks']) && is_array($note['note_blocks'])) {
-                    foreach ($note['note_blocks'] as $blockIndex => $noteBlock) {
+                // Вставляем блоки заметок (поддержка обоих форматов: noteBlocks и note_blocks)
+                $noteBlocks = $note['noteBlocks'] ?? $note['note_blocks'] ?? [];
+                if (is_array($noteBlocks) && !empty($noteBlocks)) {
+                    foreach ($noteBlocks as $blockIndex => $noteBlock) {
                         $noteBlockId = $noteBlock['id'] ?? generateUUID();
                         $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
                         $stmt->execute([$noteBlockId, $noteId, $noteBlock['name'], $noteBlock['description'] ?? null, $blockIndex]);
@@ -1190,7 +1235,7 @@ function handleSectionSync(PDO $db, string $reportId, string $sectionId, array $
                                         if (isset($slice['sources']) && is_array($slice['sources'])) {
                                             foreach ($slice['sources'] as $sourceIndex => $source) {
                                                 $sourceId = $source['id'] ?? generateUUID();
-                                                $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                                $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : (isset($source['sourceTypes']) ? json_encode($source['sourceTypes']) : null);
                                                 $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
                                                 $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
                                             }
@@ -1220,7 +1265,7 @@ function handleSectionSync(PDO $db, string $reportId, string $sectionId, array $
                                 if (isset($slice['sources']) && is_array($slice['sources'])) {
                                     foreach ($slice['sources'] as $sourceIndex => $source) {
                                         $sourceId = $source['id'] ?? generateUUID();
-                                        $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
+                                        $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : (isset($source['sourceTypes']) ? json_encode($source['sourceTypes']) : null);
                                         $stmt = $db->prepare("INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
                                         $stmt->execute([$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex]);
                                     }
@@ -1237,8 +1282,11 @@ function handleSectionSync(PDO $db, string $reportId, string $sectionId, array $
         sendJsonResponse(['success' => true]);
         
     } catch (Exception $e) {
-        $db->rollBack();
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
         error_log("Error syncing section: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
         sendJsonError('Sync failed: ' . $e->getMessage(), 500);
     }
 }
