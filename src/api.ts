@@ -233,3 +233,11 @@ export async function syncReport(report: any) {
   console.log('Sync result:', result);
   return result;
 }
+
+// Sync single section (more optimized)
+export async function syncSection(reportId: string, section: any) {
+  console.log('Syncing single section:', section.id, section.name, 'in report:', reportId);
+  const result = await apiRequest(`/report/${reportId}/section/${section.id}/sync`, 'POST', { section });
+  console.log('Sync section result:', result);
+  return result;
+}
