@@ -42,7 +42,8 @@ export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = f
     if (!editingId || !treeContainerRef.current) return;
 
     // Увеличенная задержка для завершения анимации появления второй панели
-    setTimeout(() => {
+    // и установки editingId
+    const centerElement = () => {
       const editingElement = treeContainerRef.current?.querySelector(`[data-node-id="${editingId}"]`);
       if (editingElement) {
         editingElement.scrollIntoView({
@@ -50,7 +51,18 @@ export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = f
           block: 'center'
         });
       }
-    }, 400);
+    };
+
+    // Первая попытка центрирования через 400мс
+    const timeout1 = setTimeout(centerElement, 400);
+    
+    // Повторная попытка через 600мс на случай, если первая не сработала
+    const timeout2 = setTimeout(centerElement, 600);
+
+    return () => {
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
+    };
   }, [editingId]);
 
   // Автоматическое раскрытие узлов при выборе типа источника
