@@ -308,9 +308,10 @@ export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = f
                 isExpanded={expandedNodes.has(section.id)}
                 isSelected={selectedId === section.id}
                 isEditing={editingId === section.id}
-            isAction={actionId === section.id}
-            isAdmin={isAdmin}
-            onToggle={() => toggleExpand(section.id)}                onSelect={() => handleSelect(section.id, 'section')}
+                isAction={actionId === section.id}
+                isAdmin={isAdmin}
+                onToggle={() => toggleExpand(section.id)}
+                onSelect={() => handleSelect(section.id, 'section')}
                 onAddChild={() => handleAdd('note', [report.id, section.id])}
                 onEdit={() => handleEdit('section', [report.id], section)}
                 onDelete={() => handleDelete(section.id, 'section', [report.id])}
