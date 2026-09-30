@@ -21,6 +21,7 @@ export interface DataSource {
   description?: string;
   sourceTypes?: SourceType[]; // Типы источника (множественный выбор)
   sliceId: string;
+  sortOrder?: number;
 }
 
 export interface DataSlice {
@@ -28,6 +29,7 @@ export interface DataSlice {
   name: string; // Разрез данных (Уровень 5)
   description?: string;
   indicatorId: string;
+  sortOrder?: number;
   sources: DataSource[];
 }
 
@@ -36,6 +38,7 @@ export interface Indicator {
   name: string; // Название показателя (Уровень 4)
   description?: string;
   noteId: string;
+  sortOrder?: number;
   slices: DataSlice[];
 }
 
@@ -44,6 +47,7 @@ export interface NoteBlock {
   name: string; // Название блока справки (Уровень 4 - необязательный)
   description?: string;
   noteId: string;
+  sortOrder?: number;
   indicators: Indicator[];
 }
 
@@ -53,6 +57,7 @@ export interface Note {
   shortName?: string; // Краткое название для отображения в списке
   description?: string;
   sectionId: string;
+  sortOrder?: number;
   noteBlocks: NoteBlock[]; // Блоки справки (необязательный уровень)
   indicators: Indicator[];
   sources: DataSource[]; // Прямые источники (альтернативная ветка)
@@ -63,6 +68,7 @@ export interface Section {
   name: string; // Название раздела доклада (Уровень 2)
   description?: string;
   reportId: string;
+  sortOrder?: number;
   notes: Note[];
 }
 
@@ -70,6 +76,7 @@ export interface Report {
   id: string;
   name: string; // Название доклада (Уровень 1)
   description?: string;
+  sortOrder?: number;
   sections: Section[];
 }
 

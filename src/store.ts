@@ -484,7 +484,8 @@ export function getReport(id: string): Report | undefined {
 
 // Report CRUD (Уровень 1)
 export function addReport(name: string, description?: string): Report {
-  const report: Report = { id: generateId(), name, description, sections: [] };
+  const maxSortOrder = Math.max(-1, ...reports.map(r => r.sortOrder ?? -1));
+  const report: Report = { id: generateId(), name, description, sortOrder: maxSortOrder + 1, sections: [] };
   reports = [...reports, report];
   notify();
   return report;
@@ -524,7 +525,9 @@ export function deleteReport(id: string) {
 
 // Section CRUD (Уровень 2)
 export function addSection(reportId: string, name: string, description?: string): Section {
-  const section: Section = { id: generateId(), name, description, reportId, notes: [] };
+  const report = reports.find(r => r.id === reportId);
+  const maxSortOrder = report ? Math.max(-1, ...report.sections.map(s => s.sortOrder ?? -1)) : -1;
+  const section: Section = { id: generateId(), name, description, reportId, sortOrder: maxSortOrder + 1, notes: [] };
   reports = reports.map(r => r.id === reportId ? { ...r, sections: [...r.sections, section] } : r);
   notify();
   return section;
@@ -588,7 +591,10 @@ export function moveSectionDown(reportId: string, sectionId: string) {
 
 // Note CRUD (Уровень 3)
 export function addNote(reportId: string, sectionId: string, name: string, description?: string, shortName?: string): Note {
-  const note: Note = { id: generateId(), name, shortName, description, sectionId, noteBlocks: [], indicators: [], sources: [] };
+  const report = reports.find(r => r.id === reportId);
+  const section = report?.sections.find(s => s.id === sectionId);
+  const maxSortOrder = section ? Math.max(-1, ...section.notes.map(n => n.sortOrder ?? -1)) : -1;
+  const note: Note = { id: generateId(), name, shortName, description, sectionId, sortOrder: maxSortOrder + 1, noteBlocks: [], indicators: [], sources: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? { ...s, notes: [...s.notes, note] } : s)
@@ -671,7 +677,11 @@ export function moveNoteDown(reportId: string, sectionId: string, noteId: string
 
 // NoteBlock CRUD (Уровень 4 - необязательный)
 export function addNoteBlock(reportId: string, sectionId: string, noteId: string, name: string, description?: string): NoteBlock {
-  const noteBlock: NoteBlock = { id: generateId(), name, description, noteId, indicators: [] };
+  const report = reports.find(r => r.id === reportId);
+  const section = report?.sections.find(s => s.id === sectionId);
+  const note = section?.notes.find(n => n.id === noteId);
+  const maxSortOrder = note ? Math.max(-1, ...note.noteBlocks.map(nb => nb.sortOrder ?? -1)) : -1;
+  const noteBlock: NoteBlock = { id: generateId(), name, description, noteId, sortOrder: maxSortOrder + 1, indicators: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
@@ -779,7 +789,12 @@ export function moveNoteBlockDown(reportId: string, sectionId: string, noteId: s
 
 // NoteBlock Indicator CRUD (Показатели в блоке справки)
 export function addNoteBlockIndicator(reportId: string, sectionId: string, noteId: string, noteBlockId: string, name: string, description?: string): Indicator {
-  const indicator: Indicator = { id: generateId(), name, description, noteId, slices: [] };
+  const report = reports.find(r => r.id === reportId);
+  const section = report?.sections.find(s => s.id === sectionId);
+  const note = section?.notes.find(n => n.id === noteId);
+  const noteBlock = note?.noteBlocks.find(nb => nb.id === noteBlockId);
+  const maxSortOrder = noteBlock ? Math.max(-1, ...noteBlock.indicators.map(i => i.sortOrder ?? -1)) : -1;
+  const indicator: Indicator = { id: generateId(), name, description, noteId, sortOrder: maxSortOrder + 1, slices: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
@@ -908,7 +923,13 @@ export function moveNoteBlockIndicatorDown(reportId: string, sectionId: string, 
 
 // NoteBlock Slice CRUD (Разрезы в показателях блока справки)
 export function addNoteBlockSlice(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, name: string, description?: string): DataSlice {
-  const slice: DataSlice = { id: generateId(), name, description, indicatorId, sources: [] };
+  const report = reports.find(r => r.id === reportId);
+  const section = report?.sections.find(s => s.id === sectionId);
+  const note = section?.notes.find(n => n.id === noteId);
+  const noteBlock = note?.noteBlocks.find(nb => nb.id === noteBlockId);
+  const indicator = noteBlock?.indicators.find(i => i.id === indicatorId);
+  const maxSortOrder = indicator ? Math.max(-1, ...indicator.slices.map(s => s.sortOrder ?? -1)) : -1;
+  const slice: DataSlice = { id: generateId(), name, description, indicatorId, sortOrder: maxSortOrder + 1, sources: [] };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
@@ -1062,7 +1083,14 @@ export function moveNoteBlockSliceDown(reportId: string, sectionId: string, note
 
 // NoteBlock Source CRUD (Источники в разрезах блока справки)
 export function addNoteBlockSource(reportId: string, sectionId: string, noteId: string, noteBlockId: string, indicatorId: string, sliceId: string, name: string, description?: string, sourceTypes?: SourceType[]): DataSource {
-  const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId };
+  const report = reports.find(r => r.id === reportId);
+  const section = report?.sections.find(s => s.id === sectionId);
+  const note = section?.notes.find(n => n.id === noteId);
+  const noteBlock = note?.noteBlocks.find(nb => nb.id === noteBlockId);
+  const indicator = noteBlock?.indicators.find(i => i.id === indicatorId);
+  const slice = indicator?.slices.find(sl => sl.id === sliceId);
+  const maxSortOrder = slice ? Math.max(-1, ...slice.sources.map(src => src.sortOrder ?? -1)) : -1;
+  const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId, sortOrder: maxSortOrder + 1 };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
@@ -1243,7 +1271,11 @@ export function moveNoteBlockSourceDown(reportId: string, sectionId: string, not
 
 // Note Source CRUD (Уровень 6 - напрямую в справке)
 export function addNoteSource(reportId: string, sectionId: string, noteId: string, name: string, description?: string, sourceTypes?: SourceType[]): DataSource {
-  const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId: noteId };
+  const report = reports.find(r => r.id === reportId);
+  const section = report?.sections.find(s => s.id === sectionId);
+  const note = section?.notes.find(n => n.id === noteId);
+  const maxSortOrder = note ? Math.max(-1, ...note.sources.map(src => src.sortOrder ?? -1)) : -1;
+  const source: DataSource = { id: generateId(), name, description, sourceTypes, sliceId: noteId, sortOrder: maxSortOrder + 1 };
   reports = reports.map(r => r.id === reportId ? {
     ...r,
     sections: r.sections.map(s => s.id === sectionId ? {
