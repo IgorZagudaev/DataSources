@@ -42,21 +42,43 @@
  * DELETE /api/sources/{id}         - Удалить источник
  */
 
+// Буферизация вывода для предотвращения вывода HTML ошибок
+ob_start();
+
+// Отключаем отображение ошибок в выводе (они будут в логах)
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
+// Устанавливаем заголовки ДО любого вывода
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    ob_end_clean();
+    http_response_code(200);
+    exit;
+}
+
+// Функция для отправки JSON ответа
+function sendJsonResponse($data, $statusCode = 200) {
+    ob_end_clean(); // Очищаем буфер
+    http_response_code($statusCode);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+// Функция для отправки ошибки
+function sendJsonError($message, $statusCode = 500) {
+    sendJsonResponse(['error' => $message], $statusCode);
+}
 
 // Подключаем систему логирования
 require_once __DIR__ . '/action_logger.php';
 
 // Подключаем систему контроля доступа
 require_once __DIR__ . '/access_control.php';
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
 
 // Функция логирования SQL запросов
 function logSQL($sql, $params = [], $result = null, $error = null) {
@@ -111,12 +133,13 @@ $id = $segments[1] ?? null;
 // Get JSON body
 $input = json_decode(file_get_contents('php://input'), true);
 
-$db = Database::getConnection();
-
 try {
+    // Проверка подключения к БД
+    $db = Database::getConnection();
+    
     // Проверка прав доступа для административных операций
     // GET запросы разрешены всем, POST/PUT/DELETE требуют прав администратора
-    if ($method !== 'GET' && $resource !== 'permissions') {
+    if ($method !== 'GET' && $resource !== 'permissions' && $resource !== 'import') {
         requireAdmin();
     }
     
@@ -147,27 +170,32 @@ try {
             break;
         case 'permissions':
             if ($method === 'GET') {
-                echo json_encode(getUserPermissions());
+                sendJsonResponse(getUserPermissions());
             } else {
-                http_response_code(405);
-                echo json_encode(['error' => 'Method not allowed']);
+                sendJsonError('Method not allowed', 405);
             }
             break;
         case 'import':
             if ($method === 'POST') {
                 handleImport($db, $input);
             } else {
-                http_response_code(405);
-                echo json_encode(['error' => 'Method not allowed']);
+                sendJsonError('Method not allowed', 405);
             }
             break;
         default:
-            http_response_code(404);
-            echo json_encode(['error' => 'Resource not found']);
+            sendJsonError('Resource not found', 404);
     }
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    error_log("Exception in API: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+    sendJsonError('Server error: ' . $e->getMessage(), 500);
+} catch (Error $e) {
+    error_log("Error in API: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine());
+    sendJsonError('Server error: ' . $e->getMessage(), 500);
+} finally {
+    // Очищаем буфер если он ещё не очищен
+    if (ob_get_level() > 0) {
+        ob_end_clean();
+    }
 }
 
 // ============================================================
@@ -187,7 +215,7 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
                     if ($report) {
                         $report['sections'] = getSectionsForReport($db, $id);
                     }
-                    echo json_encode($report ?: ['error' => 'Not found']);
+                    sendJsonResponse($report ?: ['error' => 'Not found']);
                 } else {
                     $sql = "SELECT * FROM reports ORDER BY created_at";
                     logSQL($sql);
@@ -202,13 +230,12 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
                             $report['sections'] = [];
                         }
                     }
-                    echo json_encode($reports);
+                    sendJsonResponse($reports);
                 }
             } catch (Exception $e) {
                 error_log("Error in handleReports GET: " . $e->getMessage());
                 logSQL("SELECT * FROM reports", [], null, $e->getMessage());
-                http_response_code(500);
-                echo json_encode(['error' => 'Failed to load reports: ' . $e->getMessage()]);
+                sendJsonError('Failed to load reports: ' . $e->getMessage(), 500);
             }
             break;
             
@@ -221,7 +248,7 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
             $stmt->execute($params);
             logSQL($sql, $params, ['success' => true]);
             logAction('add', 'report', $newId, $input['name']);
-            echo json_encode(['id' => $newId, 'name' => $input['name']]);
+            sendJsonResponse(['id' => $newId, 'name' => $input['name']]);
             break;
             
         case 'PUT':
@@ -232,7 +259,7 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
             $stmt->execute($params);
             logSQL($sql, $params, ['success' => true]);
             logAction('edit', 'report', $id, $input['name']);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
             
         case 'DELETE':
@@ -248,7 +275,7 @@ function handleReports(PDO $db, string $method, ?string $id, ?array $input): voi
             $stmt->execute([$id]);
             logSQL($sql, [$id], ['success' => true]);
             logAction('delete', 'report', $id, $reportName);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
     }
 }
@@ -289,14 +316,14 @@ function handleSections(PDO $db, string $method, ?string $id, ?array $input): vo
             $stmt = $db->prepare("INSERT INTO sections (id, report_id, name, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$newId, $input['report_id'], $input['name'], $input['description'] ?? null]);
             logAction('add', 'section', $newId, $input['name']);
-            echo json_encode(['id' => $newId]);
+            sendJsonResponse(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE sections SET name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
             logAction('edit', 'section', $id, $input['name']);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
             
         case 'DELETE':
@@ -308,7 +335,7 @@ function handleSections(PDO $db, string $method, ?string $id, ?array $input): vo
             $stmt = $db->prepare("DELETE FROM sections WHERE id = ?");
             $stmt->execute([$id]);
             logAction('delete', 'section', $id, $sectionName);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
     }
 }
@@ -447,14 +474,14 @@ function handleNotes(PDO $db, string $method, ?string $id, ?array $input): void 
             $stmt = $db->prepare("INSERT INTO notes (id, section_id, name, short_name, description) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$newId, $input['section_id'], $input['name'], $input['short_name'] ?? null, $input['description'] ?? null]);
             logAction('add', 'note', $newId, $input['name']);
-            echo json_encode(['id' => $newId]);
+            sendJsonResponse(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE notes SET name = ?, short_name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['short_name'] ?? null, $input['description'] ?? null, $id]);
             logAction('edit', 'note', $id, $input['name']);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
             
         case 'DELETE':
@@ -466,7 +493,7 @@ function handleNotes(PDO $db, string $method, ?string $id, ?array $input): void 
             $stmt = $db->prepare("DELETE FROM notes WHERE id = ?");
             $stmt->execute([$id]);
             logAction('delete', 'note', $id, $noteName);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
     }
 }
@@ -481,14 +508,14 @@ function handleNoteSources(PDO $db, string $method, ?string $id, ?array $input):
             $stmt = $db->prepare("INSERT INTO note_sources (id, note_id, name, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
             logAction('add', 'noteSource', $newId, $input['name']);
-            echo json_encode(['id' => $newId]);
+            sendJsonResponse(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE note_sources SET name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
             logAction('edit', 'noteSource', $id, $input['name']);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
             
         case 'DELETE':
@@ -500,7 +527,7 @@ function handleNoteSources(PDO $db, string $method, ?string $id, ?array $input):
             $stmt = $db->prepare("DELETE FROM note_sources WHERE id = ?");
             $stmt->execute([$id]);
             logAction('delete', 'noteSource', $id, $sourceName);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
     }
 }
@@ -515,14 +542,14 @@ function handleNoteBlocks(PDO $db, string $method, ?string $id, ?array $input): 
             $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
             logAction('add', 'noteBlock', $newId, $input['name']);
-            echo json_encode(['id' => $newId]);
+            sendJsonResponse(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE note_blocks SET name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
             logAction('edit', 'noteBlock', $id, $input['name']);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
             
         case 'DELETE':
@@ -534,7 +561,7 @@ function handleNoteBlocks(PDO $db, string $method, ?string $id, ?array $input): 
             $stmt = $db->prepare("DELETE FROM note_blocks WHERE id = ?");
             $stmt->execute([$id]);
             logAction('delete', 'noteBlock', $id, $blockName);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
     }
 }
@@ -575,14 +602,14 @@ function handleIndicators(PDO $db, string $method, ?string $id, ?array $input): 
             $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$newId, $input['note_id'], $input['name'], $input['description'] ?? null]);
             logAction('add', 'indicator', $newId, $input['name']);
-            echo json_encode(['id' => $newId]);
+            sendJsonResponse(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE indicators SET name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
             logAction('edit', 'indicator', $id, $input['name']);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
             
         case 'DELETE':
@@ -594,7 +621,7 @@ function handleIndicators(PDO $db, string $method, ?string $id, ?array $input): 
             $stmt = $db->prepare("DELETE FROM indicators WHERE id = ?");
             $stmt->execute([$id]);
             logAction('delete', 'indicator', $id, $indicatorName);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
     }
 }
@@ -635,14 +662,14 @@ function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void
             $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description) VALUES (?, ?, ?, ?)");
             $stmt->execute([$newId, $input['indicator_id'], $input['name'], $input['description'] ?? null]);
             logAction('add', 'slice', $newId, $input['name']);
-            echo json_encode(['id' => $newId]);
+            sendJsonResponse(['id' => $newId]);
             break;
             
         case 'PUT':
             $stmt = $db->prepare("UPDATE data_slices SET name = ?, description = ? WHERE id = ?");
             $stmt->execute([$input['name'], $input['description'] ?? null, $id]);
             logAction('edit', 'slice', $id, $input['name']);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
             
         case 'DELETE':
@@ -654,7 +681,7 @@ function handleSlices(PDO $db, string $method, ?string $id, ?array $input): void
             $stmt = $db->prepare("DELETE FROM data_slices WHERE id = ?");
             $stmt->execute([$id]);
             logAction('delete', 'slice', $id, $sliceName);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
     }
 }
@@ -701,7 +728,7 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
             $stmt->execute($params);
             logSQL($sql, $params, ['id' => $newId]);
             logAction('add', 'source', $newId, $input['name']);
-            echo json_encode(['id' => $newId]);
+            sendJsonResponse(['id' => $newId]);
             break;
             
         case 'PUT':
@@ -712,8 +739,7 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
             // Валидация обязательных полей
             if (!isset($input['name']) || empty($input['name'])) {
                 // error_log("Error updating source: name is required");
-                http_response_code(400);
-                echo json_encode(['error' => 'Name is required']);
+                sendJsonError('Name is required', 400);
                 return;
             }
             
@@ -727,7 +753,7 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
             $stmt->execute($params);
             logSQL($sql, $params, ['success' => true]);
             logAction('edit', 'source', $id, $input['name']);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
             
         case 'DELETE':
@@ -742,7 +768,7 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
             $stmt->execute([$id]);
             logSQL($sql, [$id], ['success' => true]);
             logAction('delete', 'source', $id, $sourceName);
-            echo json_encode(['success' => true]);
+            sendJsonResponse(['success' => true]);
             break;
     }
 }
@@ -755,8 +781,7 @@ function handleImport(PDO $db, array $input): void {
     
     if (!isset($input['reports']) || !is_array($input['reports'])) {
         // error_log("Invalid import data: reports not set or not array");
-        http_response_code(400);
-        echo json_encode(['error' => 'Invalid import data']);
+        sendJsonError('Invalid import data', 400);
         return;
     }
     
@@ -954,13 +979,12 @@ function handleImport(PDO $db, array $input): void {
         
         $db->commit();
         // error_log("=== Import completed successfully ===");
-        echo json_encode(['success' => true, 'imported' => count($reports)]);
+        sendJsonResponse(['success' => true, 'imported' => count($reports)]);
     } catch (Exception $e) {
         $db->rollBack();
         error_log("=== Import failed: " . $e->getMessage() . " ===");
         // error_log("Stack trace: " . $e->getTraceAsString());
-        http_response_code(500);
-        echo json_encode(['error' => 'Import failed: ' . $e->getMessage()]);
+        sendJsonError('Import failed: ' . $e->getMessage(), 500);
     }
 }
 
