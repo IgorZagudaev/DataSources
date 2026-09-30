@@ -225,19 +225,3 @@ export async function importAllReports(reports: any[]) {
   console.log('Import result:', result);
   return result;
 }
-
-// Sync single report (optimized)
-export async function syncReport(report: any) {
-  console.log('Syncing single report:', report.id, report.name);
-  const result = await apiRequest(`/report/${report.id}/sync`, 'POST', { report });
-  console.log('Sync result:', result);
-  return result;
-}
-
-// Sync single section (more optimized)
-export async function syncSection(reportId: string, section: any) {
-  console.log('Syncing single section:', section.id, section.name, 'in report:', reportId);
-  const result = await apiRequest(`/report/${reportId}/section/${section.id}/sync`, 'POST', { section });
-  console.log('Sync section result:', result);
-  return result;
-}

@@ -41,7 +41,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = f
   useEffect(() => {
     if (!editingId || !treeContainerRef.current) return;
 
-    // Небольшая задержка для завершения рендеринга
+    // Увеличенная задержка для завершения анимации появления второй панели
     setTimeout(() => {
       const editingElement = treeContainerRef.current?.querySelector(`[data-node-id="${editingId}"]`);
       if (editingElement) {
@@ -50,7 +50,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = f
           block: 'center'
         });
       }
-    }, 100);
+    }, 400);
   }, [editingId]);
 
   // Автоматическое раскрытие узлов при выборе типа источника
@@ -308,9 +308,10 @@ export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = f
                 isExpanded={expandedNodes.has(section.id)}
                 isSelected={selectedId === section.id}
                 isEditing={editingId === section.id}
-            isAction={actionId === section.id}
-            isAdmin={isAdmin}
-            onToggle={() => toggleExpand(section.id)}                onSelect={() => handleSelect(section.id, 'section')}
+                isAction={actionId === section.id}
+                isAdmin={isAdmin}
+                onToggle={() => toggleExpand(section.id)}
+                onSelect={() => handleSelect(section.id, 'section')}
                 onAddChild={() => handleAdd('note', [report.id, section.id])}
                 onEdit={() => handleEdit('section', [report.id], section)}
                 onDelete={() => handleDelete(section.id, 'section', [report.id])}
