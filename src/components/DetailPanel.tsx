@@ -139,7 +139,6 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
       }
       for (const note of section.notes) {
         if (note.id === id && type === 'note') {
-          return { {
           return { id: note.id, name: note.name, description: note.description };
         }
         // Прямые источники справки
@@ -185,3 +184,217 @@ function findEntity(reports: Report[], id: string, type: string): EntityInfo | n
             }
             for (const source of slice.sources) {
               if (source.id === id && type === 'source') {
+                const sourceTypes = Array.isArray(source.sourceTypes) ? source.sourceTypes : [];
+                return { id: source.id, name: source.name, description: source.description, sourceTypes };
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function BreadcrumbPath({ reports, selectedId, selectedType }: { reports: Report[]; selectedId: string; selectedType: string }) {
+  const path: Array<{ name: string; type: string }> = [];
+
+  for (const report of reports) {
+    if (report.id === selectedId) {
+      path.push({ name: report.name, type: 'report' });
+      break;
+    }
+    for (const section of report.sections) {
+      if (section.id === selectedId) {
+        path.push({ name: report.name, type: 'report' });
+        path.push({ name: section.name, type: 'section' });
+        break;
+      }
+      for (const note of section.notes) {
+        if (note.id === selectedId) {
+          path.push({ name: report.name, type: 'report' });
+          path.push({ name: section.name, type: 'section' });
+          path.push({ name: note.name, type: 'note' });
+          break;
+        }
+        // Прямые источники справки
+        for (const source of note.sources) {
+          if (source.id === selectedId) {
+            path.push({ name: report.name, type: 'report' });
+            path.push({ name: section.name, type: 'section' });
+            path.push({ name: note.name, type: 'note' });
+            path.push({ name: source.name, type: 'noteSource' });
+            break;
+          }
+        }
+        // Блоки справки
+        for (const noteBlock of note.noteBlocks || []) {
+          if (noteBlock.id === selectedId) {
+            path.push({ name: report.name, type: 'report' });
+            path.push({ name: section.name, type: 'section' });
+            path.push({ name: note.name, type: 'note' });
+            path.push({ name: noteBlock.name, type: 'noteBlock' });
+            break;
+          }
+
+          // Показатели в блоке справки
+          for (const indicator of noteBlock.indicators || []) {
+            if (indicator.id === selectedId) {
+              path.push({ name: report.name, type: 'report' });
+              path.push({ name: section.name, type: 'section' });
+              path.push({ name: note.name, type: 'note' });
+              path.push({ name: noteBlock.name, type: 'noteBlock' });
+              path.push({ name: indicator.name, type: 'noteBlockIndicator' });
+              break;
+            }
+            // Разрезы в показателях блока справки
+            for (const slice of indicator.slices || []) {
+              if (slice.id === selectedId) {
+                path.push({ name: report.name, type: 'report' });
+                path.push({ name: section.name, type: 'section' });
+                path.push({ name: note.name, type: 'note' });
+                path.push({ name: noteBlock.name, type: 'noteBlock' });
+                path.push({ name: indicator.name, type: 'noteBlockIndicator' });
+                path.push({ name: slice.name, type: 'noteBlockSlice' });
+                break;
+              }
+              // Источники в разрезах блока справки
+              for (const source of slice.sources || []) {
+                if (source.id === selectedId) {
+                  path.push({ name: report.name, type: 'report' });
+                  path.push({ name: section.name, type: 'section' });
+                  path.push({ name: note.name, type: 'note' });
+                  path.push({ name: noteBlock.name, type: 'noteBlock' });
+                  path.push({ name: indicator.name, type: 'noteBlockIndicator' });
+                  path.push({ name: slice.name, type: 'noteBlockSlice' });
+                  path.push({ name: source.name, type: 'noteBlockSliceSource' });
+                  break;
+                }
+              }
+            }
+          }
+        }
+        for (const indicator of note.indicators) {
+          if (indicator.id === selectedId) {
+            path.push({ name: report.name, type: 'report' });
+            path.push({ name: section.name, type: 'section' });
+            path.push({ name: note.name, type: 'note' });
+            path.push({ name: indicator.name, type: 'indicator' });
+            break;
+          }
+          for (const slice of indicator.slices) {
+            if (slice.id === selectedId) {
+              path.push({ name: report.name, type: 'report' });
+              path.push({ name: section.name, type: 'section' });
+              path.push({ name: note.name, type: 'note' });
+              path.push({ name: indicator.name, type: 'indicator' });
+              path.push({ name: slice.name, type: 'slice' });
+              break;
+            }
+            for (const source of slice.sources) {
+              if (source.id === selectedId) {
+                path.push({ name: report.name, type: 'report' });
+                path.push({ name: section.name, type: 'section' });
+                path.push({ name: note.name, type: 'note' });
+                path.push({ name: indicator.name, type: 'indicator' });
+                path.push({ name: slice.name, type: 'slice' });
+                path.push({ name: source.name, type: 'source' });
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (path.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 text-sm">
+      {path.map((item, index) => (
+        <span key={index} className="flex items-center gap-1">
+          {index > 0 && <span className="text-gray-400 mx-1">›</span>}
+          <span className={`px-2 py-0.5 rounded ${item.type === selectedType ? 'bg-blue-100 text-blue-800 font-medium' : 'bg-gray-100 text-gray-600'}`}>
+            {item.name}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ChildrenSummary({ reports, selectedId, selectedType }: { reports: Report[]; selectedId: string; selectedType: string }) {
+  const counts: Array<{ label: string; count: number; icon: string }> = [];
+
+  for (const report of reports) {
+    if (selectedType === 'report' && report.id === selectedId) {
+      counts.push({ label: 'Разделов', count: report.sections.length, icon: '📁' });
+      const totalNotes = report.sections.reduce((sum, s) => sum + s.notes.length, 0);
+      counts.push({ label: 'Справок', count: totalNotes, icon: '📝' });
+      break;
+    }
+    for (const section of report.sections) {
+      if (selectedType === 'section' && section.id === selectedId) {
+        counts.push({ label: 'Справок', count: section.notes.length, icon: '📝' });
+        const totalIndicators = section.notes.reduce((sum, n) => sum + n.indicators.length, 0);
+        counts.push({ label: 'Показателей', count: totalIndicators, icon: '📊' });
+        break;
+      }
+      for (const note of section.notes) {
+        if (selectedType === 'note' && note.id === selectedId) {
+          counts.push({ label: 'Блоков справки', count: note.noteBlocks ? note.noteBlocks.length : 0, icon: '📑' });
+          counts.push({ label: 'Показателей', count: note.indicators.length, icon: '📊' });
+          counts.push({ label: 'Источников', count: note.sources ? note.sources.length : 0, icon: '📚' });
+          const totalSlices = note.indicators.reduce((sum, i) => sum + i.slices.length, 0);
+          counts.push({ label: 'Разрезов', count: totalSlices, icon: '🔀' });
+          break;
+        }
+        if (selectedType === 'noteBlock' && note.noteBlocks) {
+          for (const noteBlock of note.noteBlocks) {
+            if (noteBlock.id === selectedId) {
+              counts.push({ label: 'Показателей', count: noteBlock.indicators ? noteBlock.indicators.length : 0, icon: '📊' });
+              if (noteBlock.indicators) {
+                const totalSlices = noteBlock.indicators.reduce((sum, i) => sum + (i.slices ? i.slices.length : 0), 0);
+                counts.push({ label: 'Разрезов', count: totalSlices, icon: '🔀' });
+              }
+              break;
+            }
+          }
+        }
+        for (const indicator of note.indicators) {
+          if (selectedType === 'indicator' && indicator.id === selectedId) {
+            counts.push({ label: 'Разрезов', count: indicator.slices.length, icon: '🔀' });
+            const totalSources = indicator.slices.reduce((sum: number, sl: any) => sum + sl.sources.length, 0);
+            counts.push({ label: 'Источников', count: totalSources, icon: '📚' });
+            break;
+          }
+          for (const slice of indicator.slices) {
+            if (selectedType === 'slice' && slice.id === selectedId) {
+              counts.push({ label: 'Источников', count: slice.sources.length, icon: '📚' });
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (counts.length === 0) {
+    return <p className="text-sm text-gray-400 italic">Нет вложенных элементов</p>;
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {counts.map((item, index) => (
+        <div key={index} className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg p-3">
+          <span className="text-lg">{item.icon}</span>
+          <div>
+            <div className="text-lg font-bold text-gray-800">{item.count}</div>
+            <div className="text-xs text-gray-500">{item.label}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
