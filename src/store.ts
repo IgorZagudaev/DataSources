@@ -62,7 +62,6 @@ export function getDataSourceMode(): DataSourceMode {
 
 let currentMode: DataSourceMode = getMode();
 let isLoadingFromAPI = false; // Флаг для предотвращения обратной синхронизации при загрузке
-let syncTimeout: ReturnType<typeof setTimeout> | null = null; // Таймер для debounce синхронизации
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -519,25 +518,19 @@ function notify(reportId?: string, sectionId?: string) {
   saveData(reports);
   listeners.forEach(l => l());
   // Синхронизируем с сервером в API режиме, но только если это не загрузка данных
-  // Используем debounce - задержка 5 секунд перед синхронизацией
+  // Синхронизация происходит мгновенно без задержки
   if (currentMode === 'api' && !isLoadingFromAPI) {
-    if (syncTimeout) {
-      clearTimeout(syncTimeout);
+    // Если указан sectionId, синхронизируем только этот раздел
+    if (sectionId && reportId) {
+      syncSectionToAPI(reportId, sectionId);
     }
-    syncTimeout = setTimeout(() => {
-      // Если указан sectionId, синхронизируем только этот раздел
-      if (sectionId && reportId) {
-        syncSectionToAPI(reportId, sectionId);
-      }
-      // Если указан только reportId, синхронизируем только этот доклад
-      else if (reportId) {
-        syncReportToAPI(reportId);
-      } else {
-        // Иначе синхронизируем все данные
-        syncToAPI();
-      }
-      syncTimeout = null;
-    }, 5000); // Синхронизация через 5 секунд после последнего изменения
+    // Если указан только reportId, синхронизируем только этот доклад
+    else if (reportId) {
+      syncReportToAPI(reportId);
+    } else {
+      // Иначе синхронизируем все данные
+      syncToAPI();
+    }
   }
 }
 
