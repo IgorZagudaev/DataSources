@@ -273,15 +273,17 @@ export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = f
       </div>
 
       {/* Add Report button */}
-      <div className="p-3 border-b border-gray-200 bg-gray-50">
-        <button
-          onClick={() => handleAdd('report', [])}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-        >
-          <span>+</span>
-          Добавить доклад
-        </button>
-      </div>
+      {isAdmin && (
+        <div className="p-3 border-b border-gray-200 bg-gray-50">
+          <button
+            onClick={() => handleAdd('report', [])}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+          >
+            <span>+</span>
+            Добавить доклад
+          </button>
+        </div>
+      )}
 
       {/* Tree */}
       <div className="p-2">
