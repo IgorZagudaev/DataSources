@@ -455,7 +455,7 @@ function notify() {
   saveData(reports);
   listeners.forEach(l => l());
   // Синхронизируем с сервером в API режиме, но только если это не загрузка данных
-  // Используем debounce - задержка 5 секунд перед синхронизацией
+  // Используем debounce - задержка 3 секунды перед синхронизацией
   if (currentMode === 'api' && !isLoadingFromAPI) {
     if (syncTimeout) {
       clearTimeout(syncTimeout);
@@ -463,7 +463,7 @@ function notify() {
     syncTimeout = setTimeout(() => {
       syncToAPI();
       syncTimeout = null;
-    }, 5000); // Синхронизация через 5 секунд после последнего изменения
+    }, 3000); // Синхронизация через 3 секунды после последнего изменения
   }
 }
 
