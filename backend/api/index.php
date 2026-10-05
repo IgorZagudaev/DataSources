@@ -77,9 +77,15 @@ require_once __DIR__ . '/action_logger.php';
 
 // Функция логирования SQL запросов
 function logSQL($sql, $params = [], $result = null, $error = null) {
-    // Проверяем, включено ли логирование в конфигурации
-    $config = require __DIR__ . '/config.php';
-    if (!isset($config['app']['sql_logging']) || !$config['app']['sql_logging']) {
+    // Проверяем, включено ли логирование в конфигурации.
+    // Конфиг читается один раз на запрос: раньше require выполнялся на каждый вызов,
+    // а на импорте таких вызовов были тысячи.
+    static $loggingEnabled = null;
+    if ($loggingEnabled === null) {
+        $config = require __DIR__ . '/config.php';
+        $loggingEnabled = !empty($config['app']['sql_logging']);
+    }
+    if (!$loggingEnabled) {
         return; // Логирование отключено
     }
     
@@ -766,6 +772,87 @@ function handleSources(PDO $db, string $method, ?string $id, ?array $input): voi
 // ============================================================
 // Import handler - полная замена всех данных
 // ============================================================
+
+/**
+ * Колонки таблиц в порядке вставки: родители раньше детей,
+ * иначе вставка не пройдёт проверку внешних ключей.
+ */
+function importTableColumns(): array {
+    static $columns = null;
+    if ($columns === null) {
+        $columns = [
+            'reports' => ['id', 'name', 'description', 'sort_order'],
+            'sections' => ['id', 'report_id', 'name', 'description', 'sort_order'],
+            'notes' => ['id', 'section_id', 'name', 'short_name', 'description', 'sort_order'],
+            'note_blocks' => ['id', 'note_id', 'name', 'description', 'sort_order'],
+            'note_sources' => ['id', 'note_id', 'name', 'description', 'source_types', 'sort_order'],
+            'indicators' => ['id', 'note_id', 'name', 'description', 'sort_order'],
+            'note_block_indicators' => ['id', 'note_block_id', 'name', 'description', 'sort_order'],
+            'data_slices' => ['id', 'indicator_id', 'name', 'description', 'sort_order'],
+            'note_block_data_slices' => ['id', 'indicator_id', 'name', 'description', 'sort_order'],
+            'data_sources' => ['id', 'slice_id', 'name', 'description', 'source_types', 'sort_order'],
+        ];
+    }
+    return $columns;
+}
+
+/** Сколько строк вставлять одним запросом */
+function importBatchSize(): int {
+    return 500;
+}
+
+/** Сколько строк держать в памяти перед сбросом в БД */
+function importBufferLimit(): int {
+    return 2000;
+}
+
+/**
+ * Кладёт строку в буфер и сбрасывает накопленное в БД, когда буфер наполнен.
+ * Строки одной таблицы уходят в порядке добавления, а таблицы — в порядке
+ * importTableColumns(), поэтому внешние ключи не нарушаются.
+ */
+function importAddRow(PDO $db, array &$buffers, string $table, array $row): void {
+    $buffers[$table][] = $row;
+
+    $buffered = 0;
+    foreach ($buffers as $rows) {
+        $buffered += count($rows);
+    }
+    if ($buffered >= importBufferLimit()) {
+        importFlushBuffers($db, $buffers);
+    }
+}
+
+/** Вставка накопленных строк пачками (multi-row INSERT) */
+function importFlushBuffers(PDO $db, array &$buffers): void {
+    foreach (importTableColumns() as $table => $columns) {
+        if (empty($buffers[$table])) {
+            continue;
+        }
+        $rows = $buffers[$table];
+        $buffers[$table] = [];
+
+        $columnList = implode(', ', $columns);
+        $rowPlaceholder = '(' . implode(', ', array_fill(0, count($columns), '?')) . ')';
+
+        foreach (array_chunk($rows, importBatchSize()) as $chunk) {
+            $sql = "INSERT INTO $table ($columnList) VALUES "
+                . implode(', ', array_fill(0, count($chunk), $rowPlaceholder));
+
+            $params = [];
+            foreach ($chunk as $row) {
+                foreach ($columns as $column) {
+                    $params[] = $row[$column] ?? null;
+                }
+            }
+
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            logSQL("INSERT INTO $table", ['rows' => count($chunk), 'columns' => $columnList]);
+        }
+    }
+}
+
 function handleImport(PDO $db, array $input): void {
     // error_log("=== handleImport called ===");
     
@@ -807,25 +894,13 @@ function handleImport(PDO $db, array $input): void {
     try {
         $db->beginTransaction();
         
-        // Очищаем все таблицы в правильном порядке (от дочерних к родительским)
-        $deleteQueries = [
-            "DELETE FROM data_sources",
-            "DELETE FROM data_slices",
-            "DELETE FROM note_block_data_slices",
-            "DELETE FROM indicators",
-            "DELETE FROM note_block_indicators",
-            "DELETE FROM note_sources",
-            "DELETE FROM note_blocks",
-            "DELETE FROM notes",
-            "DELETE FROM sections",
-            "DELETE FROM reports"
-        ];
-        
-        foreach ($deleteQueries as $sql) {
-            logSQL($sql);
-            $db->exec($sql);
-            logSQL($sql, [], ['success' => true]);
-        }
+        // Полная замена: TRUNCATE дешевле построчных DELETE и очищает таблицы одним действием.
+        // Все связанные таблицы перечислены в одном запросе — иначе PostgreSQL
+        // не разрешит очистку из-за внешних ключей.
+        $db->exec('TRUNCATE TABLE ' . implode(', ', array_keys(importTableColumns())));
+
+        // Буферы строк: данные уходят пачками (multi-row INSERT), а не по запросу на строку
+        $buffers = array_fill_keys(array_keys(importTableColumns()), []);
         
         // Импортируем данные
         foreach ($reports as $reportIndex => $report) {
@@ -838,12 +913,12 @@ function handleImport(PDO $db, array $input): void {
             }
             
             $reportId = $report['id'] ?? generateUUID();
-            $sql = "INSERT INTO reports (id, name, description) VALUES (?, ?, ?)";
-            $params = [$reportId, $report['name'], $report['description'] ?? null];
-            logSQL($sql, $params);
-            $stmt = $db->prepare($sql);
-            $stmt->execute($params);
-            logSQL($sql, $params, ['success' => true]);
+            importAddRow($db, $buffers, 'reports', [
+                'id' => $reportId,
+                'name' => $report['name'],
+                'description' => $report['description'] ?? null,
+                'sort_order' => $report['sort_order'] ?? $reportIndex,
+            ]);
             
             if (isset($report['sections']) && is_array($report['sections'])) {
                 foreach ($report['sections'] as $sectionIndex => $section) {
@@ -855,12 +930,13 @@ function handleImport(PDO $db, array $input): void {
                     }
                     
                     $sectionId = $section['id'] ?? generateUUID();
-                    $sql = "INSERT INTO sections (id, report_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)";
-                    $params = [$sectionId, $reportId, $section['name'], $section['description'] ?? null, $section['sort_order'] ?? 0];
-                    logSQL($sql, $params);
-                    $stmt = $db->prepare($sql);
-                    $stmt->execute($params);
-                    logSQL($sql, $params, ['success' => true]);
+                    importAddRow($db, $buffers, 'sections', [
+                        'id' => $sectionId,
+                        'report_id' => $reportId,
+                        'name' => $section['name'],
+                        'description' => $section['description'] ?? null,
+                        'sort_order' => $section['sort_order'] ?? 0,
+                    ]);
                     
                     if (isset($section['notes']) && is_array($section['notes'])) {
                         foreach ($section['notes'] as $noteIndex => $note) {
@@ -870,24 +946,28 @@ function handleImport(PDO $db, array $input): void {
                             }
                             
                             $noteId = $note['id'] ?? generateUUID();
-                            $sql = "INSERT INTO notes (id, section_id, name, short_name, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
-                            $params = [$noteId, $sectionId, $note['name'], $note['short_name'] ?? null, $note['description'] ?? null, $noteIndex];
-                            logSQL($sql, $params);
-                            $stmt = $db->prepare($sql);
-                            $stmt->execute($params);
-                            logSQL($sql, $params, ['success' => true]);
+                            importAddRow($db, $buffers, 'notes', [
+                                'id' => $noteId,
+                                'section_id' => $sectionId,
+                                'name' => $note['name'],
+                                'short_name' => $note['short_name'] ?? null,
+                                'description' => $note['description'] ?? null,
+                                'sort_order' => $noteIndex,
+                            ]);
                             
                             // Note sources
                             if (isset($note['sources'])) {
                                 foreach ($note['sources'] as $sourceIndex => $source) {
                                     $sourceId = $source['id'] ?? generateUUID();
                                     $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
-                                    $sql = "INSERT INTO note_sources (id, note_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
-                                    $params = [$sourceId, $noteId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex];
-                                    logSQL($sql, $params);
-                                    $stmt = $db->prepare($sql);
-                                    $stmt->execute($params);
-                                    logSQL($sql, $params, ['success' => true]);
+                                    importAddRow($db, $buffers, 'note_sources', [
+                                        'id' => $sourceId,
+                                        'note_id' => $noteId,
+                                        'name' => $source['name'],
+                                        'description' => $source['description'] ?? null,
+                                        'source_types' => $sourceTypes,
+                                        'sort_order' => $sourceIndex,
+                                    ]);
                                 }
                             }
                             
@@ -896,32 +976,48 @@ function handleImport(PDO $db, array $input): void {
                             if (is_array($noteBlocks) && !empty($noteBlocks)) {
                                 foreach ($noteBlocks as $noteBlockIndex => $noteBlock) {
                                     $noteBlockId = $noteBlock['id'] ?? generateUUID();
-                                    $stmt = $db->prepare("INSERT INTO note_blocks (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-                                    $stmt->execute([$noteBlockId, $noteId, $noteBlock['name'], $noteBlock['description'] ?? null, $noteBlockIndex]);
+                                    importAddRow($db, $buffers, 'note_blocks', [
+                                        'id' => $noteBlockId,
+                                        'note_id' => $noteId,
+                                        'name' => $noteBlock['name'],
+                                        'description' => $noteBlock['description'] ?? null,
+                                        'sort_order' => $noteBlockIndex,
+                                    ]);
                                     
                                     if (isset($noteBlock['indicators'])) {
                                         foreach ($noteBlock['indicators'] as $indicatorIndex => $indicator) {
                                             $indicatorId = $indicator['id'] ?? generateUUID();
-                                            $stmt = $db->prepare("INSERT INTO note_block_indicators (id, note_block_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-                                            $stmt->execute([$indicatorId, $noteBlockId, $indicator['name'], $indicator['description'] ?? null, $indicatorIndex]);
+                                            importAddRow($db, $buffers, 'note_block_indicators', [
+                                                'id' => $indicatorId,
+                                                'note_block_id' => $noteBlockId,
+                                                'name' => $indicator['name'],
+                                                'description' => $indicator['description'] ?? null,
+                                                'sort_order' => $indicatorIndex,
+                                            ]);
                                             
                                             if (isset($indicator['slices'])) {
                                                 foreach ($indicator['slices'] as $sliceIndex => $slice) {
                                                     $sliceId = $slice['id'] ?? generateUUID();
-                                                    $stmt = $db->prepare("INSERT INTO note_block_data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-                                                    $stmt->execute([$sliceId, $indicatorId, $slice['name'], $slice['description'] ?? null, $sliceIndex]);
+                                                    importAddRow($db, $buffers, 'note_block_data_slices', [
+                                                        'id' => $sliceId,
+                                                        'indicator_id' => $indicatorId,
+                                                        'name' => $slice['name'],
+                                                        'description' => $slice['description'] ?? null,
+                                                        'sort_order' => $sliceIndex,
+                                                    ]);
                                                     
                                                     if (isset($slice['sources'])) {
                                                         foreach ($slice['sources'] as $sourceIndex => $source) {
                                                             $sourceId = $source['id'] ?? generateUUID();
                                                             $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
-                                                            // error_log("Importing source: " . $source['name'] . ", source_types: " . $sourceTypes);
-                                                            $sql = "INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
-                                                            $params = [$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex];
-                                                            logSQL($sql, $params);
-                                                            $stmt = $db->prepare($sql);
-                                                            $stmt->execute($params);
-                                                            logSQL($sql, $params, ['success' => true]);
+                                                            importAddRow($db, $buffers, 'data_sources', [
+                                                                'id' => $sourceId,
+                                                                'slice_id' => $sliceId,
+                                                                'name' => $source['name'],
+                                                                'description' => $source['description'] ?? null,
+                                                                'source_types' => $sourceTypes,
+                                                                'sort_order' => $sourceIndex,
+                                                            ]);
                                                         }
                                                     }
                                                 }
@@ -935,26 +1031,37 @@ function handleImport(PDO $db, array $input): void {
                             if (isset($note['indicators'])) {
                                 foreach ($note['indicators'] as $indicatorIndex => $indicator) {
                                     $indicatorId = $indicator['id'] ?? generateUUID();
-                                    $stmt = $db->prepare("INSERT INTO indicators (id, note_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-                                    $stmt->execute([$indicatorId, $noteId, $indicator['name'], $indicator['description'] ?? null, $indicatorIndex]);
+                                    importAddRow($db, $buffers, 'indicators', [
+                                        'id' => $indicatorId,
+                                        'note_id' => $noteId,
+                                        'name' => $indicator['name'],
+                                        'description' => $indicator['description'] ?? null,
+                                        'sort_order' => $indicatorIndex,
+                                    ]);
                                     
                                     if (isset($indicator['slices'])) {
                                         foreach ($indicator['slices'] as $sliceIndex => $slice) {
                                             $sliceId = $slice['id'] ?? generateUUID();
-                                            $stmt = $db->prepare("INSERT INTO data_slices (id, indicator_id, name, description, sort_order) VALUES (?, ?, ?, ?, ?)");
-                                            $stmt->execute([$sliceId, $indicatorId, $slice['name'], $slice['description'] ?? null, $sliceIndex]);
+                                            importAddRow($db, $buffers, 'data_slices', [
+                                                'id' => $sliceId,
+                                                'indicator_id' => $indicatorId,
+                                                'name' => $slice['name'],
+                                                'description' => $slice['description'] ?? null,
+                                                'sort_order' => $sliceIndex,
+                                            ]);
                                             
                                             if (isset($slice['sources'])) {
                                                 foreach ($slice['sources'] as $sourceIndex => $source) {
                                                     $sourceId = $source['id'] ?? generateUUID();
                                                     $sourceTypes = isset($source['source_types']) ? json_encode($source['source_types']) : null;
-                                                    // error_log("Importing source: " . $source['name'] . ", source_types: " . $sourceTypes);
-                                                    $sql = "INSERT INTO data_sources (id, slice_id, name, description, source_types, sort_order) VALUES (?, ?, ?, ?, ?, ?)";
-                                                    $params = [$sourceId, $sliceId, $source['name'], $source['description'] ?? null, $sourceTypes, $sourceIndex];
-                                                    logSQL($sql, $params);
-                                                    $stmt = $db->prepare($sql);
-                                                    $stmt->execute($params);
-                                                    logSQL($sql, $params, ['success' => true]);
+                                                    importAddRow($db, $buffers, 'data_sources', [
+                                                        'id' => $sourceId,
+                                                        'slice_id' => $sliceId,
+                                                        'name' => $source['name'],
+                                                        'description' => $source['description'] ?? null,
+                                                        'source_types' => $sourceTypes,
+                                                        'sort_order' => $sourceIndex,
+                                                    ]);
                                                 }
                                             }
                                         }
@@ -967,8 +1074,11 @@ function handleImport(PDO $db, array $input): void {
             }
         }
         
+        // Вставляем остаток буферов и обновляем статистику для планировщика
+        importFlushBuffers($db, $buffers);
+        $db->exec('ANALYZE');
+
         $db->commit();
-        // error_log("=== Import completed successfully ===");
         sendJsonResponse(['success' => true, 'imported' => count($reports)]);
     } catch (Exception $e) {
         $db->rollBack();

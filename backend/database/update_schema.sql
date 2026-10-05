@@ -34,3 +34,14 @@ ALTER TABLE data_sources DROP CONSTRAINT IF EXISTS data_sources_slice_id_fkey;
 
 -- Создание индекса для slice_id (если его еще нет)
 CREATE INDEX IF NOT EXISTS idx_data_sources_slice_id ON data_sources(slice_id);
+
+-- ============================================================
+-- Колонки, которые уже есть в рабочей БД, но отсутствовали в скриптах.
+-- Без них импорт данных падает с ошибкой "столбец ... не существует".
+-- ============================================================
+
+-- Порядок докладов (используется при чтении: ORDER BY sort_order)
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+
+-- Типы источников у источников, привязанных напрямую к справке (JSON-массив)
+ALTER TABLE note_sources ADD COLUMN IF NOT EXISTS source_types TEXT;
