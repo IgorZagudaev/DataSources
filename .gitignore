@@ -3,3 +3,14 @@ node_modules/
 dist/
 build/
 *.log
+*.rar
+
+# Портативный PHP и прочие локальные инструменты разработки
+.tools/
+
+# Локальные настройки backend (пароль БД, режим работы)
+backend/api/config.local.php
+
+# Логи SQL/действий
+backend/api/sql.log
+backend/api/actions.log
