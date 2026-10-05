@@ -3,19 +3,21 @@ import * as api from './api';
 
 const STORAGE_KEY = 'report_data_sources_reference_v3';
 const MODE_KEY = 'data_source_mode';
+// Ключ для черновика несохранённых изменений в режиме API
+const DRAFT_KEY = 'report_data_sources_draft_v1';
 
 // Режим работы: 'local' (localStorage) или 'api' (PostgreSQL)
 export type DataSourceMode = 'local' | 'api';
 
 function getMode(): DataSourceMode {
-  // Сначала проверяем localStorage
+  // Сначала проверяем localStorage (значение перезапишется конфигом сервера в loadConfig)
   const savedMode = localStorage.getItem(MODE_KEY) as DataSourceMode;
   if (savedMode) {
     return savedMode;
   }
-  
-  // Если в localStorage нет, используем значение по умолчанию из конфига
-  // Это значение будет обновлено при загрузке конфигурации с сервера
+
+  // Если в localStorage нет — временно локальный режим,
+  // окончательно режим определяется настройкой сервера
   return 'local';
 }
 
@@ -26,15 +28,18 @@ export async function loadConfig(): Promise<void> {
     if (response.ok) {
       const config = await response.json();
       console.log('Config loaded from server:', config);
-      
-      // Если в localStorage нет сохраненного режима, используем значение из конфига
-      if (!localStorage.getItem(MODE_KEY) && config.default_mode) {
+
+      // Режим работы задаётся настройкой сервера (config.php / config.local.php).
+      // Значение из localStorage только запоминается следом, иначе после смены
+      // default_mode в конфиге браузер оставался в старом режиме.
+      if (config.default_mode === 'api' || config.default_mode === 'local') {
+        currentMode = config.default_mode;
         localStorage.setItem(MODE_KEY, config.default_mode);
-        currentMode = config.default_mode as DataSourceMode;
-        console.log('Default mode set from config:', config.default_mode);
+        console.log('Mode set from server config:', config.default_mode);
       }
     }
   } catch (error) {
+    // Сервер недоступен (например, запущен только Vite) — работаем в режиме из localStorage
     console.error('Error loading config:', error);
   }
 }
@@ -52,6 +57,7 @@ export async function setMode(mode: DataSourceMode): Promise<void> {
     console.log('Switching to local mode, loading from localStorage...');
     // Для локального режима загружаем из localStorage
     reports = loadData();
+    updateSaveState({ hasUnsavedChanges: false, isSaving: false, error: null });
     notify();
   }
 }
@@ -62,7 +68,36 @@ export function getDataSourceMode(): DataSourceMode {
 
 let currentMode: DataSourceMode = getMode();
 let isLoadingFromAPI = false; // Флаг для предотвращения обратной синхронизации при загрузке
-let syncTimeout: ReturnType<typeof setTimeout> | null = null; // Таймер для debounce синхронизации
+
+// Состояние записи в БД: изменения копятся локально и уходят на сервер
+// только по кнопке «Сохранить в БД»
+export interface SaveState {
+  hasUnsavedChanges: boolean;
+  isSaving: boolean;
+  error: string | null;
+  // Когда был сохранён черновик несохранённых изменений (для предупреждения об устаревших правках)
+  draftSavedAt: number | null;
+}
+
+let saveState: SaveState = { hasUnsavedChanges: false, isSaving: false, error: null, draftSavedAt: null };
+
+function updateSaveState(patch: Partial<SaveState>): void {
+  const next: SaveState = { ...saveState, ...patch };
+  if (
+    next.hasUnsavedChanges === saveState.hasUnsavedChanges &&
+    next.isSaving === saveState.isSaving &&
+    next.error === saveState.error &&
+    next.draftSavedAt === saveState.draftSavedAt
+  ) {
+    return;
+  }
+  saveState = next;
+  listeners.forEach(l => l());
+}
+
+export function getSaveState(): SaveState {
+  return saveState;
+}
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -89,7 +124,7 @@ function convertToCamelCase(obj: any): any {
   return obj;
 }
 
-async function loadFromAPI(): Promise<Report[]> {
+async function loadFromAPI(): Promise<Report[] | null> {
   try {
     console.log('Loading data from API...');
     const data = await api.fetchReports();
@@ -99,7 +134,7 @@ async function loadFromAPI(): Promise<Report[]> {
     // Проверяем структуру данных
     if (!Array.isArray(data)) {
       console.error('API returned non-array data:', data);
-      return [];
+      return null;
     }
     
     // Преобразуем snake_case в camelCase
@@ -118,7 +153,44 @@ async function loadFromAPI(): Promise<Report[]> {
     return validReports;
   } catch (e) {
     console.error('Error loading from API:', e);
-    return [];
+    return null;
+  }
+}
+
+// ============================================================
+// Черновик несохранённых изменений (режим API)
+// ============================================================
+
+interface Draft {
+  reports: Report[];
+  savedAt: number | null;
+}
+
+function loadDraft(): Draft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    // Текущий формат: { savedAt, reports }; простой массив поддержан на случай старых записей
+    if (Array.isArray(parsed)) {
+      return { reports: parsed, savedAt: null };
+    }
+    if (parsed && Array.isArray(parsed.reports)) {
+      return { reports: parsed.reports, savedAt: parsed.savedAt ?? null };
+    }
+  } catch (e) {
+    console.error('Error loading draft', e);
+  }
+  return null;
+}
+
+function clearDraft(): void {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch (e) {
+    console.error('Error clearing draft', e);
   }
 }
 
@@ -184,24 +256,69 @@ function loadData(): Report[] {
 // Асинхронная загрузка данных из API
 export async function syncFromAPI(): Promise<void> {
   console.log('syncFromAPI called, current mode:', currentMode);
-  if (currentMode === 'api') {
-    console.log('Mode is API, loading data...');
-    isLoadingFromAPI = true; // Устанавливаем флаг перед загрузкой
-    try {
-      const data = await loadFromAPI();
-      console.log('Loaded data:', data);
-      if (data.length > 0) {
-        console.log('Updating reports with', data.length, 'items');
-        reports = data;
-        notify();
-      } else {
-        console.warn('No data loaded from API');
-      }
-    } finally {
-      isLoadingFromAPI = false; // Сбрасываем флаг после загрузки
-    }
-  } else {
+  if (currentMode !== 'api') {
     console.log('Mode is not API, skipping sync');
+    return;
+  }
+
+  isLoadingFromAPI = true; // Устанавливаем флаг перед загрузкой
+  try {
+    // Если остался черновик несохранённых изменений — восстанавливаем его,
+    // а не данные из БД, чтобы правки не потерялись при обновлении страницы
+    const draft = loadDraft();
+    if (draft) {
+      console.log('Restoring unsaved draft:', draft.reports.length, 'reports');
+      reports = draft.reports;
+      updateSaveState({
+        hasUnsavedChanges: true,
+        isSaving: false,
+        error: null,
+        draftSavedAt: draft.savedAt
+      });
+      return;
+    }
+
+    console.log('Mode is API, loading data...');
+    const data = await loadFromAPI();
+    if (data === null) {
+      updateSaveState({ error: 'Не удалось загрузить данные из БД', isSaving: false });
+      return;
+    }
+    console.log('Updating reports with', data.length, 'items');
+    // Пустая БД — тоже валидный ответ, показываем пустой справочник,
+    // а не данные, оставшиеся от локального режима
+    reports = data;
+    if (data.length === 0) {
+      console.warn('В БД нет докладов');
+    }
+    updateSaveState({ hasUnsavedChanges: false, isSaving: false, error: null, draftSavedAt: null });
+  } finally {
+    isLoadingFromAPI = false; // Сбрасываем флаг после загрузки
+    listeners.forEach(l => l());
+  }
+}
+
+// Отмена несохранённых изменений: черновик удаляется, данные перечитываются из БД
+export async function discardChangesAndReload(): Promise<boolean> {
+  if (currentMode !== 'api') {
+    return false;
+  }
+
+  console.log('Discarding unsaved changes, reloading from API...');
+  isLoadingFromAPI = true;
+  try {
+    const data = await loadFromAPI();
+    if (data === null) {
+      updateSaveState({ error: 'Не удалось загрузить данные из БД', isSaving: false });
+      return false;
+    }
+    clearDraft();
+    reports = data;
+    updateSaveState({ hasUnsavedChanges: false, isSaving: false, error: null, draftSavedAt: null });
+    return true;
+  } finally {
+    isLoadingFromAPI = false;
+    listeners.forEach(l => l());
   }
 }
 
@@ -225,62 +342,56 @@ function convertToSnakeCase(obj: any): any {
   return obj;
 }
 
-// Синхронизация всех данных на сервер (для API режима)
-async function syncToAPI(): Promise<void> {
-  console.log('syncToAPI called, currentMode:', currentMode);
-  if (currentMode === 'api') {
-    try {
-      console.log('Syncing data to API...');
-      
-      // Преобразуем данные в snake_case перед отправкой
-      const reportsToSend = convertToSnakeCase(reports);
-      
-      console.log('Reports to send:', reportsToSend.length);
-      
-      // Логируем первый источник для проверки source_types
-      if (reportsToSend.length > 0 && reportsToSend[0].sections?.length > 0) {
-        const firstSection = reportsToSend[0].sections[0];
-        if (firstSection.notes?.length > 0) {
-          const firstNote = firstSection.notes[0];
-          if (firstNote.indicators?.length > 0) {
-            const firstIndicator = firstNote.indicators[0];
-            if (firstIndicator.slices?.length > 0) {
-              const firstSlice = firstIndicator.slices[0];
-              if (firstSlice.sources?.length > 0) {
-                const firstSource = firstSlice.sources[0];
-                console.log('First source to send:', firstSource);
-                console.log('source_types:', firstSource.source_types);
-              } else {
-                console.log('No sources in first slice');
-              }
-            } else {
-              console.log('No slices in first indicator');
-            }
-          } else {
-            console.log('No indicators in first note');
-          }
-        } else {
-          console.log('No notes in first section');
-        }
-      } else {
-        console.log('No reports or sections');
-      }
-      
-      await api.importAllReports(reportsToSend);
-      console.log('Sync to API completed');
-    } catch (e) {
-      console.error('Error syncing to API:', e);
+export interface SaveResult {
+  success: boolean;
+  error?: string;
+}
+
+// Запись всех данных в БД. Вызывается только по кнопке «Сохранить в БД»,
+// автоматической записи при редактировании больше нет.
+export async function saveToAPI(): Promise<SaveResult> {
+  console.log('saveToAPI called, currentMode:', currentMode);
+
+  if (currentMode !== 'api') {
+    return { success: false, error: 'Запись в БД доступна только в режиме API' };
+  }
+  if (saveState.isSaving) {
+    return { success: false, error: 'Запись уже выполняется' };
+  }
+
+  updateSaveState({ isSaving: true, error: null });
+
+  try {
+    // Преобразуем данные в snake_case перед отправкой
+    const reportsToSend = convertToSnakeCase(reports);
+    console.log('Reports to send:', reportsToSend.length);
+
+    const result = await api.importAllReports(reportsToSend);
+
+    if (!result || result.success === false) {
+      throw new Error((result && result.error) || 'БД вернула ошибку при записи');
     }
-  } else {
-    console.log('Not in API mode, skipping sync');
+
+    // Запись прошла успешно — черновик больше не нужен
+    clearDraft();
+    updateSaveState({ hasUnsavedChanges: false, isSaving: false, error: null, draftSavedAt: null });
+    console.log('Data saved to API');
+    return { success: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error('Error saving to API:', e);
+    // Изменения остаются в черновике, их можно записать повторно
+    updateSaveState({ isSaving: false, error: message });
+    return { success: false, error: message };
   }
 }
 
 function saveData(reports: Report[]): void {
   try {
-    // В режиме API не сохраняем в localStorage, чтобы избежать переполнения
+    // В режиме API данные не уходят в БД автоматически: изменения хранятся
+    // в localStorage как черновик до нажатия кнопки «Сохранить в БД»
     if (currentMode === 'api') {
-      console.log('API mode: skipping localStorage save');
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), reports }));
       return;
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
@@ -452,19 +563,16 @@ let reports: Report[] = loadData();
 let listeners: Array<() => void> = [];
 
 function notify() {
-  saveData(reports);
-  listeners.forEach(l => l());
-  // Синхронизируем с сервером в API режиме, но только если это не загрузка данных
-  // Используем debounce - задержка 3 секунды перед синхронизацией
-  if (currentMode === 'api' && !isLoadingFromAPI) {
-    if (syncTimeout) {
-      clearTimeout(syncTimeout);
+  // Во время загрузки из БД ничего не сохраняем и не помечаем как изменённое
+  if (!isLoadingFromAPI) {
+    saveData(reports);
+    // В режиме API изменения только помечаются как несохранённые:
+    // запись в БД выполняется по кнопке «Сохранить в БД» (saveToAPI)
+    if (currentMode === 'api') {
+      updateSaveState({ hasUnsavedChanges: true, error: null, draftSavedAt: Date.now() });
     }
-    syncTimeout = setTimeout(() => {
-      syncToAPI();
-      syncTimeout = null;
-    }, 3000); // Синхронизация через 3 секунды после последнего изменения
   }
+  listeners.forEach(l => l());
 }
 
 export function subscribe(listener: () => void) {

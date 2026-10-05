@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useReports } from './hooks';
+import { useReports, useSaveState } from './hooks';
 import { TreeView } from './components/TreeView';
 import { DetailPanel } from './components/DetailPanel';
 import { FormPanel, DeleteConfirmPanel } from './components/FormPanel';
@@ -20,8 +20,10 @@ import {
   moveSourceUp, moveSourceDown,
   moveNoteSourceUp, moveNoteSourceDown,
   moveNoteBlockSourceUp, moveNoteBlockSourceDown,
-  syncFromAPI, getDataSourceMode, loadConfig
+  syncFromAPI, getDataSourceMode, loadConfig,
+  saveToAPI, discardChangesAndReload
 } from './store';
+import type { DataSourceMode } from './store';
 
 interface FormState {
   type: string;
@@ -31,6 +33,7 @@ interface FormState {
 
 function App() {
   const reports = useReports();
+  const saveState = useSaveState();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [formState, setFormState] = useState<FormState | null>(null);
@@ -43,6 +46,9 @@ function App() {
   const [userIP, setUserIP] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [dataMode, setDataMode] = useState<DataSourceMode>('local');
+  const [justSaved, setJustSaved] = useState(false);
+  const [apiUnavailable, setApiUnavailable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Загружаем конфигурацию и данные при старте
@@ -50,6 +56,7 @@ function App() {
     // Загружаем конфигурацию с сервера
     setIsLoading(true);
     loadConfig().then(() => {
+      setDataMode(getDataSourceMode());
       // После загрузки конфигурации, если режим API, загружаем данные
       if (getDataSourceMode() === 'api') {
         return syncFromAPI();
@@ -66,14 +73,71 @@ function App() {
       .then(([userInfo, permissions]) => {
         setUserIP(userInfo.ip || 'unknown');
         setIsAdmin(permissions.is_admin || false);
+        setApiUnavailable(false);
         console.log('User permissions:', permissions);
       })
       .catch(error => {
         console.error('Error fetching user info:', error);
         setUserIP('error');
         setIsAdmin(false);
+        // PHP-API недоступен: показываем подсказку, как его поднять
+        setApiUnavailable(true);
       });
   }, []);
+
+  // Предупреждаем при попытке закрыть вкладку с несохранёнными изменениями
+  useEffect(() => {
+    if (!saveState.hasUnsavedChanges) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [saveState.hasUnsavedChanges]);
+
+  // Подсказка о несохранённых изменениях — когда они были сделаны
+  const unsavedChangesHint = saveState.draftSavedAt
+    ? `Изменения от ${new Date(saveState.draftSavedAt).toLocaleString('ru-RU')} ещё не записаны в базу данных`
+    : 'Изменения ещё не записаны в базу данных';
+
+  // Запись всех изменений в БД — только по кнопке
+  const handleSaveToDB = async () => {
+    const sectionsCount = reports.reduce((sum, r) => sum + r.sections.length, 0);
+    const draftInfo = saveState.draftSavedAt
+      ? `\nИзменения сделаны: ${new Date(saveState.draftSavedAt).toLocaleString('ru-RU')}.`
+      : '';
+    const confirmed = confirm(
+      'Записать изменения в базу данных?\n\n' +
+      `Будет записано: докладов — ${reports.length}, разделов — ${sectionsCount}.` +
+      draftInfo +
+      '\n\nВнимание: текущее содержимое базы данных будет полностью заменено данными из справочника.'
+    );
+    if (!confirmed) return;
+
+    const result = await saveToAPI();
+    if (result.success) {
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 3000);
+    } else {
+      alert('Не удалось записать данные в БД:\n' + (result.error || 'неизвестная ошибка'));
+    }
+  };
+
+  // Отмена несохранённых изменений и повторная загрузка данных из БД
+  const handleDiscardChanges = async () => {
+    if (!confirm('Отменить все несохранённые изменения и загрузить данные из БД?')) return;
+    const ok = await discardChangesAndReload();
+    if (!ok) {
+      alert('Не удалось загрузить данные из БД');
+      return;
+    }
+    setSelectedId(null);
+    setSelectedType(null);
+    setFormState(null);
+    setDeleteConfirm(null);
+    setActionId(null);
+  };
 
   const handleSelect = (id: string, type: string) => {
     setFormState(null);
@@ -215,8 +279,15 @@ function App() {
     setFormState(null);
   };
 
-  const handleFormSave = () => {
+  const handleFormSave = (savedId?: string) => {
     setFormState(null);
+    // После сохранения центрируем дерево на сохранённом элементе:
+    // при редактировании — на отредактированном, при добавлении — на созданном
+    if (savedId) {
+      setSelectedId(null);
+      setActionId(null);
+      setTimeout(() => setActionId(savedId), 10);
+    }
   };
 
   const [showExportModal, setShowExportModal] = useState(false);
@@ -435,6 +506,61 @@ function App() {
 
 
           <div className="flex items-center gap-2">
+            {/* Запись в БД — только по кнопке, автоматической записи нет */}
+            {dataMode === 'api' && isAdmin && (
+              <div className="flex items-center gap-2 pr-2 mr-1 border-r border-gray-200">
+                {saveState.error ? (
+                  <span
+                    className="hidden sm:inline text-xs text-red-700 bg-red-50 px-2 py-1 rounded max-w-[240px] truncate"
+                    title={saveState.error}
+                  >
+                    ⚠ {saveState.error}
+                  </span>
+                ) : justSaved && !saveState.hasUnsavedChanges ? (
+                  <span className="hidden sm:inline text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
+                    ✓ Сохранено в БД
+                  </span>
+                ) : saveState.hasUnsavedChanges ? (
+                  <span
+                    className="hidden sm:inline text-xs text-amber-800 bg-amber-50 px-2 py-1 rounded"
+                    title={unsavedChangesHint}
+                  >
+                    ● Есть несохранённые изменения
+                  </span>
+                ) : null}
+
+                {saveState.hasUnsavedChanges && (
+                  <button
+                    onClick={handleDiscardChanges}
+                    disabled={saveState.isSaving}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 rounded-lg transition-colors"
+                    title="Отменить несохранённые изменения и загрузить данные из БД"
+                  >
+                    <span>↺</span>
+                    <span className="hidden sm:inline">Отменить правки</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={handleSaveToDB}
+                  disabled={!saveState.hasUnsavedChanges || saveState.isSaving}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                    saveState.hasUnsavedChanges && !saveState.isSaving
+                      ? 'text-white bg-blue-600 hover:bg-blue-700 shadow-sm'
+                      : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                  }`}
+                  title={
+                    saveState.hasUnsavedChanges
+                      ? 'Записать все изменения в базу данных'
+                      : 'Изменений нет — записывать нечего'
+                  }
+                >
+                  <span>{saveState.isSaving ? '⏳' : '💾'}</span>
+                  <span>{saveState.isSaving ? 'Запись...' : 'Сохранить в БД'}</span>
+                </button>
+              </div>
+            )}
+
             {isAdmin && (
               <>
                 <button
@@ -466,6 +592,24 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* PHP-API недоступен: без него нет ни данных из БД, ни прав на редактирование */}
+      {apiUnavailable && (
+        <div className="bg-amber-100 border-b border-amber-300 px-4 py-2 text-sm text-amber-900 flex items-start gap-2 flex-shrink-0">
+          <span className="text-base leading-5">⚠</span>
+          <div>
+            <span className="font-semibold">Нет связи с PHP-API.</span>{' '}
+            Данные из PostgreSQL недоступны, интерфейс работает только на чтение.
+            <div className="mt-0.5">
+              Запустите API в отдельном терминале:{' '}
+              <code className="font-mono bg-amber-200 px-1 rounded">.\start-api.cmd</code>
+              {' '}(порт 8080, при блокировке PowerShell используйте именно .cmd),
+              затем обновите страницу (F5). Адрес приложения в режиме разработки:{' '}
+              <code className="font-mono bg-amber-200 px-1 rounded">http://localhost:3000/DataSources/</code>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loading Indicator */}
       {isLoading && (

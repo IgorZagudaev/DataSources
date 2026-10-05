@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Report } from '../types';
+import { Report, SOURCE_TYPES } from '../types';
+import { collectAncestorIds, findSourcesByType } from '../sourceHighlight';
 
 interface TreeViewProps {
   reports: Report[];
@@ -11,118 +12,104 @@ interface TreeViewProps {
   onAdd: (type: string, parentIds: string[]) => void;
   onEdit: (type: string, parentIds: string[], data: any) => void;
   onDelete: (id: string, type: string, parentIds: string[]) => void;
-  onMoveUp: (type: string, id: string, parentIds: string[]) => void;
-  onMoveDown: (type: string, id: string, parentIds: string[]) => void;
+  onMoveUp?: (type: string, id: string, parentIds: string[]) => void;
+  onMoveDown?: (type: string, id: string, parentIds: string[]) => void;
 }
 
-export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = false, onSelect, onAdd, onEdit, onDelete, onMoveUp, onMoveDown }: TreeViewProps) {
+export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = false, onSelect, onAdd, onEdit, onDelete, onMoveUp = () => {}, onMoveDown = () => {} }: TreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['report-1']));
   const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('');
   const [isAllExpanded, setIsAllExpanded] = useState<boolean>(false);
   const treeContainerRef = useRef<HTMLDivElement>(null);
 
-  // Автоматическое центрирование выбранной строки
-  useEffect(() => {
-    if (!selectedId || !treeContainerRef.current) return;
-
-    // Небольшая задержка для завершения рендеринга
-    setTimeout(() => {
-      const selectedElement = treeContainerRef.current?.querySelector(`[data-node-id="${selectedId}"]`);
-      if (selectedElement) {
-        selectedElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
+  
+    // Единое автоматическое центрирование целевой строки (выбор / редактирование / добавление / удаление).
+    // Приоритет: selectedId > editingId > actionId.
+    const focusId = selectedId || editingId || actionId;
+  
+    useEffect(() => {
+      if (!focusId) return;
+  
+      let cancelled = false;
+      let raf1 = 0;
+      let raf2 = 0;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+  
+      const centerElement = () => {
+        if (cancelled || !treeContainerRef.current) return;
+        const el = treeContainerRef.current.querySelector(`[data-node-id="${focusId}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      };
+  
+      // Ждём завершения commit-фазы React (раскрытие родительских узлов и т.п.)
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          centerElement();
+          // Повторная попытка после завершения smooth-прокрутки
+          timer = setTimeout(centerElement, 500);
         });
-      }
-    }, 100);
-  }, [selectedId]);
+      });
+  
+      return () => {
+        cancelled = true;
+        cancelAnimationFrame(raf1);
+        cancelAnimationFrame(raf2);
+        if (timer) clearTimeout(timer);
+      };
+    }, [focusId, reports]);
 
-  // Автоматическое центрирование редактируемой строки
-  useEffect(() => {
-    if (!editingId || !treeContainerRef.current) return;
-
-    // Увеличенная задержка для завершения анимации появления второй панели
-    // и установки editingId
-    const centerElement = () => {
-      const editingElement = treeContainerRef.current?.querySelector(`[data-node-id="${editingId}"]`);
-      if (editingElement) {
-        editingElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        });
-      }
-    };
-
-    // Первая попытка центрирования через 400мс
-    const timeout1 = setTimeout(centerElement, 400);
-    
-    // Повторная попытка через 600мс на случай, если первая не сработала
-    const timeout2 = setTimeout(centerElement, 600);
-
-    return () => {
-      clearTimeout(timeout1);
-      clearTimeout(timeout2);
-    };
-  }, [editingId]);
-
-  // Автоматическое раскрытие узлов при выборе типа источника
+  // Раскрываем дерево до всех источников с выбранным типом,
+  // чтобы подсвеченные источники были видны
   useEffect(() => {
     if (!sourceTypeFilter) return;
+    const matches = findSourcesByType(reports, sourceTypeFilter);
+    if (matches.length === 0) return;
 
-    const nodesToExpand = new Set<string>();
+    const ancestors = collectAncestorIds(matches);
+    setExpandedNodes(prev => {
+      const next = new Set(prev);
+      ancestors.forEach(id => next.add(id));
+      return next;
+    });
+  }, [sourceTypeFilter, reports]);
 
-    reports.forEach(report => {
-      report.sections.forEach(section => {
-        section.notes.forEach(note => {
-          // Проверяем прямые источники в справке
-          note.sources?.forEach(source => {
-            if (source.sourceTypes?.includes(sourceTypeFilter as any)) {
-              nodesToExpand.add(report.id);
-              nodesToExpand.add(section.id);
-              nodesToExpand.add(note.id);
-            }
-          });
+  // При смене типа прокручиваем список к первому найденному источнику
+  useEffect(() => {
+    if (!sourceTypeFilter) return;
+    const matches = findSourcesByType(reports, sourceTypeFilter);
+    if (matches.length === 0) return;
 
-          // Проверяем источники в блоках справки
-          note.noteBlocks?.forEach(noteBlock => {
-            noteBlock.indicators?.forEach(indicator => {
-              indicator.slices?.forEach(slice => {
-                slice.sources?.forEach(source => {
-                  if (source.sourceTypes?.includes(sourceTypeFilter as any)) {
-                    nodesToExpand.add(report.id);
-                    nodesToExpand.add(section.id);
-                    nodesToExpand.add(note.id);
-                    nodesToExpand.add(noteBlock.id);
-                    nodesToExpand.add(indicator.id);
-                    nodesToExpand.add(slice.id);
-                  }
-                });
-              });
-            });
-          });
+    const firstSourceId = matches[0].sourceId;
+    let cancelled = false;
+    let raf1 = 0;
+    let raf2 = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-          // Проверяем источники в показателях справки
-          note.indicators?.forEach(indicator => {
-            indicator.slices?.forEach(slice => {
-              slice.sources?.forEach(source => {
-                if (source.sourceTypes?.includes(sourceTypeFilter as any)) {
-                  nodesToExpand.add(report.id);
-                  nodesToExpand.add(section.id);
-                  nodesToExpand.add(note.id);
-                  nodesToExpand.add(indicator.id);
-                  nodesToExpand.add(slice.id);
-                }
-              });
-            });
-          });
-        });
+    const scrollToSource = () => {
+      if (cancelled || !treeContainerRef.current) return;
+      const el = treeContainerRef.current.querySelector(`[data-node-id="${firstSourceId}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    // Ждём раскрытия родительских узлов (commit-фаза + отрисовка),
+    // повторная попытка — после завершения плавной прокрутки
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        scrollToSource();
+        timer = setTimeout(scrollToSource, 500);
       });
     });
 
-    if (nodesToExpand.size > 0) {
-      setExpandedNodes(prev => new Set([...prev, ...nodesToExpand]));
-    }
-  }, [sourceTypeFilter, reports]);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      if (timer) clearTimeout(timer);
+    };
+    // Прокрутка нужна только при смене типа, поэтому reports здесь не в зависимостях
+  }, [sourceTypeFilter]);
 
   const toggleExpand = (id: string) => {
     setExpandedNodes(prev => {
@@ -243,14 +230,9 @@ export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = f
           className="w-64 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
         >
           <option value="">Все типы</option>
-          <option value="Робот">Робот</option>
-          <option value="Ручная выгрузка">Ручная выгрузка</option>
-          <option value="ПО">ПО</option>
-          <option value="Дискор НП">Дискор НП</option>
-          <option value="ЭПС">ЭПС</option>
-          <option value="ЕАСД">ЕАСД</option>
-          <option value="Хранимые процедуры">Хранимые процедуры</option>
-          <option value="Другое">Другое</option>
+          {SOURCE_TYPES.map(type => (
+            <option key={type} value={type}>{type}</option>
+          ))}
         </select>
       </div>
 
@@ -620,7 +602,7 @@ function TreeNodeItem({
 
   // Цвета для разных уровней иерархии с чередованием тональности
   const getBackgroundColor = (type: string, index: number, isSelected: boolean, isHighlighted: boolean): string => {
-    if (isHighlighted) return '#fef08a'; // yellow-200 - жёлтый для подсветки
+    if (isHighlighted) return '#fde047'; // yellow-300 - ярко-жёлтый: источник с выбранным типом
     
     const isEven = index % 2 === 0;
     

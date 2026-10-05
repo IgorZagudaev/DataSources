@@ -2,9 +2,12 @@
 /**
  * Конфигурация подключения к базе данных PostgreSQL
  * Apache + PHP 8 + Windows Server 2008
+ *
+ * Значения по умолчанию. Локальные переопределения (пароль БД, режим работы,
+ * список администраторов) держите в config.local.php — этот файл не попадает в git.
  */
 
-return [
+$config = [
     'database' => [
         'host' => 'localhost',
         'port' => '5432',
@@ -18,8 +21,10 @@ return [
         'cors_origins' => ['*'],
         'sql_logging' => true, // Включить/выключить логирование SQL запросов
         'default_mode' => 'local', // Режим по умолчанию: 'local' (localStorage) или 'api' (PostgreSQL)
-        
+
         // Список IP-адресов с правами администратора (импорт, экспорт, сброс, редактирование)
+        // ВНИМАНИЕ: значение '*' разрешает редактирование всем подряд — только как временная
+        // мера в доверенной сети, пока не решён вопрос с определением IP (см. api/whoami.php)
         'admin_ips' => [
             '127.0.0.1',           // localhost
             '::1',                 // localhost IPv6
@@ -28,3 +33,20 @@ return [
         ],
     ]
 ];
+
+// Локальные переопределения из config.local.php
+$localFile = __DIR__ . '/config.local.php';
+if (is_file($localFile)) {
+    $local = require $localFile;
+    if (is_array($local)) {
+        foreach ($local as $section => $values) {
+            if (is_array($values) && isset($config[$section]) && is_array($config[$section])) {
+                $config[$section] = array_merge($config[$section], $values);
+            } else {
+                $config[$section] = $values;
+            }
+        }
+    }
+}
+
+return $config;

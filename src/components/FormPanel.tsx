@@ -21,7 +21,7 @@ interface FormPanelProps {
     editData?: any;
   } | null;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (savedId?: string) => void; 
 }
 
 export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
@@ -58,6 +58,8 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
     if (!name.trim()) return;
 
     const { type, parentIds, editData } = formState;
+    // ID элемента, на котором нужно отцентрировать дерево после сохранения
+    let savedId: string | undefined = editData?.id;   // при редактировании
 
     try {
       if (isEdit) {
@@ -104,45 +106,45 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
         // Режим добавления
         switch (type) {
           case 'report':
-            await addReport(name, description);
-            break;
+            savedId = (await addReport(name, description)).id;
+          break;
           case 'section':
-            await addSection(parentIds[0], name, description);
-            break;
+            savedId = (await addSection(parentIds[0], name, description)).id;
+          break;
           case 'note':
-            await addNote(parentIds[0], parentIds[1], name, description, shortName);
+            savedId = (await addNote(parentIds[0], parentIds[1], name, description, shortName)).id;
             break;
           case 'noteBlock':
-            await addNoteBlock(parentIds[0], parentIds[1], parentIds[2], name, description);
+            savedId = (await addNoteBlock(parentIds[0], parentIds[1], parentIds[2], name, description)).id;
             break;
           case 'indicator':
-            await addIndicator(parentIds[0], parentIds[1], parentIds[2], name, description);
+            savedId = (await addIndicator(parentIds[0], parentIds[1], parentIds[2], name, description)).id;
             break;
           case 'noteBlockIndicator':
-            await addNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
+            savedId = (await addNoteBlockIndicator(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description)).id;
             break;
           case 'slice':
-            await addSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description);
+            savedId = (await addSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], name, description)).id;
             break;
           case 'noteBlockSlice':
-            await addNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description);
+            savedId = (await addNoteBlockSlice(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description)).id;
             break;
           case 'source':
-            await addSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description, sourceTypes);
+            savedId = (await addSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], name, description, sourceTypes)).id;
             break;
           case 'noteSource':
-            await addNoteSource(parentIds[0], parentIds[1], parentIds[2], name, description, sourceTypes);
+            savedId = (await addNoteSource(parentIds[0], parentIds[1], parentIds[2], name, description, sourceTypes)).id;
             break;
           case 'noteBlockSource':
-            await addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes);
+            savedId = (await addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes)).id;
             break;
           case 'noteBlockSliceSource':
-            await addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes);
+            savedId = (await addNoteBlockSource(parentIds[0], parentIds[1], parentIds[2], parentIds[3], parentIds[4], parentIds[5], name, description, sourceTypes)).id;
             break;
         }
       }
 
-      onSave();
+      onSave(savedId);   // <-- передаём id в App
     } catch (error) {
       console.error('Error saving:', error);
       alert('Ошибка при сохранении. Проверьте подключение к серверу.');

@@ -5,9 +5,10 @@
 RewriteEngine On
 
 # API routes - proxy to PHP
-# Специальные маршруты для отдельных PHP файлов
-RewriteRule ^api/user-info.php$ api/user-info.php [QSA,L]
-RewriteRule ^api/permissions.php$ api/permissions.php [QSA,L]
+# Существующие файлы в api/ (config-endpoint.php, permissions.php, user-info.php) отдаём напрямую,
+# иначе config-endpoint.php перехватывался правилом ниже и фронтенд не получал default_mode
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^api/ - [QSA,L]
 
 # Все остальные API запросы - в index.php
 RewriteRule ^api/(.*)$ api/index.php [QSA,L]
