@@ -489,7 +489,7 @@ function App() {
     <div className="h-screen flex flex-col bg-gray-100">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center justify-between px-8 py-3">
           <div className="flex items-center gap-3">
 
             <div className="flex items-center gap-2">
@@ -595,7 +595,7 @@ function App() {
 
       {/* PHP-API недоступен: без него нет ни данных из БД, ни прав на редактирование */}
       {apiUnavailable && (
-        <div className="bg-amber-100 border-b border-amber-300 px-4 py-2 text-sm text-amber-900 flex items-start gap-2 flex-shrink-0">
+        <div className="bg-amber-100 border-b border-amber-300 px-8 py-2 text-sm text-amber-900 flex items-start gap-2 flex-shrink-0">
           <span className="text-base leading-5">⚠</span>
           <div>
             <span className="font-semibold">Нет связи с PHP-API.</span>{' '}
@@ -887,7 +887,7 @@ function App() {
       )}
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 px-4 py-2 flex-shrink-0">
+      <footer className="bg-white border-t border-gray-200 px-8 py-2 flex-shrink-0">
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span>Apache + PHP 8 + PostgreSQL | Справочник источников данных показателей</span>
           <div className="flex items-center gap-4">
