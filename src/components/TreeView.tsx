@@ -240,14 +240,14 @@ export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = f
       <div className="px-6 pb-4 bg-gray-50 flex gap-2">
         <button
           onClick={expandAll}
-          className="flex-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
+          className="flex-1 px-3 py-3.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
           title="Развернуть всю иерархию"
         >
           ▼ Развернуть всё
         </button>
         <button
           onClick={collapseAll}
-          className="flex-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
+          className="flex-1 px-3 py-3.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors"
           title="Свернуть всю иерархию"
         >
           ▶ Свернуть всё
@@ -259,7 +259,7 @@ export function TreeView({ reports, selectedId, editingId, actionId, isAdmin = f
         <div className="p-3 border-b border-gray-200 bg-gray-50">
           <button
             onClick={() => handleAdd('report', [])}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-[17px] text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
           >
             <span>+</span>
             Добавить доклад
@@ -696,7 +696,7 @@ function TreeNodeItem({
                 <button
                   key={idx}
                   onClick={(e) => { e.stopPropagation(); item.action(); }}
-                  className="px-2 py-1 text-green-600 hover:bg-green-100 rounded transition-colors text-xs font-medium border border-green-300"
+                  className="px-2 py-1 text-black hover:bg-gray-200 rounded transition-colors text-xs font-medium border border-gray-400"
                   title={item.label}
                 >
                   + {item.label}
@@ -705,7 +705,7 @@ function TreeNodeItem({
             ) : childLabel ? (
               <button
                 onClick={(e) => { e.stopPropagation(); onAddChild(); }}
-                className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors text-sm font-bold"
+                className="p-1.5 text-black hover:bg-gray-200 rounded transition-colors text-sm font-bold"
                 title={childLabel}
               >
                 +

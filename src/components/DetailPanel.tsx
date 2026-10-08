@@ -33,7 +33,7 @@ export function DetailPanel({ reports, selectedId, selectedType, onClose }: Deta
   return (
     <div className="h-full flex flex-col">
       {/* Header with close button */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+      <div className="flex items-center justify-between px-8 py-4 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center gap-2">
           <span className="text-xl">{typeInfo.icon}</span>
           <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${typeInfo.color}`}>
@@ -50,7 +50,7 @@ export function DetailPanel({ reports, selectedId, selectedType, onClose }: Deta
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto px-8 py-6">
         {/* Title */}
         <div className="mb-6">
           <h2 className="text-xl font-bold text-gray-800">{entity.name}</h2>

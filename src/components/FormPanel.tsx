@@ -154,7 +154,7 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+      <div className="flex items-center justify-between px-8 py-4 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center gap-2">
           <span className="text-xl">{isEdit ? '✎' : '+'}</span>
           <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
@@ -171,7 +171,7 @@ export function FormPanel({ formState, onClose, onSave }: FormPanelProps) {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-8 py-6">
         <h2 className="text-xl font-bold text-gray-800 mb-6">
           {isEdit ? 'Редактировать' : 'Добавить'}: {labels.title}
         </h2>
@@ -285,7 +285,7 @@ export function DeleteConfirmPanel({ deleteConfirm, onClose, onConfirm }: Delete
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+      <div className="flex items-center justify-between px-8 py-4 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center gap-2">
           <span className="text-xl">⚠</span>
           <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800">
@@ -302,7 +302,7 @@ export function DeleteConfirmPanel({ deleteConfirm, onClose, onConfirm }: Delete
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
+      <div className="flex-1 flex flex-col items-center justify-center px-8 py-6">
         <div className="text-center mb-6">
           <div className="text-6xl mb-4">⚠️</div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">
